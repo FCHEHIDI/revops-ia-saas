@@ -182,7 +182,7 @@ jobs:
       - name: Install PostgreSQL client
         run: sudo apt-get update -y && sudo apt-get install -y postgresql-client
 
-      - name: Seed multi-tenant RLS test fixtures and configure applicative role
+      - name: Create applicative role revops_app (pre-migration)
         run: |
           psql postgresql://revops_test:revops_test@localhost:5432/revops_test <<'SQL'
           -- Create non-superuser applicative role (mirrors production role — ADR-005)
@@ -379,6 +379,9 @@ jobs:
             type=sha,prefix=sha-
             type=semver,pattern={{version}}
 
+      - name: Extract short SHA for Trivy image reference
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
       - name: Build Docker image (no push on PR)
         uses: docker/build-push-action@v5.3.0
         with:
@@ -394,7 +397,7 @@ jobs:
       - name: Run Trivy vulnerability scan on image
         uses: aquasecurity/trivy-action@0.21.0
         with:
-          image-ref: "${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
+          image-ref: "${{ env.IMAGE_NAME }}:sha-${{ env.SHORT_SHA }}"
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH

@@ -1,0 +1,391 @@
+version: "3.9"
+
+networks:
+  revops-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:
+  storage_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+
+services:
+
+  # ── Infrastructure de données ─────────────────────────────────────────────────
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-revops_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - revops-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - revops-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.0
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - revops-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Observabilité ─────────────────────────────────────────────────────────────
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.104.0
+    command: ["--config=/etc/otel/otel-collector-config.yml"]
+    volumes:
+      - ../monitoring/otel-collector/otel-collector-config.yml:/etc/otel/otel-collector-config.yml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # Prometheus exporter
+    networks:
+      - revops-network
+    depends_on:
+      - prometheus
+      - loki
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - revops-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_ADMIN_PASSWORD:-grafana_dev_password}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3001:3000"
+    networks:
+      - revops-network
+    depends_on:
+      - prometheus
+      - loki
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.1.0
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+    networks:
+      - revops-network
+    restart: unless-stopped
+
+  # ── Serveurs MCP ──────────────────────────────────────────────────────────────
+
+  mcp-crm:
+    build:
+      context: ../../mcp/mcp-crm
+      dockerfile: Dockerfile
+    ports:
+      - "9001:9001"
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_dev_password}@postgres:5432/${POSTGRES_DB:-revops_db}
+      PORT: "9001"
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-secret}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    networks:
+      - revops-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9001/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mcp-billing:
+    build:
+      context: ../../mcp/mcp-billing
+      dockerfile: Dockerfile
+    ports:
+      - "9002:9002"
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_dev_password}@postgres:5432/${POSTGRES_DB:-revops_db}
+      PORT: "9002"
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-secret}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    networks:
+      - revops-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9002/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mcp-analytics:
+    build:
+      context: ../../mcp/mcp-analytics
+      dockerfile: Dockerfile
+    ports:
+      - "9003:9003"
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_dev_password}@postgres:5432/${POSTGRES_DB:-revops_db}
+      PORT: "9003"
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-secret}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    networks:
+      - revops-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9003/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mcp-sequences:
+    build:
+      context: ../../mcp/mcp-sequences
+      dockerfile: Dockerfile
+    ports:
+      - "9004:9004"
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_dev_password}@postgres:5432/${POSTGRES_DB:-revops_db}
+      PORT: "9004"
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-secret}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    networks:
+      - revops-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9004/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mcp-filesystem:
+    build:
+      context: ../../mcp/mcp-filesystem
+      dockerfile: Dockerfile
+    ports:
+      - "9005:9005"
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_dev_password}@postgres:5432/${POSTGRES_DB:-revops_db}
+      PORT: "9005"
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-secret}
+      RAG_API_URL: http://rag:8002
+      STORAGE_BASE_PATH: /data/storage
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    volumes:
+      - storage_data:/data/storage
+    networks:
+      - revops-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9005/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Couche RAG ────────────────────────────────────────────────────────────────
+
+  rag:
+    build:
+      context: ../../rag
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      REDIS_URL: redis://redis:6379
+      STORAGE_BASE_PATH: /data/storage
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    env_file:
+      - path: ../../rag/.env
+        required: false
+    volumes:
+      - storage_data:/data/storage
+    networks:
+      - revops-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8002/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Backend API ───────────────────────────────────────────────────────────────
+
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_dev_password}@postgres:5432/${POSTGRES_DB:-revops_db}
+      REDIS_URL: redis://redis:6379
+      ORCHESTRATOR_URL: http://orchestrator:8001
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    env_file:
+      - path: ../../backend/.env
+        required: false
+    networks:
+      - revops-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Orchestrateur LLM ─────────────────────────────────────────────────────────
+
+  orchestrator:
+    build:
+      context: ../../orchestrator
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      BACKEND_API_URL: http://backend:8000
+      RAG_API_URL: http://rag:8002
+      MCP_CRM_URL: http://mcp-crm:9001
+      MCP_BILLING_URL: http://mcp-billing:9002
+      MCP_ANALYTICS_URL: http://mcp-analytics:9003
+      MCP_SEQUENCES_URL: http://mcp-sequences:9004
+      MCP_FILESYSTEM_URL: http://mcp-filesystem:9005
+      REDIS_URL: redis://redis:6379
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    env_file:
+      - path: ../../orchestrator/.env
+        required: false
+    networks:
+      - revops-network
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+      rag:
+        condition: service_healthy
+      mcp-crm:
+        condition: service_healthy
+      mcp-billing:
+        condition: service_healthy
+      mcp-analytics:
+        condition: service_healthy
+      mcp-sequences:
+        condition: service_healthy
+      mcp-filesystem:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8001/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Frontend ──────────────────────────────────────────────────────────────────
+
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:-http://localhost:8000}
+      # L'URL orchestrateur est publique car le frontend streame les SSE directement
+      # depuis le navigateur (performance). En prod, mettre derrière un reverse proxy.
+      NEXT_PUBLIC_ORCHESTRATOR_URL: ${NEXT_PUBLIC_ORCHESTRATOR_URL:-http://localhost:8001}
+    networks:
+      - revops-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped

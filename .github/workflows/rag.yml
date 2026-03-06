@@ -1,0 +1,327 @@
+name: CI — RAG Layer (Python)
+# ═══════════════════════════════════════════════════════════════════════════════
+# PÉRIMÈTRE : CI (Versioning & CI/CD) — jobs lint, test, security, build
+# CD (DevOps) : jobs deploy-staging et deploy-production
+# Frontière : build produit les artefacts, deploy les consomme.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "rag/**"
+      - ".github/workflows/rag.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "rag/**"
+      - ".github/workflows/rag.yml"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: rag
+
+permissions:
+  contents: read
+  security-events: write
+
+env:
+  PYTHON_VERSION: "3.12"
+  IMAGE_NAME: revops-rag
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Lint & formatage
+  # ────────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: rag/requirements.txt
+
+      - name: Install lint dependencies
+        run: pip install ruff==0.4.4 black==24.4.2 mypy==1.10.0
+
+      - name: Run ruff (linter)
+        run: ruff check app/ tests/
+
+      - name: Run black (format check)
+        run: black --check app/ tests/
+
+      - name: Run mypy (type checker)
+        run: mypy app/ --ignore-missing-imports --strict-optional
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Tests & Coverage
+  # ────────────────────────────────────────────────────────────────────────────
+  test:
+    name: Tests & Coverage
+    runs-on: ubuntu-22.04
+    needs: lint
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: revops_test
+          POSTGRES_PASSWORD: revops_test
+          POSTGRES_DB: revops_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://revops_test:revops_test@localhost:5432/revops_test
+      REDIS_URL: redis://localhost:6379
+      ENVIRONMENT: test
+      EMBEDDING_MODEL: all-MiniLM-L6-v2
+      QDRANT_URL: ""
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: rag/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest-cov==5.0.0
+
+      - name: Run pytest with coverage
+        run: |
+          pytest tests/ \
+            --cov=app \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing \
+            --cov-fail-under=80 \
+            -v
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4.3.1
+        if: always()
+        with:
+          files: rag/coverage.xml
+          flags: rag
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 3 — Security (SAST + dépendances)
+  # ────────────────────────────────────────────────────────────────────────────
+  security:
+    name: Security Scan (SAST + Dependencies)
+    runs-on: ubuntu-22.04
+    needs: lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: rag/requirements.txt
+
+      - name: Install security tools
+        run: pip install bandit==1.7.8 safety==3.2.0
+
+      - name: Run bandit (SAST)
+        run: bandit -r app/ -ll -ii --format json -o bandit-rag-report.json
+        continue-on-error: true
+
+      - name: Run safety (dependency vulnerabilities)
+        run: safety check -r requirements.txt --output json > safety-rag-report.json
+        continue-on-error: true
+
+      - name: Upload bandit report
+        uses: actions/upload-artifact@v4.3.3
+        if: always()
+        with:
+          name: bandit-rag-report
+          path: rag/bandit-rag-report.json
+          retention-days: 30
+
+      - name: Upload safety report
+        uses: actions/upload-artifact@v4.3.3
+        if: always()
+        with:
+          name: safety-rag-report
+          path: rag/safety-rag-report.json
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 4 — Build Docker image & Trivy scan
+  # ────────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build Docker Image & Trivy Scan
+    runs-on: ubuntu-22.04
+    needs: [test, security]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5.5.1
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+
+      - name: Build Docker image (no push on PR)
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: rag
+          file: rag/Dockerfile
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: true
+
+      - name: Run Trivy vulnerability scan on Docker image
+        uses: aquasecurity/trivy-action@0.21.0
+        with:
+          image-ref: "${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
+          format: sarif
+          output: trivy-rag-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3.25.5
+        if: always()
+        with:
+          sarif_file: trivy-rag-results.sarif
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 5 — Deploy to staging (merge main only)
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-22.04
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: staging
+
+    steps:
+      # SECRETS STRATEGY:
+      # - CI/CD secrets (REGISTRY_*, KUBECONFIG_*) : GitHub Secrets (CI natif)
+      # - Runtime secrets (DB, API keys) : HashiCorp Vault injecté via Vault Agent
+      # Ces deux périmètres sont distincts et ne se chevauchent pas.
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3.2.0
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push image to registry
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: rag
+          file: rag/Dockerfile
+          push: true
+          tags: ${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:staging,${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to staging via kubectl
+        run: |
+          echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl set image deployment/rag rag=${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }} -n revops-staging
+          kubectl rollout status deployment/rag -n revops-staging --timeout=5m
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 6 — Deploy to production (tag vX.Y.Z only)
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-22.04
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+
+    steps:
+      # SECRETS STRATEGY:
+      # - CI/CD secrets (REGISTRY_*, KUBECONFIG_*) : GitHub Secrets (CI natif)
+      # - Runtime secrets (DB, API keys) : HashiCorp Vault injecté via Vault Agent
+      # Ces deux périmètres sont distincts et ne se chevauchent pas.
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3.2.0
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push image with release tag
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: rag
+          file: rag/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+            ${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to production via kubectl
+        run: |
+          echo "${{ secrets.KUBECONFIG_PRODUCTION }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl set image deployment/rag rag=${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }} -n revops-prod
+          kubectl rollout status deployment/rag -n revops-prod --timeout=10m

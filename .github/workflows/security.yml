@@ -1,0 +1,343 @@
+name: Security — Weekly Full Scan
+
+on:
+  schedule:
+    # Tous les lundis à 07:00 UTC
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  RUST_VERSION: "1.78.0"
+  NODE_VERSION: "20"
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Scan dépendances Python (backend)
+  # ────────────────────────────────────────────────────────────────────────────
+  security-backend:
+    name: Backend — Safety + Bandit
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install security tools
+        run: pip install bandit==1.7.8 safety==3.2.0
+
+      - name: Run bandit SAST on backend
+        run: bandit -r backend/app/ -ll --format json -o bandit-backend.json
+        continue-on-error: true
+
+      - name: Run safety on backend dependencies
+        run: safety check -r backend/requirements.txt --output json > safety-backend.json
+        continue-on-error: true
+
+      - name: Upload backend security reports
+        uses: actions/upload-artifact@v4.3.3
+        if: always()
+        with:
+          name: security-backend
+          path: |
+            bandit-backend.json
+            safety-backend.json
+          retention-days: 90
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Scan dépendances Python (RAG)
+  # ────────────────────────────────────────────────────────────────────────────
+  security-rag:
+    name: RAG — Safety + Bandit
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install security tools
+        run: pip install bandit==1.7.8 safety==3.2.0
+
+      - name: Run bandit SAST on RAG
+        run: bandit -r rag/app/ -ll --format json -o bandit-rag.json
+        continue-on-error: true
+
+      - name: Run safety on RAG dependencies
+        run: safety check -r rag/requirements.txt --output json > safety-rag.json
+        continue-on-error: true
+
+      - name: Upload RAG security reports
+        uses: actions/upload-artifact@v4.3.3
+        if: always()
+        with:
+          name: security-rag
+          path: |
+            bandit-rag.json
+            safety-rag.json
+          retention-days: 90
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 3 — Scan dépendances Rust (orchestrator + tous les serveurs MCP)
+  # ────────────────────────────────────────────────────────────────────────────
+  security-rust:
+    name: Rust — cargo audit (${{ matrix.component }})
+    runs-on: ubuntu-22.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        component:
+          - orchestrator
+          - mcp/mcp-crm
+          - mcp/mcp-billing
+          - mcp/mcp-analytics
+          - mcp/mcp-sequences
+          - mcp/mcp-filesystem
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@21dc36fb71dd22e3317045c0c31a3f4249868b17
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Cache Cargo registry
+        uses: Swatinem/rust-cache@v2.7.3
+        with:
+          workspaces: ${{ matrix.component }}
+          key: security-${{ matrix.component }}
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --version 0.20.0 --locked
+
+      - name: Run cargo audit
+        working-directory: ${{ matrix.component }}
+        run: cargo audit --json > cargo-audit-report.json
+        continue-on-error: true
+
+      - name: Upload cargo audit report
+        uses: actions/upload-artifact@v4.3.3
+        if: always()
+        with:
+          name: cargo-audit-${{ matrix.component == 'orchestrator' && 'orchestrator' || matrix.component }}
+          path: ${{ matrix.component }}/cargo-audit-report.json
+          retention-days: 90
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 4 — Scan dépendances Node.js (frontend)
+  # ────────────────────────────────────────────────────────────────────────────
+  security-frontend:
+    name: Frontend — npm audit
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4.0.2
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies (audit only)
+        working-directory: frontend
+        run: npm ci --prefer-offline
+
+      - name: Run npm audit (all severities)
+        working-directory: frontend
+        run: npm audit --json > npm-audit-full.json
+        continue-on-error: true
+
+      - name: Upload npm audit report
+        uses: actions/upload-artifact@v4.3.3
+        if: always()
+        with:
+          name: security-frontend-npm-audit
+          path: frontend/npm-audit-full.json
+          retention-days: 90
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 5 — Trivy scan des images Docker en production (latest)
+  # ────────────────────────────────────────────────────────────────────────────
+  trivy-images:
+    name: Trivy — Docker Image Scan (${{ matrix.image }})
+    runs-on: ubuntu-22.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - revops-backend
+          - revops-frontend
+          - revops-orchestrator
+          - revops-rag
+          - revops-mcp-crm
+          - revops-mcp-billing
+          - revops-mcp-analytics
+          - revops-mcp-sequences
+          - revops-mcp-filesystem
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3.2.0
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Pull latest image from registry
+        run: docker pull ${{ secrets.REGISTRY_URL }}/${{ matrix.image }}:latest
+
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@0.21.0
+        with:
+          image-ref: "${{ secrets.REGISTRY_URL }}/${{ matrix.image }}:latest"
+          format: sarif
+          output: trivy-${{ matrix.image }}.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: "0"
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3.25.5
+        if: always()
+        with:
+          sarif_file: trivy-${{ matrix.image }}.sarif
+
+      - name: Upload Trivy report as artifact
+        uses: actions/upload-artifact@v4.3.3
+        if: always()
+        with:
+          name: trivy-${{ matrix.image }}
+          path: trivy-${{ matrix.image }}.sarif
+          retention-days: 90
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 6 — Trivy scan du filesystem (secrets, IaC misconfigurations)
+  # ────────────────────────────────────────────────────────────────────────────
+  trivy-filesystem:
+    name: Trivy — Filesystem & Secret Scan
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Run Trivy filesystem scan (secrets + misconfigs)
+        uses: aquasecurity/trivy-action@0.21.0
+        with:
+          scan-type: fs
+          scan-ref: "."
+          format: sarif
+          output: trivy-filesystem.sarif
+          severity: CRITICAL,HIGH
+          scanners: secret,misconfig
+          exit-code: "0"
+
+      - name: Upload Trivy filesystem results
+        uses: github/codeql-action/upload-sarif@v3.25.5
+        if: always()
+        with:
+          sarif_file: trivy-filesystem.sarif
+
+      - name: Upload filesystem scan artifact
+        uses: actions/upload-artifact@v4.3.3
+        if: always()
+        with:
+          name: trivy-filesystem-scan
+          path: trivy-filesystem.sarif
+          retention-days: 90
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 7 — CodeQL SAST sur Python et TypeScript
+  # ────────────────────────────────────────────────────────────────────────────
+  codeql:
+    name: CodeQL SAST (${{ matrix.language }})
+    runs-on: ubuntu-22.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language:
+          - python
+          - javascript-typescript
+
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3.25.5
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3.25.5
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3.25.5
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 8 — Notification du rapport de sécurité hebdomadaire
+  # ────────────────────────────────────────────────────────────────────────────
+  notify-security-report:
+    name: Notify Weekly Security Report
+    runs-on: ubuntu-22.04
+    needs:
+      - security-backend
+      - security-rag
+      - security-rust
+      - security-frontend
+      - trivy-filesystem
+      - codeql
+    if: always()
+
+    steps:
+      - name: Send weekly security report to Slack
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": ":shield: *RevOps IA SaaS — Weekly Security Report*",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":shield: *Weekly Security Scan completed*\n*Date:* ${{ github.event.head_commit.timestamp || 'scheduled' }}\n*Status:* ${{ job.status }}\n*Details:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View full report>\n*Security tab:* <${{ github.server_url }}/${{ github.repository }}/security/code-scanning|Code scanning alerts>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

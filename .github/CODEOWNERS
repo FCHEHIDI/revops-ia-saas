@@ -1,0 +1,58 @@
+# CODEOWNERS — RevOps IA SaaS
+#
+# Ce fichier définit les reviewers obligatoires par répertoire.
+# La syntaxe est identique à .gitignore.
+# Les patterns sont évalués de bas en haut (la dernière règle gagne).
+#
+# Équipes GitHub à créer dans l'organisation :
+#   @revops-ia/team-architect   — Architecte Système
+#   @revops-ia/team-backend     — Développeurs Backend (Python)
+#   @revops-ia/team-frontend    — Développeurs Frontend (TypeScript)
+#   @revops-ia/team-rust        — Développeurs Rust (orchestrator + MCP)
+#   @revops-ia/team-devops      — DevOps / Infra / CI-CD
+#
+# Si l'organisation GitHub n'est pas encore configurée, remplacer les
+# @revops-ia/team-* par des usernames individuels (@username).
+
+# ── Propriété par défaut (fallback) ──────────────────────────────────────────
+*                           @revops-ia/team-architect
+
+# ── Documentation et ADR ─────────────────────────────────────────────────────
+/docs/                      @revops-ia/team-architect
+/docs/adr/                  @revops-ia/team-architect
+/README.md                  @revops-ia/team-architect
+
+# ── Backend (FastAPI / Python) ───────────────────────────────────────────────
+/backend/                   @revops-ia/team-backend
+/backend/alembic/           @revops-ia/team-backend @revops-ia/team-devops
+
+# ── Frontend (Next.js / TypeScript) ──────────────────────────────────────────
+/frontend/                  @revops-ia/team-frontend
+
+# ── Orchestrateur LLM (Rust) ─────────────────────────────────────────────────
+/orchestrator/              @revops-ia/team-rust
+
+# ── Serveurs MCP (Rust) ───────────────────────────────────────────────────────
+/mcp/                       @revops-ia/team-rust
+/mcp/mcp-crm/               @revops-ia/team-rust
+/mcp/mcp-billing/           @revops-ia/team-rust
+/mcp/mcp-analytics/         @revops-ia/team-rust
+/mcp/mcp-sequences/         @revops-ia/team-rust
+/mcp/mcp-filesystem/        @revops-ia/team-rust
+
+# ── RAG Layer (Python) ────────────────────────────────────────────────────────
+/rag/                       @revops-ia/team-backend
+
+# ── Infrastructure ────────────────────────────────────────────────────────────
+/infra/                     @revops-ia/team-devops
+/Makefile                   @revops-ia/team-devops
+
+# ── CI/CD (GitHub Actions) ────────────────────────────────────────────────────
+/.github/                   @revops-ia/team-devops
+/.github/workflows/         @revops-ia/team-devops
+/.github/CODEOWNERS         @revops-ia/team-architect @revops-ia/team-devops
+
+# ── Fichiers de configuration racine ─────────────────────────────────────────
+/.commitlintrc.json         @revops-ia/team-devops
+/.gitignore                 @revops-ia/team-devops
+/.env.example               @revops-ia/team-devops

@@ -1,5 +1,5 @@
 ## RevOps IA SaaS — Architecture & Vision
-
+![revops-ia-saas](./criqueauxpythons.png)
 ### Vision
 
 Construire un SaaS RevOps moderne, **IA-native**, qui s’appuie sur :

@@ -1,4 +1,5 @@
 """Tests unitaires du module auth — router, cookies, service."""
+
 from unittest.mock import AsyncMock, patch
 
 import pytest

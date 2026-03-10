@@ -5,6 +5,7 @@ afin de valider réellement les politiques RLS.
 
 Marqueur CI : pytest -m tenant_isolation
 """
+
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 

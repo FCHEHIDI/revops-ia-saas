@@ -19,13 +19,70 @@ interface UseChatReturn {
   conversationId: string;
 }
 
-export function useChat({ tenantId, userId, conversationId: initialConversationId }: UseChatOptions): UseChatReturn {
+export function useChat({
+  tenantId,
+  userId,
+  conversationId: initialConversationId,
+}: UseChatOptions): UseChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [lastUsage, setLastUsage] = useState<UsageStats | null>(null);
   const conversationIdRef = useRef<string>(initialConversationId ?? generateId());
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // ---------------------------------------------------------------------------
+  // 1) handleSseEvent REMONTÉ AVANT sendMessage → dépendances OK
+  // ---------------------------------------------------------------------------
+  const handleSseEvent = useCallback(
+    (event: SseEvent, assistantMessageId: string) => {
+      switch (event.type) {
+        case "token":
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessageId
+                ? { ...m, content: m.content + event.content }
+                : m
+            )
+          );
+          break;
+
+        case "tool_call": {
+          const toolCall: ToolCallData = { tool: event.tool, result: event.result };
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessageId
+                ? { ...m, toolCalls: [...(m.toolCalls ?? []), toolCall] }
+                : m
+            )
+          );
+          break;
+        }
+
+        case "done":
+          setLastUsage(event.usage);
+          break;
+
+        case "error":
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessageId
+                ? {
+                    ...m,
+                    content: `Erreur : ${event.message}`,
+                    isStreaming: false,
+                  }
+                : m
+            )
+          );
+          break;
+      }
+    },
+    [] // aucune dépendance → stable
+  );
+
+  // ---------------------------------------------------------------------------
+  // 2) sendMessage → dépendances correctes (inclut handleSseEvent)
+  // ---------------------------------------------------------------------------
   const sendMessage = useCallback(
     async (content: string) => {
       if (isStreaming) return;
@@ -53,7 +110,6 @@ export function useChat({ tenantId, userId, conversationId: initialConversationI
       abortControllerRef.current = new AbortController();
 
       try {
-        // Proxy through Next.js API route to keep INTERNAL_API_KEY server-side
         const res = await fetch("/api/chat/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -91,7 +147,7 @@ export function useChat({ tenantId, userId, conversationId: initialConversationI
               const event = JSON.parse(data) as SseEvent;
               handleSseEvent(event, assistantMessageId);
             } catch {
-              // skip malformed lines
+              // ignore malformed lines
             }
           }
         }
@@ -100,57 +156,25 @@ export function useChat({ tenantId, userId, conversationId: initialConversationI
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessageId
-              ? { ...m, content: m.content || "Une erreur est survenue.", isStreaming: false }
+              ? {
+                  ...m,
+                  content: m.content || "Une erreur est survenue.",
+                  isStreaming: false,
+                }
               : m
           )
         );
       } finally {
         setMessages((prev) =>
-          prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m))
+          prev.map((m) =>
+            m.id === assistantMessageId ? { ...m, isStreaming: false } : m
+          )
         );
         setIsStreaming(false);
       }
     },
-    [isStreaming, tenantId, userId]
+    [isStreaming, tenantId, userId, handleSseEvent]
   );
-
-  const handleSseEvent = useCallback((event: SseEvent, assistantMessageId: string) => {
-    switch (event.type) {
-      case "token":
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMessageId ? { ...m, content: m.content + event.content } : m
-          )
-        );
-        break;
-
-      case "tool_call": {
-        const toolCall: ToolCallData = { tool: event.tool, result: event.result };
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMessageId
-              ? { ...m, toolCalls: [...(m.toolCalls ?? []), toolCall] }
-              : m
-          )
-        );
-        break;
-      }
-
-      case "done":
-        setLastUsage(event.usage);
-        break;
-
-      case "error":
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMessageId
-              ? { ...m, content: `Erreur : ${event.message}`, isStreaming: false }
-              : m
-          )
-        );
-        break;
-    }
-  }, []);
 
   const clearMessages = useCallback(() => {
     setMessages([]);

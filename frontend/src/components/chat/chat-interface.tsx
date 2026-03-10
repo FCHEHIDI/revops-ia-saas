@@ -30,7 +30,7 @@ export function ChatInterface() {
           {isStreaming && (
             <span className="flex items-center gap-1 text-xs text-indigo-400">
               <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
-              L'IA répond…
+              L&apos;IA répond…
             </span>
           )}
         </div>

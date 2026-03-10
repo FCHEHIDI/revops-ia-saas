@@ -79,7 +79,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-xs text-slate-600">
-          En vous connectant, vous acceptez nos conditions d'utilisation.
+          En vous connectant, vous acceptez nos conditions d&apos;utilisation.
         </p>
       </div>
     </div>

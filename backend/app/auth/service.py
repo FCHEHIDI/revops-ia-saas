@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
-from jose import jwt
+from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -71,7 +71,7 @@ def verify_access_token(token: str) -> TokenPayload:
             exp=payload["exp"],
             type=payload["type"],
         )
-    except Exception:
+    except (JWTError, KeyError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired access token",
@@ -125,6 +125,6 @@ async def revoke_refresh_token(db: AsyncSession, raw_refresh_token: str) -> None
 async def authenticate_user(db: AsyncSession, email: str, password: str) -> Optional[User]:
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
-    if user and verify_password(password, user.password_hash):
+    if user and user.is_active and verify_password(password, user.password_hash):
         return user
     return None

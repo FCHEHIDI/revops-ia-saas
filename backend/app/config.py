@@ -22,4 +22,4 @@ class Settings(BaseSettings):
         return self.environment
 
 
-settings = Settings()
+settings = Settings()  # type: ignore[call-arg]

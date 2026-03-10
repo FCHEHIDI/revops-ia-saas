@@ -30,7 +30,7 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str)
         key="access_token",
         value=access_token,
         httponly=True,
-        samesite="lax",
+        samesite="strict",
         secure=secure,
         max_age=_ACCESS_MAX_AGE,
     )
@@ -38,7 +38,7 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str)
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        samesite="lax",
+        samesite="strict",
         secure=secure,
         max_age=_REFRESH_MAX_AGE,
     )

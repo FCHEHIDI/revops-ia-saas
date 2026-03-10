@@ -4,8 +4,7 @@ from app.sessions.models import UserSession
 from app.sessions.schemas import Message
 from uuid import uuid4
 from app.common.utils import utcnow
-from fastapi import HTTPException, status
-from typing import List
+from fastapi import HTTPException
 
 async def create_session(db: AsyncSession, user_id, org_id, title=None) -> UserSession:
     session = UserSession(

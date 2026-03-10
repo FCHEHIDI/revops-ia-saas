@@ -1,11 +1,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.documents.models import Document
-from fastapi import HTTPException, UploadFile
+from fastapi import UploadFile
 from uuid import uuid4
 from app.common.utils import utcnow
 from typing import List
-import os
 
 async def upload_document(db: AsyncSession, org_id, user_id, file: UploadFile) -> Document:
     filename = file.filename

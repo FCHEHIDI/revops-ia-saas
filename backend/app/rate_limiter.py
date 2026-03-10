@@ -1,8 +1,7 @@
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from starlette.requests import Request
 from slowapi.errors import RateLimitExceeded
-from fastapi import FastAPI, Request
+from fastapi import Request
 from fastapi.responses import JSONResponse
 
 limiter = Limiter(key_func=lambda request: getattr(request.state, "tenant_id", get_remote_address(request)))

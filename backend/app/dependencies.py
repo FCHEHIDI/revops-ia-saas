@@ -1,5 +1,4 @@
 from fastapi import Request, HTTPException, status, Depends
-from typing import Callable
 
 def get_current_user(request: Request):
     user_id = getattr(request.state, "user_id", None)

@@ -1,7 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.audit.models import AuditLog
-from typing import Optional
 from app.common.utils import utcnow
 from uuid import uuid4
 

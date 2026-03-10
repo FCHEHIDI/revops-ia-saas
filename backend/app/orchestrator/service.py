@@ -1,6 +1,6 @@
 import httpx
 from app.config import settings
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from app.sessions.models import UserSession
 from app.sessions.schemas import MessageRole
 from app.common.utils import utcnow

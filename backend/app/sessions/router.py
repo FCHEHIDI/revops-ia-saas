@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.db import get_db
 from app.dependencies import get_current_user
-from app.sessions.service import create_session, list_user_sessions, get_session, get_session_history, add_message
-from app.sessions.schemas import SessionCreate, SessionResponse, SessionHistoryResponse, AddMessageRequest, MessageRole
+from app.sessions.service import create_session, list_user_sessions, get_session, add_message
+from app.sessions.schemas import SessionCreate, SessionResponse, AddMessageRequest
 from app.sse import stream_llm_response
 from fastapi.responses import StreamingResponse
 
@@ -27,7 +27,8 @@ async def get_single_session(session_id: str, user=Depends(get_current_user), db
 
 @router.post("/{session_id}/chat")
 async def chat_with_agent(session_id: str, data: AddMessageRequest, user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    session = await add_message(db, session_id, data.role, data.content)
+    await add_message(db, session_id, data.role, data.content)
+    return {"message": "Message added successfully"}
     # Simuler l'appel à l'orchestrateur ici, mais retourner l'écho à titre d'exemple
     async def event_stream():
         async for token in stream_llm_response(data.content, session_id):

@@ -7,7 +7,12 @@ from sqlalchemy.future import select
 from app.common.db import get_db
 from app.config import settings
 from app.auth.dependencies import get_current_active_user
-from app.auth.schemas import LoginRequest, MessageResponse, RegisterRequest, UserResponse
+from app.auth.schemas import (
+    LoginRequest,
+    MessageResponse,
+    RegisterRequest,
+    UserResponse,
+)
 from app.auth.service import (
     authenticate_user,
     create_access_token,
@@ -20,11 +25,13 @@ from app.models.user import User
 
 router = APIRouter()
 
-_ACCESS_MAX_AGE = 15 * 60        # 15 minutes
+_ACCESS_MAX_AGE = 15 * 60  # 15 minutes
 _REFRESH_MAX_AGE = 7 * 24 * 3600  # 7 days
 
 
-def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
+def _set_auth_cookies(
+    response: Response, access_token: str, refresh_token: str
+) -> None:
     secure = settings.environment == "production"
     response.set_cookie(
         key="access_token",
@@ -44,7 +51,9 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str)
     )
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+)
 async def register(
     data: RegisterRequest,
     response: Response,
@@ -52,7 +61,9 @@ async def register(
 ) -> UserResponse:
     existing = await db.execute(select(User).where(User.email == data.email))
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
+        )
 
     tenant_id = data.tenant_id or uuid4()
     user = User(
@@ -102,7 +113,9 @@ async def refresh(
 ) -> MessageResponse:
     raw_refresh_token = request.cookies.get("refresh_token")
     if not raw_refresh_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token"
+        )
 
     access_token, new_refresh_token = await refresh_tokens(db, raw_refresh_token)
     _set_auth_cookies(response, access_token, new_refresh_token)

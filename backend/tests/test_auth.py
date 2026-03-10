@@ -29,7 +29,9 @@ async def test_login_success(
     set_cookie_headers = resp.headers.get_list("set-cookie")
     combined = " ".join(set_cookie_headers)
     assert "HttpOnly" in combined
-    assert "SameSite=strict" in combined.lower() or "samesite=strict" in combined.lower()
+    assert (
+        "SameSite=strict" in combined.lower() or "samesite=strict" in combined.lower()
+    )
 
 
 @pytest.mark.asyncio

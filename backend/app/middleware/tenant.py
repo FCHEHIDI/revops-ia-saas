@@ -34,7 +34,9 @@ class TenantMiddleware(BaseHTTPMiddleware):
             payload = verify_access_token(token)
             request.state.tenant_id = payload.tenant_id
             request.state.user_id = payload.sub
-        except Exception:  # nosec B110 — HTTPException cannot propagate from ASGI middleware
+        except (
+            Exception
+        ):  # nosec B110 — HTTPException cannot propagate from ASGI middleware
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Invalid token"},

@@ -99,7 +99,9 @@ async def refresh_tokens(db: AsyncSession, raw_refresh_token: str) -> Tuple[str,
     user_result = await db.execute(select(User).where(User.id == token_obj.user_id))
     user = user_result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
     access_token = create_access_token(user)
     new_refresh_token = await create_refresh_token(db, user)
@@ -122,7 +124,9 @@ async def revoke_refresh_token(db: AsyncSession, raw_refresh_token: str) -> None
         await db.commit()
 
 
-async def authenticate_user(db: AsyncSession, email: str, password: str) -> Optional[User]:
+async def authenticate_user(
+    db: AsyncSession, email: str, password: str
+) -> Optional[User]:
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
     if user and user.is_active and verify_password(password, user.password_hash):

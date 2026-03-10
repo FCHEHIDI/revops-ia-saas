@@ -136,7 +136,11 @@ async def test_tenant_a_cannot_access_tenant_b_sessions(
     )
     # La réponse peut être 401 (auth), 403 (permission) ou 404 (session introuvable)
     # mais jamais 200 avec des données d'un autre tenant
-    assert resp.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]
+    assert resp.status_code in [
+        status.HTTP_401_UNAUTHORIZED,
+        status.HTTP_403_FORBIDDEN,
+        status.HTTP_404_NOT_FOUND,
+    ]
 
 
 @pytest.mark.asyncio
@@ -149,7 +153,11 @@ async def test_tenant_a_cannot_access_tenant_b_documents(
         "/api/v1/documents/",
         cookies=auth_cookies_tenant_a,
     )
-    assert resp.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]
+    assert resp.status_code in [
+        status.HTTP_401_UNAUTHORIZED,
+        status.HTTP_403_FORBIDDEN,
+        status.HTTP_404_NOT_FOUND,
+    ]
 
 
 # ─────────────────────────────────────────────────────────────────────────────

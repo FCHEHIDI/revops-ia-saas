@@ -14,9 +14,14 @@ app.add_middleware(TenantMiddleware)
 app.include_router(auth_router.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(users_router.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(sessions_router.router, prefix="/api/v1/sessions", tags=["sessions"])
-app.include_router(orchestrator_router.router, prefix="/internal", tags=["orchestrator"])
-app.include_router(documents_router.router, prefix="/api/v1/documents", tags=["documents"])
+app.include_router(
+    orchestrator_router.router, prefix="/internal", tags=["orchestrator"]
+)
+app.include_router(
+    documents_router.router, prefix="/api/v1/documents", tags=["documents"]
+)
 app.include_router(audit_router.router, prefix="/api/v1/audit", tags=["audit"])
+
 
 @app.get("/health")
 def health():

@@ -1,16 +1,25 @@
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
+
     database_url: str
     jwt_secret: str
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 1440
-    refresh_token_expire_days: int = 30
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
     internal_secret: str
     orchestrator_url: str
+    environment: str = "development"
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    @property
+    def SECRET_KEY(self) -> str:  # noqa: N802
+        return self.jwt_secret
 
-settings = Settings()
+    @property
+    def ENVIRONMENT(self) -> str:  # noqa: N802
+        return self.environment
+
+
+settings = Settings()  # type: ignore[call-arg]

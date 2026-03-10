@@ -1,0 +1,397 @@
+name: CI — MCP Servers (Rust)
+# ═══════════════════════════════════════════════════════════════════════════════
+# PÉRIMÈTRE : CI (Versioning & CI/CD) — jobs lint, test, security, build
+# CD (DevOps) : jobs deploy-staging et deploy-production
+# Frontière : build produit les artefacts, deploy les consomme.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mcp/**"
+      - ".github/workflows/mcp.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "mcp/**"
+      - ".github/workflows/mcp.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+env:
+  RUST_VERSION: "1.78.0"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Lint & Format (matrice sur tous les serveurs MCP)
+  # ────────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & Format — ${{ matrix.server }}
+    runs-on: ubuntu-22.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        server:
+          - mcp-crm
+          - mcp-billing
+          - mcp-analytics
+          - mcp-sequences
+          - mcp-filesystem
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@21dc36fb71dd22e3317045c0c31a3f4249868b17
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: clippy, rustfmt
+
+      - name: Cache Cargo registry and build artifacts
+        uses: Swatinem/rust-cache@v2.7.3
+        with:
+          workspaces: mcp/${{ matrix.server }}
+          cache-on-failure: true
+          key: mcp-${{ matrix.server }}-lint
+
+      - name: Run cargo fmt (format check)
+        working-directory: mcp/${{ matrix.server }}
+        run: cargo fmt --all -- --check
+
+      - name: Run cargo clippy (linter)
+        working-directory: mcp/${{ matrix.server }}
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Tests unitaires (matrice)
+  # ────────────────────────────────────────────────────────────────────────────
+  test:
+    name: Tests — ${{ matrix.server }}
+    runs-on: ubuntu-22.04
+    needs: lint
+
+    strategy:
+      fail-fast: false
+      matrix:
+        server:
+          - mcp-crm
+          - mcp-billing
+          - mcp-analytics
+          - mcp-sequences
+          - mcp-filesystem
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: revops_test
+          POSTGRES_PASSWORD: revops_test
+          POSTGRES_DB: revops_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://revops_test:revops_test@localhost:5432/revops_test
+      RUST_LOG: info
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@21dc36fb71dd22e3317045c0c31a3f4249868b17
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Cache Cargo registry and build artifacts
+        uses: Swatinem/rust-cache@v2.7.3
+        with:
+          workspaces: mcp/${{ matrix.server }}
+          cache-on-failure: true
+          key: mcp-${{ matrix.server }}-test
+
+      - name: Run cargo test
+        working-directory: mcp/${{ matrix.server }}
+        run: cargo test --all-features -- --nocapture
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 3 — Security (cargo audit)
+  # ────────────────────────────────────────────────────────────────────────────
+  security:
+    name: Security Audit (cargo audit)
+    runs-on: ubuntu-22.04
+    needs: lint
+
+    strategy:
+      fail-fast: false
+      matrix:
+        server:
+          - mcp-crm
+          - mcp-billing
+          - mcp-analytics
+          - mcp-sequences
+          - mcp-filesystem
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@21dc36fb71dd22e3317045c0c31a3f4249868b17
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Cache Cargo registry
+        uses: Swatinem/rust-cache@v2.7.3
+        with:
+          workspaces: mcp/${{ matrix.server }}
+          key: mcp-${{ matrix.server }}-audit
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --version 0.20.0 --locked
+
+      - name: Run cargo audit
+        working-directory: mcp/${{ matrix.server }}
+        run: cargo audit --json > cargo-audit-${{ matrix.server }}.json
+        continue-on-error: true
+
+      - name: Upload cargo audit report
+        uses: actions/upload-artifact@v4.3.3
+        if: always()
+        with:
+          name: cargo-audit-${{ matrix.server }}
+          path: mcp/${{ matrix.server }}/cargo-audit-${{ matrix.server }}.json
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 4 — Build release binaries (matrice)
+  # ────────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build Release — ${{ matrix.server }}
+    runs-on: ubuntu-22.04
+    needs: [test, security]
+
+    strategy:
+      fail-fast: false
+      matrix:
+        server:
+          - mcp-crm
+          - mcp-billing
+          - mcp-analytics
+          - mcp-sequences
+          - mcp-filesystem
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@21dc36fb71dd22e3317045c0c31a3f4249868b17
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Cache Cargo registry and build artifacts
+        uses: Swatinem/rust-cache@v2.7.3
+        with:
+          workspaces: mcp/${{ matrix.server }}
+          cache-on-failure: true
+          key: mcp-${{ matrix.server }}-build-release
+
+      - name: Build release binary
+        working-directory: mcp/${{ matrix.server }}
+        run: cargo build --release
+
+      - name: Upload release binary as artifact
+        uses: actions/upload-artifact@v4.3.3
+        with:
+          name: ${{ matrix.server }}-binary
+          path: mcp/${{ matrix.server }}/target/release/${{ matrix.server }}
+          retention-days: 7
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 5 — Build Docker images & Trivy scan (matrice)
+  # ────────────────────────────────────────────────────────────────────────────
+  docker:
+    name: Docker Build & Trivy — ${{ matrix.server }}
+    runs-on: ubuntu-22.04
+    needs: build
+
+    strategy:
+      fail-fast: false
+      matrix:
+        server:
+          - mcp-crm
+          - mcp-billing
+          - mcp-analytics
+          - mcp-sequences
+          - mcp-filesystem
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5.5.1
+        with:
+          images: revops-${{ matrix.server }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+
+      - name: Build Docker image (no push on PR)
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: mcp/${{ matrix.server }}
+          file: mcp/${{ matrix.server }}/Dockerfile
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.server }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.server }}
+          load: true
+
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@0.21.0
+        with:
+          image-ref: "revops-${{ matrix.server }}:sha-${{ github.sha }}"
+          format: sarif
+          output: trivy-${{ matrix.server }}.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3.25.5
+        if: always()
+        with:
+          sarif_file: trivy-${{ matrix.server }}.sarif
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 6 — Deploy to staging (merge main only)
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy MCP to Staging
+    runs-on: ubuntu-22.04
+    needs: docker
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: staging
+
+    strategy:
+      fail-fast: false
+      matrix:
+        server:
+          - mcp-crm
+          - mcp-billing
+          - mcp-analytics
+          - mcp-sequences
+          - mcp-filesystem
+
+    steps:
+      # SECRETS STRATEGY:
+      # - CI/CD secrets (REGISTRY_*, KUBECONFIG_*) : GitHub Secrets (CI natif)
+      # - Runtime secrets (DB, API keys) : HashiCorp Vault injecté via Vault Agent
+      # Ces deux périmètres sont distincts et ne se chevauchent pas.
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3.2.0
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push image to registry
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: mcp/${{ matrix.server }}
+          file: mcp/${{ matrix.server }}/Dockerfile
+          push: true
+          tags: ${{ secrets.REGISTRY_URL }}/revops-${{ matrix.server }}:staging,${{ secrets.REGISTRY_URL }}/revops-${{ matrix.server }}:sha-${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.server }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.server }}
+
+      - name: Deploy to staging via kubectl
+        run: |
+          echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl set image deployment/${{ matrix.server }} ${{ matrix.server }}=${{ secrets.REGISTRY_URL }}/revops-${{ matrix.server }}:sha-${{ github.sha }} -n revops-staging
+          kubectl rollout status deployment/${{ matrix.server }} -n revops-staging --timeout=5m
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 7 — Deploy to production (tag vX.Y.Z only)
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy-production:
+    name: Deploy MCP to Production
+    runs-on: ubuntu-22.04
+    needs: docker
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+
+    strategy:
+      fail-fast: false
+      matrix:
+        server:
+          - mcp-crm
+          - mcp-billing
+          - mcp-analytics
+          - mcp-sequences
+          - mcp-filesystem
+
+    steps:
+      # SECRETS STRATEGY:
+      # - CI/CD secrets (REGISTRY_*, KUBECONFIG_*) : GitHub Secrets (CI natif)
+      # - Runtime secrets (DB, API keys) : HashiCorp Vault injecté via Vault Agent
+      # Ces deux périmètres sont distincts et ne se chevauchent pas.
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3.2.0
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push image with release tag
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: mcp/${{ matrix.server }}
+          file: mcp/${{ matrix.server }}/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.REGISTRY_URL }}/revops-${{ matrix.server }}:${{ github.ref_name }}
+            ${{ secrets.REGISTRY_URL }}/revops-${{ matrix.server }}:latest
+          cache-from: type=gha,scope=${{ matrix.server }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.server }}
+
+      - name: Deploy to production via kubectl
+        run: |
+          echo "${{ secrets.KUBECONFIG_PRODUCTION }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl set image deployment/${{ matrix.server }} ${{ matrix.server }}=${{ secrets.REGISTRY_URL }}/revops-${{ matrix.server }}:${{ github.ref_name }} -n revops-prod
+          kubectl rollout status deployment/${{ matrix.server }} -n revops-prod --timeout=10m

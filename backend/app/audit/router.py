@@ -7,9 +7,10 @@ from app.audit.schemas import AuditLogResponse
 
 router = APIRouter()
 
+
 @router.get("/", response_model=list[AuditLogResponse])
 async def get_logs(user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     # Vérification du rôle admin : on suppose qu'il existe une permission 'admin'
-    if 'admin' not in user["permissions"]:
+    if "admin" not in user["permissions"]:
         raise HTTPException(status_code=403, detail="Admin permission required")
     return await list_audit_logs(db, user["tenant_id"])

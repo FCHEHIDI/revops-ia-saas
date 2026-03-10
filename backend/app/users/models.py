@@ -1,9 +1,9 @@
 from sqlalchemy import Column, String, DateTime, ForeignKey, ARRAY
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from uuid import uuid4
 from app.common.db import Base
-from sqlalchemy.orm import relationship
+
 
 class Organization(Base):
     __tablename__ = "organizations"
@@ -12,6 +12,7 @@ class Organization(Base):
     slug = Column(String(100), unique=True, nullable=False)
     plan = Column(String(50), default="free")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 
 class User(Base):
     __tablename__ = "users"
@@ -22,6 +23,7 @@ class User(Base):
     roles = Column(ARRAY(String), default=list)
     permissions = Column(ARRAY(String), default=list)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"

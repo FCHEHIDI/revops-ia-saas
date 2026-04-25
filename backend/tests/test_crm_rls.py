@@ -1,5 +1,5 @@
 import pytest
-from backend.app.crm.repository import create_account, get_account
+from app.crm.repository import create_account, get_account
 from uuid import uuid4
 import os
 

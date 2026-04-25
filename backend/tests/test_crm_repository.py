@@ -1,9 +1,9 @@
 import pytest
 from uuid import uuid4
-from backend.app.crm.repository import (
+from app.crm.repository import (
     create_account, get_account, update_account, search_accounts
 )
-from backend.app.crm.schemas import AccountCreate
+from app.crm.schemas import AccountCreate
 
 @pytest.mark.asyncio
 async def test_account_crud(test_db):

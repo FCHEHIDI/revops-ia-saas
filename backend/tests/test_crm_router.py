@@ -1,6 +1,6 @@
 import pytest
 from httpx import AsyncClient
-from backend.app.main import app
+from app.main import app
 from fastapi import status
 from asgi_lifespan import LifespanManager
 
@@ -13,8 +13,11 @@ async def test_crm_accounts_flow(monkeypatch):
     async with LifespanManager(app):
         async with AsyncClient(app=app, base_url="http://test") as ac:
             # Patch DB, inject headers
+            import os
             headers = {
-                "X-Internal-API-Key": "changeme-internal-api-key",
+                "X-Internal-API-Key": os.environ.get(
+                    "INTERNAL_API_KEY", "changeme-internal-api-key"
+                ),
                 "X-Tenant-ID": "00000000-0000-0000-0000-000000000001",
                 "X-User-ID": "00000000-0000-0000-0000-000000000010",
             }

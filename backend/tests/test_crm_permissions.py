@@ -1,5 +1,5 @@
 import pytest
-from backend.app.crm.permissions import verify_internal_api_key, extract_tenant
+from app.crm.permissions import verify_internal_api_key, extract_tenant
 from fastapi import HTTPException
 import uuid
 

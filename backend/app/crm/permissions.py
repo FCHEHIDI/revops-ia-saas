@@ -27,18 +27,28 @@ def extract_user_id(x_user_id: Optional[str] = Header(alias="X-User-ID", default
         return None
 
 def require_permission(perm: str):
+    """Return a FastAPI-compatible dependency callable enforcing `perm`.
+
+    Usage in router:
+        dependencies=[Depends(require_permission("crm:accounts:write"))]
+    """
     async def checker(
         user_id: Optional[UUID] = Depends(extract_user_id),
         db: AsyncSession = Depends(get_db),
     ):
         if user_id is None:
-            raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="User permissions required")
-        # Load user from DB
-        from app.users.models import User as UserModel
+            raise HTTPException(
+                status_code=HTTP_403_FORBIDDEN,
+                detail="User permissions required",
+            )
+        from app.models import User as UserModel
         result = await db.execute(
             UserModel.__table__.select().where(UserModel.id == user_id)
         )
         user = result.fetchone()
         if not user or not user.permissions or perm not in user.permissions:
-            raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail=f"Permission {perm} required")
-    return Depends(checker)
+            raise HTTPException(
+                status_code=HTTP_403_FORBIDDEN,
+                detail=f"Permission {perm} required",
+            )
+    return checker

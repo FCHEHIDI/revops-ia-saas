@@ -6,19 +6,21 @@ use axum::{
     http::HeaderMap,
     response::sse::{Event, KeepAlive, Sse},
 };
+use futures::future::join_all;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{error, info, instrument, warn};
 
 use crate::{
-    AppState,
     context::builder::ContextBuilder,
     error::AppError,
     llm_client::create_llm_provider,
-    mcp_client::McpDispatcher,
-    models::{Message, ProcessRequest, Role, SseEventPayload, ToolCall},
+    mcp_client::{parse_tool_name, McpDispatcher},
+    models::{Message, Priority, ProcessRequest, Role, SseEventPayload, ToolCall},
+    queue::OrchestratorJob,
     rag_client::client::RagClient,
     routing::router::ModelRouter,
+    AppState,
 };
 
 /// POST /process — main orchestration endpoint.
@@ -42,6 +44,7 @@ pub async fn process_handler(
     Json(req): Json<ProcessRequest>,
 ) -> Result<Sse<impl futures::Stream<Item = Result<Event, Infallible>>>, AppError> {
     validate_api_key(&headers, &state.config.inter_service_secret)?;
+    validate_tenant(&req)?;
 
     tracing::Span::current()
         .record("tenant_id", req.tenant_id.to_string())
@@ -88,6 +91,15 @@ fn validate_api_key(headers: &HeaderMap, expected: &str) -> Result<(), AppError>
     }
 }
 
+fn validate_tenant(req: &ProcessRequest) -> Result<(), AppError> {
+    if req.tenant_id.is_nil() {
+        return Err(AppError::TenantError(
+            "tenant_id cannot be nil UUID".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 async fn send_event(tx: &mpsc::Sender<Result<Event, Infallible>>, payload: &SseEventPayload) {
     match serde_json::to_string(payload) {
         Ok(data) => {
@@ -101,15 +113,70 @@ async fn send_event(tx: &mpsc::Sender<Result<Event, Infallible>>, payload: &SseE
 
 /// Core orchestration loop (stateless):
 ///
-/// 1. Build context: fetch history + RAG retrieval
-/// 2. Select LLM model
+/// 1. LOW priority → enqueue in Redis and return `Accepted` SSE event immediately.
+/// 2. HIGH / NORMAL → Build context: fetch history + RAG retrieval
 /// 3. Agentic loop: call LLM → dispatch tool calls → inject results → repeat
 /// 4. Stream final response tokens as SSE events
+#[instrument(
+    skip(state, req, tx),
+    fields(
+        tenant_id = %req.tenant_id,
+        priority = tracing::field::Empty,
+        model    = tracing::field::Empty,
+        iterations = tracing::field::Empty,
+    )
+)]
 async fn orchestrate(
     state: Arc<AppState>,
     req: ProcessRequest,
     tx: mpsc::Sender<Result<Event, Infallible>>,
 ) -> Result<(), AppError> {
+    let priority_label = match req.priority {
+        Priority::High => "HIGH",
+        Priority::Normal => "NORMAL",
+        Priority::Low => "LOW",
+    };
+    tracing::Span::current().record("priority", priority_label);
+
+    // LOW priority jobs are processed asynchronously by the background worker.
+    // The caller receives an `Accepted` event with the job_id so it can poll
+    // GET /internal/jobs/{job_id} for the result.
+    if req.priority == Priority::Low {
+        let job = OrchestratorJob::new(
+            req.tenant_id,
+            req.conversation_id,
+            req.user_id,
+            req.message.clone(),
+            req.priority.clone(),
+        );
+
+        let queue = state.queue.as_ref().ok_or_else(|| AppError::QueueError {
+            queue: "orchestrator:low".to_string(),
+            message: "Queue dispatcher not initialized".to_string(),
+        })?;
+
+        let msg_id = queue.enqueue(&job).await?;
+
+        info!(
+            job_id = %job.job_id,
+            queue = "orchestrator:low",
+            msg_id = %msg_id,
+            tenant_id = %req.tenant_id,
+            "LOW priority job enqueued — returning Accepted"
+        );
+
+        send_event(
+            &tx,
+            &SseEventPayload::Accepted {
+                job_id: job.job_id,
+                queue: "orchestrator:low".to_string(),
+            },
+        )
+        .await;
+
+        return Ok(());
+    }
+
     const MAX_ITERATIONS: u32 = 10;
 
     // Build context-scoped services
@@ -119,20 +186,16 @@ async fn orchestrate(
         state.config.inter_service_secret.clone(),
     );
 
-    let mcp_dispatcher = McpDispatcher::new(
-        state.http_client.clone(),
-        state.config.clone(),
-    );
+    let mcp_dispatcher = McpDispatcher::new(state.http_client.clone(), state.config.clone());
 
     let model_router = ModelRouter::new(state.config.clone());
     let model = model_router.select_model(&req);
+    tracing::Span::current().record("model", model.as_str());
+
     let llm = create_llm_provider(&model, &state.config)?;
 
     // Build initial context
-    let context_builder = ContextBuilder::new(
-        state.http_client.clone(),
-        state.config.clone(),
-    );
+    let context_builder = ContextBuilder::new(state.http_client.clone(), state.config.clone());
 
     let mut ctx = context_builder.build(&req, &rag_client).await?;
 
@@ -152,7 +215,14 @@ async fn orchestrate(
 
         if llm_response.tool_calls.is_empty() {
             // Final response — emit done event and exit loop
-            send_event(&tx, &SseEventPayload::Done { usage: llm_response.usage }).await;
+            tracing::Span::current().record("iterations", iteration + 1);
+            send_event(
+                &tx,
+                &SseEventPayload::Done {
+                    usage: llm_response.usage,
+                },
+            )
+            .await;
             break;
         }
 
@@ -168,7 +238,7 @@ async fn orchestrate(
         info!(
             iteration,
             num_calls = llm_response.tool_calls.len(),
-            "Dispatching MCP tool calls"
+            "LLM requested tool calls"
         );
 
         dispatch_tool_calls(
@@ -184,11 +254,24 @@ async fn orchestrate(
     Ok(())
 }
 
+/// Classify the CRM entity type from a tool name.
+///
+/// Used to enrich tracing spans with a high-level entity dimension so that
+/// dashboards can aggregate CRM call durations per entity type.
+fn crm_entity_type_from_tool(tool_name: &str) -> &'static str {
+    if tool_name.contains("contact") {
+        "contact"
+    } else if tool_name.contains("account") {
+        "account"
+    } else if tool_name.contains("deal") {
+        "deal"
+    } else {
+        "other"
+    }
+}
+
 /// Emit LLM content as individual token events in ~50-char chunks.
-async fn stream_content_tokens(
-    tx: &mpsc::Sender<Result<Event, Infallible>>,
-    content: &str,
-) {
+async fn stream_content_tokens(tx: &mpsc::Sender<Result<Event, Infallible>>, content: &str) {
     // Chunk by word boundary so tokens look natural
     let words: Vec<&str> = content.split_inclusive(' ').collect();
     let mut buffer = String::new();
@@ -196,7 +279,13 @@ async fn stream_content_tokens(
     for word in words {
         buffer.push_str(word);
         if buffer.len() >= 10 {
-            send_event(tx, &SseEventPayload::Token { content: buffer.clone() }).await;
+            send_event(
+                tx,
+                &SseEventPayload::Token {
+                    content: buffer.clone(),
+                },
+            )
+            .await;
             buffer.clear();
         }
     }
@@ -208,6 +297,10 @@ async fn stream_content_tokens(
 
 /// Dispatch all tool calls to their respective MCP servers, injecting results
 /// back into `messages` so the next LLM call has full context.
+///
+/// All calls within a single LLM iteration are dispatched concurrently via
+/// `join_all`. Results are processed in the original input order so the
+/// injected `messages` sequence is stable and deterministic.
 async fn dispatch_tool_calls(
     tx: &mpsc::Sender<Result<Event, Infallible>>,
     dispatcher: &McpDispatcher,
@@ -215,28 +308,85 @@ async fn dispatch_tool_calls(
     tool_calls: &[ToolCall],
     tenant_id: &str,
 ) {
-    for tool_call in tool_calls {
-        let tool_name = &tool_call.function.name;
-        let params: serde_json::Value =
-            serde_json::from_str(&tool_call.function.arguments).unwrap_or(serde_json::Value::Null);
+    // Pre-parse all argument payloads. Invalid JSON falls back to an empty
+    // object so the MCP server can apply its own parameter defaults rather
+    // than aborting the entire agentic iteration.
+    let parsed_args: Vec<serde_json::Value> = tool_calls
+        .iter()
+        .map(|tc| {
+            serde_json::from_str(&tc.function.arguments).unwrap_or_else(|e| {
+                warn!(
+                    tool = %tc.function.name,
+                    error = %e,
+                    "Invalid tool arguments JSON — falling back to empty object"
+                );
+                serde_json::Value::Object(Default::default())
+            })
+        })
+        .collect();
 
-        info!(tool = %tool_name, "Calling MCP tool");
+    info!(
+        num_calls = tool_calls.len(),
+        "Dispatching MCP tool calls in parallel"
+    );
 
-        let (result_value, result_content) = match dispatcher
-            .call(tool_name, params, tenant_id)
-            .await
-        {
+    // Dispatch concurrently; join_all preserves input order in the result vec.
+    // Each future returns (result, duration_ms) so the results loop can log
+    // per-call latency without a second clock read.
+    let results = join_all(
+        tool_calls
+            .iter()
+            .zip(parsed_args.iter())
+            .map(|(tc, params)| {
+                let tool_name = tc.function.name.clone();
+                let tenant = tenant_id.to_string();
+                let params = params.clone();
+                async move {
+                    let start = tokio::time::Instant::now();
+                    let result = dispatcher.call(&tool_name, params, &tenant).await;
+                    let duration_ms = start.elapsed().as_millis() as u64;
+                    (result, duration_ms)
+                }
+            }),
+    )
+    .await;
+
+    // Process results in original order for stable message injection.
+    for (tc, (result, duration_ms)) in tool_calls.iter().zip(results) {
+        let tool_name = &tc.function.name;
+        let server_prefix = parse_tool_name(tool_name)
+            .map(|(prefix, _)| prefix)
+            .unwrap_or("unknown");
+        let crm_entity = crm_entity_type_from_tool(tool_name);
+
+        let (result_value, result_content) = match result {
             Ok(v) => {
-                let s = serde_json::to_string(&v).unwrap_or_default();
+                let s = serde_json::to_string(&v).unwrap_or_else(|e| {
+                    warn!(tool = %tool_name, error = %e, "Failed to serialize MCP result");
+                    String::new()
+                });
+                info!(
+                    tool = %tool_name,
+                    server = %server_prefix,
+                    crm_entity_type = %crm_entity,
+                    duration_ms,
+                    success = true,
+                    "MCP tool call completed"
+                );
                 (v, s)
             }
             Err(e) => {
-                error!(tool = %tool_name, error = %e, "MCP tool call failed");
+                error!(
+                    tool = %tool_name,
+                    server = %server_prefix,
+                    crm_entity_type = %crm_entity,
+                    duration_ms,
+                    success = false,
+                    error = %e,
+                    "MCP tool call failed"
+                );
                 let err_msg = format!("Tool call failed: {}", e);
-                (
-                    serde_json::json!({"error": err_msg}),
-                    err_msg,
-                )
+                (serde_json::json!({"error": err_msg}), err_msg)
             }
         };
 
@@ -251,6 +401,6 @@ async fn dispatch_tool_calls(
         .await;
 
         // Inject tool result into conversation context
-        messages.push(Message::tool_result(tool_call.id.clone(), result_content));
+        messages.push(Message::tool_result(tc.id.clone(), result_content));
     }
 }

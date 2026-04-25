@@ -20,6 +20,8 @@ use super::{parse_tool_name, resolve_server_url};
 /// The server validates `tenant_id` before executing any action.
 /// This ensures the MCP layer enforces tenant isolation independently
 /// of the orchestrator.
+/// `reqwest::Client` and `Arc<Config>` are both cheap to clone (Arc-backed).
+#[derive(Clone)]
 pub struct McpDispatcher {
     http_client: reqwest::Client,
     config: Arc<Config>,
@@ -27,7 +29,10 @@ pub struct McpDispatcher {
 
 impl McpDispatcher {
     pub fn new(http_client: reqwest::Client, config: Arc<Config>) -> Self {
-        Self { http_client, config }
+        Self {
+            http_client,
+            config,
+        }
     }
 
     /// Dispatch a single tool call to its MCP server.

@@ -3,7 +3,9 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, instrument};
 
-use crate::models::{FinishReason, FunctionCall, LlmResponse, Message, Role, Tool, ToolCall, UsageStats};
+use crate::models::{
+    FinishReason, FunctionCall, LlmResponse, Message, Role, Tool, ToolCall, UsageStats,
+};
 
 use super::LlmProvider;
 
@@ -15,7 +17,11 @@ pub struct AnthropicProvider {
 
 impl AnthropicProvider {
     pub fn new(client: reqwest::Client, api_key: String, model: String) -> Self {
-        Self { client, api_key, model }
+        Self {
+            client,
+            api_key,
+            model,
+        }
     }
 }
 
@@ -54,7 +60,9 @@ enum AnthropicContent {
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum AnthropicBlock {
-    Text { text: String },
+    Text {
+        text: String,
+    },
     ToolUse {
         id: String,
         name: String,
@@ -87,8 +95,14 @@ struct AnthropicResponse {
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum AnthropicResponseBlock {
-    Text { text: String },
-    ToolUse { id: String, name: String, input: serde_json::Value },
+    Text {
+        text: String,
+    },
+    ToolUse {
+        id: String,
+        name: String,
+        input: serde_json::Value,
+    },
 }
 
 #[derive(Deserialize)]
@@ -182,10 +196,7 @@ impl LlmProvider for AnthropicProvider {
                     tool_calls.push(ToolCall {
                         id,
                         call_type: "function".to_string(),
-                        function: FunctionCall {
-                            name,
-                            arguments,
-                        },
+                        function: FunctionCall { name, arguments },
                     });
                 }
             }
@@ -227,9 +238,7 @@ fn build_anthropic_messages(messages: &[Message]) -> Vec<AnthropicMessage> {
             Role::User => {
                 result.push(AnthropicMessage {
                     role: "user".to_string(),
-                    content: AnthropicContent::Text(
-                        msg.content.clone().unwrap_or_default(),
-                    ),
+                    content: AnthropicContent::Text(msg.content.clone().unwrap_or_default()),
                 });
             }
 
@@ -245,9 +254,8 @@ fn build_anthropic_messages(messages: &[Message]) -> Vec<AnthropicMessage> {
                     }
 
                     for tc in tool_calls {
-                        let input: serde_json::Value =
-                            serde_json::from_str(&tc.function.arguments)
-                                .unwrap_or(serde_json::Value::Null);
+                        let input: serde_json::Value = serde_json::from_str(&tc.function.arguments)
+                            .unwrap_or(serde_json::Value::Null);
 
                         blocks.push(AnthropicBlock::ToolUse {
                             id: tc.id.clone(),
@@ -263,9 +271,7 @@ fn build_anthropic_messages(messages: &[Message]) -> Vec<AnthropicMessage> {
                 } else {
                     result.push(AnthropicMessage {
                         role: "assistant".to_string(),
-                        content: AnthropicContent::Text(
-                            msg.content.clone().unwrap_or_default(),
-                        ),
+                        content: AnthropicContent::Text(msg.content.clone().unwrap_or_default()),
                     });
                 }
             }

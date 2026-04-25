@@ -3,7 +3,9 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, instrument};
 
-use crate::models::{FinishReason, FunctionCall, LlmResponse, Message, Role, Tool, ToolCall, UsageStats};
+use crate::models::{
+    FinishReason, FunctionCall, LlmResponse, Message, Role, Tool, ToolCall, UsageStats,
+};
 
 use super::LlmProvider;
 
@@ -15,7 +17,11 @@ pub struct OpenAiProvider {
 
 impl OpenAiProvider {
     pub fn new(client: reqwest::Client, api_key: String, model: String) -> Self {
-        Self { client, api_key, model }
+        Self {
+            client,
+            api_key,
+            model,
+        }
     }
 }
 

@@ -32,6 +32,15 @@ pub enum AppError {
     #[error("Configuration error: {0}")]
     ConfigError(String),
 
+    #[error("Tenant validation failed: {0}")]
+    TenantError(String),
+
+    #[error("Queue error [{queue}]: {message}")]
+    QueueError { queue: String, message: String },
+
+    #[error("DLQ archive error: {0}")]
+    DlqError(String),
+
     #[error("Internal error: {0}")]
     Internal(#[from] anyhow::Error),
 }
@@ -41,10 +50,13 @@ impl IntoResponse for AppError {
         let (status, code) = match &self {
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "UNAUTHORIZED"),
             AppError::BadRequest(_) => (StatusCode::BAD_REQUEST, "BAD_REQUEST"),
+            AppError::TenantError(_) => (StatusCode::BAD_REQUEST, "TENANT_ERROR"),
             AppError::ConfigError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "CONFIG_ERROR"),
             AppError::LlmError(_) => (StatusCode::BAD_GATEWAY, "LLM_ERROR"),
             AppError::McpError { .. } => (StatusCode::BAD_GATEWAY, "MCP_ERROR"),
             AppError::RagError(_) => (StatusCode::BAD_GATEWAY, "RAG_ERROR"),
+            AppError::QueueError { .. } => (StatusCode::SERVICE_UNAVAILABLE, "QUEUE_ERROR"),
+            AppError::DlqError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "DLQ_ERROR"),
             AppError::ContextError(_) | AppError::BackendError(_) | AppError::Internal(_) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR")
             }

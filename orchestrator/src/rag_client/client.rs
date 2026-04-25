@@ -17,7 +17,11 @@ pub struct RagClient {
 
 impl RagClient {
     pub fn new(http_client: reqwest::Client, base_url: String, api_key: String) -> Self {
-        Self { http_client, base_url, api_key }
+        Self {
+            http_client,
+            base_url,
+            api_key,
+        }
     }
 
     /// Retrieve the top-K most relevant document chunks for a query.
@@ -31,9 +35,9 @@ impl RagClient {
         query: &str,
         top_k: u32,
     ) -> Result<Vec<RagChunk>, AppError> {
-        let tenant_uuid: Uuid = tenant_id.parse().map_err(|_| {
-            AppError::RagError(format!("Invalid tenant_id UUID: {}", tenant_id))
-        })?;
+        let tenant_uuid: Uuid = tenant_id
+            .parse()
+            .map_err(|_| AppError::RagError(format!("Invalid tenant_id UUID: {}", tenant_id)))?;
 
         let request = RetrieveRequest {
             tenant_id: tenant_uuid,
@@ -65,9 +69,10 @@ impl RagClient {
             )));
         }
 
-        let parsed: RetrieveResponse = response.json().await.map_err(|e| {
-            AppError::RagError(format!("Failed to parse RAG response: {}", e))
-        })?;
+        let parsed: RetrieveResponse = response
+            .json()
+            .await
+            .map_err(|e| AppError::RagError(format!("Failed to parse RAG response: {}", e)))?;
 
         let chunks: Vec<RagChunk> = parsed
             .results
@@ -79,6 +84,7 @@ impl RagClient {
                 content: r.content,
                 similarity_score: r.similarity_score as f32,
                 document_type: r.document_type,
+                crm_metadata: r.crm_metadata,
             })
             .collect();
 
@@ -117,4 +123,8 @@ struct ChunkResult {
     content: String,
     similarity_score: f64,
     document_type: String,
+    /// Forwarded from the RAG service response when the chunk originated from
+    /// the CRM worker (crm_worker.py + rag_publisher.py).
+    #[serde(default)]
+    crm_metadata: Option<serde_json::Value>,
 }

@@ -31,10 +31,25 @@ pub enum Priority {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum SseEventPayload {
-    Token { content: String },
-    ToolCall { tool: String, result: serde_json::Value },
-    Done { usage: UsageStats },
-    Error { message: String },
+    Token {
+        content: String,
+    },
+    ToolCall {
+        tool: String,
+        result: serde_json::Value,
+    },
+    Done {
+        usage: UsageStats,
+    },
+    /// Emitted for LOW priority jobs — the request has been accepted and queued.
+    /// The backend should poll `GET /internal/jobs/{job_id}` for the result.
+    Accepted {
+        job_id: uuid::Uuid,
+        queue: String,
+    },
+    Error {
+        message: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -166,6 +181,13 @@ pub struct RagChunk {
     pub content: String,
     pub similarity_score: f32,
     pub document_type: String,
+    /// CRM-specific metadata injected by the RAG CRM worker.
+    ///
+    /// Present when `document_type` is `"crm"`. Contains fields such as
+    /// `entity_type`, `entity_name`, `account_name`, `deal_stage`, `deal_id`,
+    /// `account_id`, `contact_id`, etc.
+    #[serde(default)]
+    pub crm_metadata: Option<serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------

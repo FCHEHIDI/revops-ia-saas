@@ -10,7 +10,6 @@ use axum::{
 
 use crate::AppState;
 
-
 pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/health", get(health::health_handler))

@@ -51,8 +51,7 @@ impl Config {
 
             backend_api_url: env::var("BACKEND_API_URL")
                 .unwrap_or_else(|_| "http://backend:8000".to_string()),
-            rag_api_url: env::var("RAG_API_URL")
-                .unwrap_or_else(|_| "http://rag:8002".to_string()),
+            rag_api_url: env::var("RAG_API_URL").unwrap_or_else(|_| "http://rag:8002".to_string()),
             mcp_crm_url: env::var("MCP_CRM_URL")
                 .unwrap_or_else(|_| "http://mcp-crm:9001".to_string()),
             mcp_billing_url: env::var("MCP_BILLING_URL")
@@ -64,13 +63,11 @@ impl Config {
             mcp_filesystem_url: env::var("MCP_FILESYSTEM_URL")
                 .unwrap_or_else(|_| "http://mcp-filesystem:9005".to_string()),
 
-            redis_url: env::var("REDIS_URL")
-                .unwrap_or_else(|_| "redis://redis:6379".to_string()),
+            redis_url: env::var("REDIS_URL").unwrap_or_else(|_| "redis://redis:6379".to_string()),
 
             openai_api_key: env::var("OPENAI_API_KEY").ok(),
             anthropic_api_key: env::var("ANTHROPIC_API_KEY").ok(),
-            default_model: env::var("DEFAULT_MODEL")
-                .unwrap_or_else(|_| "gpt-4o".to_string()),
+            default_model: env::var("DEFAULT_MODEL").unwrap_or_else(|_| "gpt-4o".to_string()),
 
             otel_exporter_otlp_endpoint: env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok(),
             rust_log: env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()),

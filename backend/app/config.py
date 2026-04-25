@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     orchestrator_url: str
     environment: str = "development"
 
+    internal_api_key: str = ""
+    redis_url: str | None = None
+
     @property
     def SECRET_KEY(self) -> str:  # noqa: N802
         return self.jwt_secret
@@ -23,3 +26,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()  # type: ignore[call-arg]
+
+if hasattr(settings, 'environment') and settings.environment == "production":
+    if not settings.internal_api_key:
+        import warnings
+        warnings.warn("INTERNAL_API_KEY is empty in production! Security risk.")

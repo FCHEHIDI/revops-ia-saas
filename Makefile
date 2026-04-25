@@ -4,8 +4,9 @@ BACKEND_CONTAINER := revops-ia-saas-backend-1
 # Sur PowerShell, utiliser directement les commandes docker compose.
 
 .PHONY: up down build logs ps migrate migrate-down \
-        test-backend test-rag test-rust test-mcp \
-        lint lint-backend lint-rag lint-rust lint-frontend \
+        test-backend test-rag test-rust test-mcp test-mcp-crm \
+        lint lint-backend lint-rag lint-rust lint-frontend lint-mcp-crm \
+        dev-up dev-down dev-logs dev-rebuild dev-ps \
         clean help
 
 # ── Cluster Docker Compose ────────────────────────────────────────────────────
@@ -64,6 +65,9 @@ test-mcp: ## Tests de tous les MCP (séquentiel - compatible tous OS)
 
 test-rust: test-orchestrator test-mcp ## Tests de toutes les crates Rust
 
+test-mcp-crm: ## Tests du serveur MCP CRM (Python)
+	cd mcp/mcp-crm && pytest tests/ -v
+
 # ── Linting ───────────────────────────────────────────────────────────────────
 
 lint-backend: ## Lint backend Python
@@ -84,7 +88,27 @@ lint-mcp: ## Lint tous les MCP Rust
 lint-frontend: ## Lint frontend Next.js
 	cd frontend && npm run lint && npm run type-check
 
+lint-mcp-crm: ## Lint MCP CRM (Python)
+	cd mcp/mcp-crm && ruff check src/ tests/ && black --check src/ tests/
+
 lint: lint-backend lint-rag lint-orchestrator lint-mcp lint-frontend ## Lint tout le projet
+
+# ── Environnement de développement local ──────────────────────────────────────
+
+dev-up: ## Démarrer la stack de développement locale
+	docker compose -f infra/docker/docker-compose.dev.yml up -d
+
+dev-down: ## Arrêter la stack de développement locale
+	docker compose -f infra/docker/docker-compose.dev.yml down
+
+dev-logs: ## Suivre les logs de la stack dev
+	docker compose -f infra/docker/docker-compose.dev.yml logs -f --tail=100
+
+dev-rebuild: ## Reconstruire les images de la stack dev sans cache
+	docker compose -f infra/docker/docker-compose.dev.yml build --no-cache
+
+dev-ps: ## État des containers de la stack dev
+	docker compose -f infra/docker/docker-compose.dev.yml ps
 
 # ── Utilitaires ───────────────────────────────────────────────────────────────
 

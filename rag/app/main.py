@@ -24,6 +24,7 @@ from app.dependencies import require_internal_api_key
 from app.embeddings.embedder import EmbeddingService
 from app.indexing.chunker import TextChunker
 from app.models.schemas import HealthResponse
+from app.queue.crm_stream_consumer import CrmStreamConsumer
 from app.queue.worker import RedisIngestionWorker
 from app.retrieval.retriever import DocumentRetriever
 from app.routers import ingest, retrieve
@@ -69,7 +70,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     retriever = DocumentRetriever(vector_store=vector_store, embedder=embedder)
 
-    # Redis background worker
+    # Redis background worker (legacy list queue rag:indexing — mcp-filesystem)
     worker = RedisIngestionWorker(
         vector_store=vector_store,
         embedder=embedder,
@@ -77,12 +78,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     await worker.start()
 
+    # CRM stream consumer (rag:index:jobs — backend/app/crm/rag_publisher.py)
+    crm_consumer = CrmStreamConsumer(
+        vector_store=vector_store,
+        embedder=embedder,
+        chunker=chunker,
+    )
+    await crm_consumer.start()
+
     # Store on app.state for dependency injection
     app.state.embedder = embedder
     app.state.vector_store = vector_store
     app.state.chunker = chunker
     app.state.retriever = retriever
     app.state.worker = worker
+    app.state.crm_consumer = crm_consumer
 
     logger.info(
         "RAG service ready — model=%s dim=%d qdrant=%s",
@@ -94,6 +104,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
     logger.info("Shutting down RAG service …")
+    await crm_consumer.stop()
     await worker.stop()
     await vector_store.close()
     logger.info("RAG service stopped")

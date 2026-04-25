@@ -33,22 +33,31 @@ _REFRESH_MAX_AGE = 7 * 24 * 3600  # 7 days
 def _set_auth_cookies(
     response: Response, access_token: str, refresh_token: str
 ) -> None:
-    secure = settings.environment == "production"
+    is_prod = settings.environment == "production"
+    # In dev the frontend (e.g. http://localhost:13000) talks to the API
+    # (http://localhost:18000) cross-port, which is cross-origin from the
+    # browser's perspective. `SameSite=strict` would refuse to send the
+    # cookie on XHR/fetch in that case. We therefore use:
+    #   - dev:  SameSite=lax + Secure=False (works on http://localhost)
+    #   - prod: SameSite=strict + Secure=True (full hardening)
+    samesite: str = "strict" if is_prod else "lax"
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        samesite="strict",
-        secure=secure,
+        samesite=samesite,
+        secure=is_prod,
         max_age=_ACCESS_MAX_AGE,
+        path="/",
     )
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        samesite="strict",
-        secure=secure,
+        samesite=samesite,
+        secure=is_prod,
         max_age=_REFRESH_MAX_AGE,
+        path="/",
     )
 
 

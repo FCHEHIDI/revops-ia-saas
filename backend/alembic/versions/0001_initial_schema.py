@@ -3,6 +3,14 @@ import sqlalchemy as sa
 import sqlalchemy.dialects.postgresql as pg
 from datetime import datetime
 
+
+# Alembic identifiers
+revision = "0001"
+down_revision = None
+branch_labels = None
+depends_on = None
+
+
 def upgrade():
     # 1. organizations
     op.create_table(

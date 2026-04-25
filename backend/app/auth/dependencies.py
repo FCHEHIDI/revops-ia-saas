@@ -23,7 +23,7 @@ async def get_current_user(
     result = await db.execute(
         select(User).where(
             User.id == payload.sub,
-            User.tenant_id == payload.tenant_id,
+            User.org_id == payload.tenant_id,
         )
     )
     user = result.scalar_one_or_none()

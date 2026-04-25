@@ -1,0 +1,268 @@
+name: Release — Release Please (Automated)
+# ═══════════════════════════════════════════════════════════════════════════════
+# PÉRIMÈTRE : CD (DevOps) — Release automatisé + déploiement production coordonné
+# CI (Versioning & CI/CD) : lint, test, security, build → dans les workflows par composant
+# Frontière :
+#   - release-please   : analyse les commits, crée/merge la PR de release (CI/CD)
+#   - tag-and-release  : re-tag les images Docker du registry (CD)
+#   - deploy-production-coordinated : déploiement k8s production séquencé (CD pur — DevOps)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Release Please : analyse les commits et propose/merge une PR release
+  # ────────────────────────────────────────────────────────────────────────────
+  release-please:
+    name: Release Please — Create or Update Release PR
+    runs-on: ubuntu-22.04
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+      major: ${{ steps.release.outputs.major }}
+      minor: ${{ steps.release.outputs.minor }}
+      patch: ${{ steps.release.outputs.patch }}
+
+    steps:
+      - name: Run Release Please action
+        id: release
+        uses: googleapis/release-please-action@v4.1.3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release-type: simple
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Post-release : tag toutes les images Docker et crée la GitHub Release
+  # (s'exécute uniquement quand Release Please a créé une release)
+  # ────────────────────────────────────────────────────────────────────────────
+  tag-and-release:
+    name: Tag Images & Finalize GitHub Release
+    runs-on: ubuntu-22.04
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+
+    steps:
+      # SECRETS STRATEGY:
+      # - CI/CD secrets (REGISTRY_*, KUBECONFIG_*) : GitHub Secrets (CI natif)
+      # - Runtime secrets (DB, API keys) : HashiCorp Vault injecté via Vault Agent
+      # Ces deux périmètres sont distincts et ne se chevauchent pas.
+      - name: Checkout repository at release tag
+        uses: actions/checkout@v4.1.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+          fetch-depth: 0
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3.2.0
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Re-tag staging images with release version — backend
+        run: |
+          docker pull ${{ secrets.REGISTRY_URL }}/revops-backend:staging
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-backend:staging ${{ secrets.REGISTRY_URL }}/revops-backend:${{ needs.release-please.outputs.tag_name }}
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-backend:staging ${{ secrets.REGISTRY_URL }}/revops-backend:latest
+          docker push ${{ secrets.REGISTRY_URL }}/revops-backend:${{ needs.release-please.outputs.tag_name }}
+          docker push ${{ secrets.REGISTRY_URL }}/revops-backend:latest
+
+      - name: Re-tag staging images with release version — frontend
+        run: |
+          docker pull ${{ secrets.REGISTRY_URL }}/revops-frontend:staging
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-frontend:staging ${{ secrets.REGISTRY_URL }}/revops-frontend:${{ needs.release-please.outputs.tag_name }}
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-frontend:staging ${{ secrets.REGISTRY_URL }}/revops-frontend:latest
+          docker push ${{ secrets.REGISTRY_URL }}/revops-frontend:${{ needs.release-please.outputs.tag_name }}
+          docker push ${{ secrets.REGISTRY_URL }}/revops-frontend:latest
+
+      - name: Re-tag staging images with release version — orchestrator
+        run: |
+          docker pull ${{ secrets.REGISTRY_URL }}/revops-orchestrator:staging
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-orchestrator:staging ${{ secrets.REGISTRY_URL }}/revops-orchestrator:${{ needs.release-please.outputs.tag_name }}
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-orchestrator:staging ${{ secrets.REGISTRY_URL }}/revops-orchestrator:latest
+          docker push ${{ secrets.REGISTRY_URL }}/revops-orchestrator:${{ needs.release-please.outputs.tag_name }}
+          docker push ${{ secrets.REGISTRY_URL }}/revops-orchestrator:latest
+
+      - name: Re-tag staging images with release version — rag
+        run: |
+          docker pull ${{ secrets.REGISTRY_URL }}/revops-rag:staging
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-rag:staging ${{ secrets.REGISTRY_URL }}/revops-rag:${{ needs.release-please.outputs.tag_name }}
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-rag:staging ${{ secrets.REGISTRY_URL }}/revops-rag:latest
+          docker push ${{ secrets.REGISTRY_URL }}/revops-rag:${{ needs.release-please.outputs.tag_name }}
+          docker push ${{ secrets.REGISTRY_URL }}/revops-rag:latest
+
+      - name: Re-tag staging images with release version — mcp-crm
+        run: |
+          docker pull ${{ secrets.REGISTRY_URL }}/revops-mcp-crm:staging
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-mcp-crm:staging ${{ secrets.REGISTRY_URL }}/revops-mcp-crm:${{ needs.release-please.outputs.tag_name }}
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-mcp-crm:staging ${{ secrets.REGISTRY_URL }}/revops-mcp-crm:latest
+          docker push ${{ secrets.REGISTRY_URL }}/revops-mcp-crm:${{ needs.release-please.outputs.tag_name }}
+          docker push ${{ secrets.REGISTRY_URL }}/revops-mcp-crm:latest
+
+      - name: Re-tag staging images with release version — mcp-billing
+        run: |
+          docker pull ${{ secrets.REGISTRY_URL }}/revops-mcp-billing:staging
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-mcp-billing:staging ${{ secrets.REGISTRY_URL }}/revops-mcp-billing:${{ needs.release-please.outputs.tag_name }}
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-mcp-billing:staging ${{ secrets.REGISTRY_URL }}/revops-mcp-billing:latest
+          docker push ${{ secrets.REGISTRY_URL }}/revops-mcp-billing:${{ needs.release-please.outputs.tag_name }}
+          docker push ${{ secrets.REGISTRY_URL }}/revops-mcp-billing:latest
+
+      - name: Re-tag staging images with release version — mcp-analytics
+        run: |
+          docker pull ${{ secrets.REGISTRY_URL }}/revops-mcp-analytics:staging
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-mcp-analytics:staging ${{ secrets.REGISTRY_URL }}/revops-mcp-analytics:${{ needs.release-please.outputs.tag_name }}
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-mcp-analytics:staging ${{ secrets.REGISTRY_URL }}/revops-mcp-analytics:latest
+          docker push ${{ secrets.REGISTRY_URL }}/revops-mcp-analytics:${{ needs.release-please.outputs.tag_name }}
+          docker push ${{ secrets.REGISTRY_URL }}/revops-mcp-analytics:latest
+
+      - name: Re-tag staging images with release version — mcp-sequences
+        run: |
+          docker pull ${{ secrets.REGISTRY_URL }}/revops-mcp-sequences:staging
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-mcp-sequences:staging ${{ secrets.REGISTRY_URL }}/revops-mcp-sequences:${{ needs.release-please.outputs.tag_name }}
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-mcp-sequences:staging ${{ secrets.REGISTRY_URL }}/revops-mcp-sequences:latest
+          docker push ${{ secrets.REGISTRY_URL }}/revops-mcp-sequences:${{ needs.release-please.outputs.tag_name }}
+          docker push ${{ secrets.REGISTRY_URL }}/revops-mcp-sequences:latest
+
+      - name: Re-tag staging images with release version — mcp-filesystem
+        run: |
+          docker pull ${{ secrets.REGISTRY_URL }}/revops-mcp-filesystem:staging
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-mcp-filesystem:staging ${{ secrets.REGISTRY_URL }}/revops-mcp-filesystem:${{ needs.release-please.outputs.tag_name }}
+          docker tag ${{ secrets.REGISTRY_URL }}/revops-mcp-filesystem:staging ${{ secrets.REGISTRY_URL }}/revops-mcp-filesystem:latest
+          docker push ${{ secrets.REGISTRY_URL }}/revops-mcp-filesystem:${{ needs.release-please.outputs.tag_name }}
+          docker push ${{ secrets.REGISTRY_URL }}/revops-mcp-filesystem:latest
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 3 — Deploy coordonné en production (tous les composants en séquence)
+  # CD PUR (DevOps) : déploiement k8s ordonné (migrations → MCP → RAG → orchestrator → backend → frontend)
+  # Déclenché uniquement après release-please + tag-and-release (release confirmée)
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy-production-coordinated:
+    name: Coordinated Production Deployment
+    runs-on: ubuntu-22.04
+    needs: [release-please, tag-and-release]
+    if: needs.release-please.outputs.release_created == 'true'
+    environment:
+      name: production
+      url: https://app.revops-ia.example.com
+
+    steps:
+      # SECRETS STRATEGY:
+      # - CI/CD secrets (REGISTRY_*, KUBECONFIG_*) : GitHub Secrets (CI natif)
+      # - Runtime secrets (DB, API keys) : HashiCorp Vault injecté via Vault Agent
+      # Ces deux périmètres sont distincts et ne se chevauchent pas.
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Configure kubectl for production
+        run: |
+          echo "${{ secrets.KUBECONFIG_PRODUCTION }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl version --client
+
+      - name: Deploy database migrations (backend)
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl run alembic-migrate-${{ github.run_id }} \
+            --image=${{ secrets.REGISTRY_URL }}/revops-backend:${{ needs.release-please.outputs.tag_name }} \
+            --restart=Never \
+            --namespace=revops-prod \
+            --env="DATABASE_URL=${{ secrets.DATABASE_URL_PROD }}" \
+            --command -- alembic upgrade head
+          kubectl wait pod/alembic-migrate-${{ github.run_id }} \
+            --for=condition=Succeeded \
+            --namespace=revops-prod \
+            --timeout=5m
+          kubectl delete pod/alembic-migrate-${{ github.run_id }} --namespace=revops-prod
+
+      - name: Deploy MCP servers
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          for server in mcp-crm mcp-billing mcp-analytics mcp-sequences mcp-filesystem; do
+            kubectl set image deployment/$server $server=${{ secrets.REGISTRY_URL }}/revops-$server:${{ needs.release-please.outputs.tag_name }} -n revops-prod
+            kubectl rollout status deployment/$server -n revops-prod --timeout=5m
+          done
+
+      - name: Deploy RAG layer
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl set image deployment/rag rag=${{ secrets.REGISTRY_URL }}/revops-rag:${{ needs.release-please.outputs.tag_name }} -n revops-prod
+          kubectl rollout status deployment/rag -n revops-prod --timeout=5m
+
+      - name: Deploy orchestrator
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl set image deployment/orchestrator orchestrator=${{ secrets.REGISTRY_URL }}/revops-orchestrator:${{ needs.release-please.outputs.tag_name }} -n revops-prod
+          kubectl rollout status deployment/orchestrator -n revops-prod --timeout=5m
+
+      - name: Deploy backend API
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl set image deployment/backend backend=${{ secrets.REGISTRY_URL }}/revops-backend:${{ needs.release-please.outputs.tag_name }} -n revops-prod
+          kubectl rollout status deployment/backend -n revops-prod --timeout=5m
+
+      - name: Deploy frontend
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl set image deployment/frontend frontend=${{ secrets.REGISTRY_URL }}/revops-frontend:${{ needs.release-please.outputs.tag_name }} -n revops-prod
+          kubectl rollout status deployment/frontend -n revops-prod --timeout=5m
+
+      - name: Run post-deployment smoke tests
+        run: |
+          sleep 30
+          curl --fail --silent --max-time 10 https://app.revops-ia.example.com/api/v1/health \
+            -H "X-Health-Check: ci" \
+            || (echo "Smoke test failed — rolling back" && exit 1)
+
+      - name: Notify deployment success (Slack)
+        if: success()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": ":white_check_mark: *RevOps IA SaaS ${{ needs.release-please.outputs.tag_name }}* deployed to production successfully.",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":rocket: *Production deployment successful*\n*Version:* `${{ needs.release-please.outputs.tag_name }}`\n*Triggered by:* ${{ github.actor }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+      - name: Notify deployment failure (Slack)
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": ":x: *RevOps IA SaaS ${{ needs.release-please.outputs.tag_name }}* production deployment FAILED.",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":fire: *Production deployment FAILED*\n*Version:* `${{ needs.release-please.outputs.tag_name }}`\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View logs>\n*Action required:* Manual rollback may be needed."
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

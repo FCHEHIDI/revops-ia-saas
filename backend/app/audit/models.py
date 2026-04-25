@@ -4,6 +4,7 @@ from sqlalchemy.sql import func
 from uuid import uuid4
 from app.common.db import Base
 
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)

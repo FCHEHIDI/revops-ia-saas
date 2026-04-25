@@ -3,6 +3,7 @@ from uuid import UUID
 from typing import Optional
 from datetime import datetime
 
+
 class AuditLogResponse(BaseModel):
     id: UUID
     org_id: UUID

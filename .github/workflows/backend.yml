@@ -1,0 +1,506 @@
+name: CI — Backend (FastAPI / Python)
+# ═══════════════════════════════════════════════════════════════════════════════
+# PÉRIMÈTRE : CI (Versioning & CI/CD) — jobs lint, test, security, build
+# CD (DevOps) : jobs deploy-staging et deploy-production
+# Frontière : build produit les artefacts, deploy les consomme.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: backend
+
+permissions:
+  contents: read
+  security-events: write
+
+env:
+  PYTHON_VERSION: "3.12"
+  IMAGE_NAME: revops-backend
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Lint & formatage
+  # ────────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install lint dependencies
+        run: pip install ruff==0.4.4 black==24.4.2 mypy==1.10.0
+
+      - name: Run ruff (linter)
+        run: ruff check app/ tests/
+
+      - name: Run black (format check)
+        run: black --check app/ tests/
+
+      - name: Run mypy (type checker)
+        run: mypy app/ --ignore-missing-imports --strict-optional
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Tests & Coverage
+  # ────────────────────────────────────────────────────────────────────────────
+  test:
+    name: Tests & Coverage
+    runs-on: ubuntu-22.04
+    needs: lint
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: revops_test
+          POSTGRES_PASSWORD: revops_test
+          POSTGRES_DB: revops_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://revops_test:revops_test@localhost:5432/revops_test
+      REDIS_URL: redis://localhost:6379
+      SECRET_KEY: ci-test-secret-key-not-for-production
+      ENVIRONMENT: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest==8.2.0 pytest-asyncio==0.23.6 pytest-cov==5.0.0 httpx==0.27.0
+
+      - name: Run Alembic migrations
+        run: alembic upgrade head
+
+      - name: Run pytest with coverage
+        run: |
+          pytest tests/ \
+            --cov=app \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing \
+            --cov-fail-under=80 \
+            -v
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4.3.1
+        if: always()
+        with:
+          files: backend/coverage.xml
+          flags: backend
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 3 — Tests d'isolation multi-tenant (ADR-005 : RLS PostgreSQL)
+  # ────────────────────────────────────────────────────────────────────────────
+  test-tenant-isolation:
+    name: Multi-tenant Isolation Tests (RLS)
+    runs-on: ubuntu-22.04
+    needs: lint
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: revops_test
+          POSTGRES_PASSWORD: revops_test
+          POSTGRES_DB: revops_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    # ADR-005 : tests d'isolation exécutés avec le rôle applicatif non-superuser (revops_app)
+    # afin de valider réellement les politiques RLS (un superuser les bypasse par défaut en PostgreSQL).
+    env:
+      DATABASE_URL: postgresql+asyncpg://revops_app:revops_app@localhost:5432/revops_test
+      SECRET_KEY: ci-test-secret-key-not-for-production
+      ENVIRONMENT: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest==8.2.0 pytest-asyncio==0.23.6 pytest-cov==5.0.0 httpx==0.27.0
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -y && sudo apt-get install -y postgresql-client
+
+      - name: Create applicative role revops_app (pre-migration)
+        run: |
+          psql postgresql://revops_test:revops_test@localhost:5432/revops_test <<'SQL'
+          -- Create non-superuser applicative role (mirrors production role — ADR-005)
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'revops_app') THEN
+              CREATE ROLE revops_app LOGIN PASSWORD 'revops_app';
+            END IF;
+          END $$;
+          SQL
+
+      - name: Run Alembic migrations (superuser revops_test — revops_app n'existe pas encore au niveau ORM)
+        run: alembic upgrade head
+        env:
+          DATABASE_URL: postgresql+asyncpg://revops_test:revops_test@localhost:5432/revops_test
+
+      - name: Configure RLS fixtures — grants, policies, organizations
+        run: |
+          psql postgresql://revops_test:revops_test@localhost:5432/revops_test <<'SQL'
+          -- Grant permissions to applicative role (post-migration — toutes les tables existent)
+          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO revops_app;
+          GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO revops_app;
+
+          -- Create two test organizations
+          INSERT INTO organizations (id, name, slug) VALUES
+            ('00000000-0000-0000-0000-000000000001', 'Tenant Alpha', 'tenant-alpha'),
+            ('00000000-0000-0000-0000-000000000002', 'Tenant Beta', 'tenant-beta')
+          ON CONFLICT DO NOTHING;
+
+          -- Enable RLS on key tables (idempotent)
+          ALTER TABLE IF EXISTS deals ENABLE ROW LEVEL SECURITY;
+          ALTER TABLE IF EXISTS contacts ENABLE ROW LEVEL SECURITY;
+          ALTER TABLE IF EXISTS sessions ENABLE ROW LEVEL SECURITY;
+
+          -- Force RLS even for superusers — garantit que les tests valident réellement les politiques (ADR-005)
+          ALTER TABLE IF EXISTS deals FORCE ROW LEVEL SECURITY;
+          ALTER TABLE IF EXISTS contacts FORCE ROW LEVEL SECURITY;
+          ALTER TABLE IF EXISTS sessions FORCE ROW LEVEL SECURITY;
+
+          -- Drop existing policies (idempotent — couvre les deux conventions de nommage)
+          DROP POLICY IF EXISTS tenant_isolation ON deals;
+          DROP POLICY IF EXISTS tenant_isolation ON contacts;
+          DROP POLICY IF EXISTS tenant_isolation ON sessions;
+          DROP POLICY IF EXISTS tenant_isolation_select ON deals;
+          DROP POLICY IF EXISTS tenant_isolation_insert ON deals;
+          DROP POLICY IF EXISTS tenant_isolation_update ON deals;
+          DROP POLICY IF EXISTS tenant_isolation_delete ON deals;
+          DROP POLICY IF EXISTS tenant_isolation_select ON contacts;
+          DROP POLICY IF EXISTS tenant_isolation_insert ON contacts;
+          DROP POLICY IF EXISTS tenant_isolation_update ON contacts;
+          DROP POLICY IF EXISTS tenant_isolation_delete ON contacts;
+          DROP POLICY IF EXISTS tenant_isolation_select ON sessions;
+          DROP POLICY IF EXISTS tenant_isolation_insert ON sessions;
+          DROP POLICY IF EXISTS tenant_isolation_update ON sessions;
+          DROP POLICY IF EXISTS tenant_isolation_delete ON sessions;
+
+          -- Politique SELECT (ADR-005 : USING)
+          CREATE POLICY tenant_isolation_select ON deals
+            FOR SELECT
+            USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+          CREATE POLICY tenant_isolation_select ON contacts
+            FOR SELECT
+            USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+          CREATE POLICY tenant_isolation_select ON sessions
+            FOR SELECT
+            USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+          -- Politique INSERT (ADR-005 : WITH CHECK)
+          CREATE POLICY tenant_isolation_insert ON deals
+            FOR INSERT
+            WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+          CREATE POLICY tenant_isolation_insert ON contacts
+            FOR INSERT
+            WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+          CREATE POLICY tenant_isolation_insert ON sessions
+            FOR INSERT
+            WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+          -- Politique UPDATE (ADR-005 defense-in-depth : USING + WITH CHECK)
+          CREATE POLICY tenant_isolation_update ON deals
+            FOR UPDATE
+            USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)
+            WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+          CREATE POLICY tenant_isolation_update ON contacts
+            FOR UPDATE
+            USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)
+            WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+          CREATE POLICY tenant_isolation_update ON sessions
+            FOR UPDATE
+            USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)
+            WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+          -- Politique DELETE (ADR-005 defense-in-depth : USING)
+          CREATE POLICY tenant_isolation_delete ON deals
+            FOR DELETE
+            USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+          CREATE POLICY tenant_isolation_delete ON contacts
+            FOR DELETE
+            USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+          CREATE POLICY tenant_isolation_delete ON sessions
+            FOR DELETE
+            USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+          SQL
+
+      - name: Run tenant isolation tests
+        run: |
+          pytest tests/ \
+            -m tenant_isolation \
+            --cov=app \
+            --cov-report=xml:coverage-isolation.xml \
+            --cov-report=term-missing \
+            --cov-fail-under=60 \
+            -v
+
+      - name: Upload isolation test coverage
+        uses: codecov/codecov-action@v4.3.1
+        if: always()
+        with:
+          files: backend/coverage-isolation.xml
+          flags: backend-isolation
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 4 — Security (SAST + dépendances)
+  # ────────────────────────────────────────────────────────────────────────────
+  security:
+    name: Security Scan (SAST + Dependencies)
+    runs-on: ubuntu-22.04
+    needs: lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install security tools
+        run: pip install bandit==1.7.8 safety==3.2.0
+
+      - name: Run bandit (SAST)
+        run: bandit -r app/ -ll -ii --format json -o bandit-report.json
+        continue-on-error: true
+
+      - name: Run safety (dependency vulnerabilities)
+        run: safety check -r requirements.txt --output json > safety-report.json
+        continue-on-error: true
+
+      - name: Upload bandit report
+        uses: actions/upload-artifact@v4.3.3
+        if: always()
+        with:
+          name: bandit-report
+          path: backend/bandit-report.json
+          retention-days: 30
+
+      - name: Upload safety report
+        uses: actions/upload-artifact@v4.3.3
+        if: always()
+        with:
+          name: safety-report
+          path: backend/safety-report.json
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 5 — Build Docker image
+  # ────────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-22.04
+    needs: [test, test-tenant-isolation, security]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5.5.1
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+
+      - name: Extract short SHA for Trivy image reference
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Build Docker image (no push on PR)
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: backend
+          file: backend/Dockerfile
+          push: false
+          load: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scan on image
+        uses: aquasecurity/trivy-action@0.21.0
+        with:
+          image-ref: "${{ env.IMAGE_NAME }}:sha-${{ env.SHORT_SHA }}"
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3.25.5
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 6 — Push image & Deploy to staging (merge main only) [CD — DevOps]
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-22.04
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: https://staging.revops-ia.example.com
+
+    steps:
+      # SECRETS STRATEGY:
+      # - CI/CD secrets (REGISTRY_*, KUBECONFIG_*) : GitHub Secrets (CI natif)
+      # - Runtime secrets (DB, API keys) : HashiCorp Vault injecté via Vault Agent
+      # Ces deux périmètres sont distincts et ne se chevauchent pas.
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3.2.0
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push Docker image to registry
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: backend
+          file: backend/Dockerfile
+          push: true
+          tags: ${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:staging,${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to staging via kubectl
+        run: |
+          echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl set image deployment/backend backend=${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }} -n revops-staging
+          kubectl rollout status deployment/backend -n revops-staging --timeout=5m
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 7 — Deploy to production (tag vX.Y.Z only) [CD — DevOps]
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-22.04
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+      url: https://app.revops-ia.example.com
+
+    steps:
+      # SECRETS STRATEGY:
+      # - CI/CD secrets (REGISTRY_*, KUBECONFIG_*) : GitHub Secrets (CI natif)
+      # - Runtime secrets (DB, API keys) : HashiCorp Vault injecté via Vault Agent
+      # Ces deux périmètres sont distincts et ne se chevauchent pas.
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3.2.0
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push Docker image with release tag
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: backend
+          file: backend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+            ${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to production via kubectl
+        run: |
+          echo "${{ secrets.KUBECONFIG_PRODUCTION }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl set image deployment/backend backend=${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }} -n revops-prod
+          kubectl rollout status deployment/backend -n revops-prod --timeout=10m

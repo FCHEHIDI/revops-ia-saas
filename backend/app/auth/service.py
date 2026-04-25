@@ -1,61 +1,134 @@
-from app.users.models import User, RefreshToken
-from app.common.security import verify_password, hash_password, create_access_token, create_refresh_token
-from app.common.utils import utcnow
-from app.config import settings
-from app.auth.schemas import TokenResponse
+import hashlib
+import secrets
+from datetime import datetime, timedelta, timezone
+from typing import Optional, Tuple
+from uuid import UUID, uuid4
+
+from fastapi import HTTPException, status
+from jose import JWTError, jwt
+from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from datetime import timedelta
-from fastapi import HTTPException, status
-from uuid import uuid4
 
-async def authenticate_user(db: AsyncSession, email: str, password: str) -> User | None:
-    q = await db.execute(select(User).where(User.email == email))
-    user = q.scalar_one_or_none()
-    if user and verify_password(password, user.password_hash):
-        return user
-    return None
+from app.config import settings
+from app.models.refresh_token import RefreshToken
+from app.models.user import User
+from app.auth.schemas import TokenPayload
 
-async def create_tokens(db: AsyncSession, user: User) -> TokenResponse:
-    access_token = create_access_token(
-        data={"sub": str(user.id), "org_id": str(user.org_id), "permissions": user.permissions},
-        expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
-    )
-    refresh_token = create_refresh_token()
-    expires_at = utcnow() + timedelta(days=settings.refresh_token_expire_days)
-    refresh_token_obj = RefreshToken(
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+ALGORITHM = "HS256"
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def _hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def create_access_token(user: User) -> str:
+    expire = _utc_now() + timedelta(minutes=settings.access_token_expire_minutes)
+    payload = {
+        "sub": str(user.id),
+        "tenant_id": str(user.tenant_id),
+        "exp": int(expire.timestamp()),
+        "type": "access",
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=ALGORITHM)
+
+
+async def create_refresh_token(db: AsyncSession, user: User) -> str:
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = _hash_refresh_token(raw_token)
+    expire = _utc_now() + timedelta(days=settings.refresh_token_expire_days)
+    token_obj = RefreshToken(
         id=uuid4(),
         user_id=user.id,
-        token_hash=hash_password(refresh_token),
-        expires_at=expires_at
+        token_hash=token_hash,
+        expires_at=expire,
+        is_revoked=False,
     )
-    db.add(refresh_token_obj)
+    db.add(token_obj)
     await db.commit()
-    await db.refresh(refresh_token_obj)
-    return TokenResponse(access_token=access_token, expires_in=settings.access_token_expire_minutes * 60, refresh_token=refresh_token)
+    return raw_token
 
-async def refresh_access_token(db: AsyncSession, refresh_token: str) -> TokenResponse:
-    q = await db.execute(select(RefreshToken).where(RefreshToken.revoked_at.is_(None)))
-    tokens = q.scalars().all()
-    valid = None
-    for tok in tokens:
-        if verify_password(refresh_token, tok.token_hash):
-            valid = tok
-            break
-    if not valid or valid.expires_at < utcnow():
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
-    await revoke_refresh_token(db, refresh_token)
-    q_user = await db.execute(select(User).where(User.id == valid.user_id))
-    user = q_user.scalar_one_or_none()
+
+def verify_access_token(token: str) -> TokenPayload:
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[ALGORITHM])
+        return TokenPayload(
+            sub=UUID(payload["sub"]),
+            tenant_id=UUID(payload["tenant_id"]),
+            exp=payload["exp"],
+            type=payload["type"],
+        )
+    except (JWTError, KeyError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired access token",
+        )
+
+
+async def refresh_tokens(db: AsyncSession, raw_refresh_token: str) -> Tuple[str, str]:
+    token_hash = _hash_refresh_token(raw_refresh_token)
+    result = await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.token_hash == token_hash,
+            RefreshToken.expires_at > _utc_now(),
+            RefreshToken.is_revoked.is_(False),
+        )
+    )
+    token_obj = result.scalar_one_or_none()
+    if not token_obj:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
+    token_obj.is_revoked = True
+    db.add(token_obj)
+
+    user_result = await db.execute(select(User).where(User.id == token_obj.user_id))
+    user = user_result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    return await create_tokens(db, user)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
-async def revoke_refresh_token(db: AsyncSession, refresh_token: str):
-    q = await db.execute(select(RefreshToken).where(RefreshToken.revoked_at.is_(None)))
-    tokens = q.scalars().all()
-    for tok in tokens:
-        if verify_password(refresh_token, tok.token_hash):
-            tok.revoked_at = utcnow()
-            db.add(tok)
+    access_token = create_access_token(user)
+    new_refresh_token = await create_refresh_token(db, user)
     await db.commit()
+    return access_token, new_refresh_token
+
+
+async def revoke_refresh_token(db: AsyncSession, raw_refresh_token: str) -> None:
+    token_hash = _hash_refresh_token(raw_refresh_token)
+    result = await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.token_hash == token_hash,
+            RefreshToken.is_revoked.is_(False),
+        )
+    )
+    token_obj = result.scalar_one_or_none()
+    if token_obj:
+        token_obj.is_revoked = True
+        db.add(token_obj)
+        await db.commit()
+
+
+async def authenticate_user(
+    db: AsyncSession, email: str, password: str
+) -> Optional[User]:
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if user and user.is_active and verify_password(password, user.password_hash):
+        return user
+    return None

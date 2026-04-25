@@ -1,0 +1,204 @@
+name: revops-dev
+
+networks:
+  revops_dev:
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local
+
+services:
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Postgres 16 avec extensions pgvector, uuid-ossp, pgcrypto
+  # ═══════════════════════════════════════════════════════════════════════════════
+  postgres:
+    image: postgres:16-alpine
+    container_name: revops-dev-postgres
+    restart: unless-stopped
+    networks:
+      - revops_dev
+    ports:
+      # 5432 souvent occupe par d'autres stacks de dev locales -> on expose
+      # sur 5433 cote hote ; les services intra-network parlent en 5432.
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: revops
+      POSTGRES_PASSWORD: revops
+      POSTGRES_DB: revops
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U revops -d revops"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Redis 7 — Queue RAG + Cache
+  # ═══════════════════════════════════════════════════════════════════════════════
+  redis:
+    image: redis:7-alpine
+    container_name: revops-dev-redis
+    restart: unless-stopped
+    networks:
+      - revops_dev
+    ports:
+      # 6379 souvent occupe -> on expose sur 6380 cote hote ; les services
+      # intra-network parlent en 6379.
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Backend FastAPI — API multi-tenant, auth, RLS, routing
+  # ═══════════════════════════════════════════════════════════════════════════════
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    container_name: revops-dev-backend
+    restart: unless-stopped
+    networks:
+      - revops_dev
+    ports:
+      # 8000 frequemment occupe par d'autres dev stacks -> on expose sur
+      # 18000 cote hote ; le frontend doit pointer NEXT_PUBLIC_API_URL
+      # sur http://localhost:18000.
+      - "18000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://revops:revops@postgres:5432/revops
+      REDIS_URL: redis://redis:6379/0
+      INTERNAL_API_KEY: dev-internal-key-change-me
+      INTERNAL_SECRET: dev-internal-secret-change-me
+      ORCHESTRATOR_URL: http://orchestrator:8080
+      JWT_SECRET: dev-jwt-secret-change-me
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      REFRESH_TOKEN_EXPIRE_DAYS: "7"
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      PYTHONUNBUFFERED: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # Hot-reload du code applicatif en developpement (les modifs locales
+      # sont prises en compte sans rebuild de l'image).
+      - ../../backend/app:/app/app
+      - ../../backend/alembic:/app/alembic
+      - ../../backend/alembic.ini:/app/alembic.ini
+    command:
+      - sh
+      - -c
+      - |
+        echo "Running Alembic migrations..." \
+        && alembic upgrade head \
+        && echo "Starting uvicorn (auto-reload)..." \
+        && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # NOTE: Exécuter les migrations Alembic manuellement après le premier démarrage :
+    # docker compose -f infra/docker/docker-compose.dev.yml exec backend alembic upgrade head
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Orchestrateur Rust — Context builder, appels RAG + MCP, queue LLM
+  # ═══════════════════════════════════════════════════════════════════════════════
+  orchestrator:
+    build:
+      context: ../../orchestrator
+      dockerfile: Dockerfile
+    container_name: revops-dev-orchestrator
+    restart: unless-stopped
+    networks:
+      - revops_dev
+    ports:
+      # 8080 souvent occupe -> 18080 cote hote.
+      - "18080:8080"
+    environment:
+      BACKEND_URL: http://backend:8000
+      REDIS_URL: redis://redis:6379/0
+      INTERNAL_API_KEY: dev-internal-key-change-me
+      MCP_CRM_URL: http://mcp-crm:9001
+      RAG_URL: http://rag:8500
+      RUST_LOG: info
+      PORT: "8080"
+    depends_on:
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # MCP CRM (Python) — Serveur MCP pour CRM (contacts, accounts, deals)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  mcp-crm:
+    build:
+      context: ../../mcp/mcp-crm
+      dockerfile: Dockerfile
+    container_name: revops-dev-mcp-crm
+    restart: unless-stopped
+    networks:
+      - revops_dev
+    ports:
+      - "19001:9001"
+    environment:
+      BACKEND_URL: http://backend:8000
+      INTERNAL_API_KEY: dev-internal-key-change-me
+      PORT: "9001"
+      LOG_LEVEL: INFO
+      HTTP_TIMEOUT: "10.0"
+    depends_on:
+      backend:
+        condition: service_started
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # RAG Layer (Python) — Vector store, embeddings, retrievers
+  # ═══════════════════════════════════════════════════════════════════════════════
+  rag:
+    build:
+      context: ../../rag
+      dockerfile: Dockerfile
+    container_name: revops-dev-rag
+    restart: unless-stopped
+    networks:
+      - revops_dev
+    ports:
+      - "18500:8002"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://revops:revops@postgres:5432/revops
+      REDIS_URL: redis://redis:6379/0
+      PYTHONUNBUFFERED: "1"
+      LOG_LEVEL: INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Frontend Next.js — Interface UI + Chat IA
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # NOTE: Le frontend peut être commenté si non nécessaire en dev backend-only
+  # Pour le build Next.js avec output: standalone, le Dockerfile doit être adapté
+  # frontend:
+  #   build:
+  #     context: ../../frontend
+  #     dockerfile: Dockerfile
+  #   container_name: revops-dev-frontend
+  #   restart: unless-stopped
+  #   networks:
+  #     - revops_dev
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     NEXT_PUBLIC_API_URL: http://localhost:8000
+  #     NODE_ENV: development
+  #   depends_on:
+  #     - backend

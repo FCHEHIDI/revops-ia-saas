@@ -2,7 +2,8 @@
 
 Document de référence architecturale pour tous les agents développeurs du projet.
 
-> **Dernière mise à jour** : 2026-03-05  
+> **Dernière mise à jour** : 2026-03-17  
+> **Phase** : Phase 2 — MCP CRM (en cours)  
 > **Décideurs** : Architecte Système  
 > **Charte** : [docs/PROJECT_MANAGER_CHARTER.md](./PROJECT_MANAGER_CHARTER.md)  
 > **ADRs** : [docs/adr/README.md](./adr/README.md)
@@ -331,28 +332,35 @@ graph TB
 
 **Rôle** : Source de vérité métier pour le LLM. Encapsule tout accès aux données structurées derrière des tools MCP typés et sécurisés.
 
-**Technologie** : Rust (édition 2021) · Tokio · rmcp · sqlx
+**Technologie** : Python 3.12 · mcp SDK (Anthropic) · httpx · Pydantic v2
+
+> **ADR-008** : Les serveurs MCP n'ont **aucun accès direct à la base de données**. Ils appellent exclusivement le backend FastAPI via des endpoints internes HTTP (`/internal/v1/...`). Ce choix centralise le RLS, le RBAC et la logique métier dans le backend, et réduit la surface d'attaque (pas de credentials DB dans les MCPs). Voir [ADR-008](./adr/ADR-008-mcp-crm-architecture.md).
 
 **Serveurs disponibles** :
 
-| Serveur | Domaine | Outils principaux |
-|---------|---------|-------------------|
-| `mcp-crm` | CRM — contacts, comptes, deals, pipeline | `get_contact`, `search_accounts`, `update_deal_stage` |
-| `mcp-billing` | Facturation, abonnements, paiements | `get_invoice`, `check_subscription`, `list_overdue` |
-| `mcp-analytics` | Métriques RevOps, pipeline, prévisions | `get_pipeline_metrics`, `compute_churn_rate`, `forecast_revenue` |
-| `mcp-sequences` | Séquences d'emails et outreach | `create_sequence`, `enroll_contact`, `get_performance` |
-| `mcp-filesystem` | Documents, fichiers, playbooks | `read_document`, `list_playbooks`, `upload_report` |
+| Serveur | Domaine | Outils principaux | Statut |
+|---------|---------|-------------------|--------|
+| `mcp-crm` | CRM — contacts, comptes, deals, pipeline | `get_contact`, `search_accounts`, `update_deal_stage` | Phase 2 |
+| `mcp-billing` | Facturation, abonnements, paiements | `get_invoice`, `check_subscription`, `list_overdue` | Phase 3 |
+| `mcp-analytics` | Métriques RevOps, pipeline, prévisions | `get_pipeline_metrics`, `compute_churn_rate`, `forecast_revenue` | Phase 3 |
+| `mcp-sequences` | Séquences d'emails et outreach | `create_sequence`, `enroll_contact`, `get_performance` | Phase 4 |
+| `mcp-filesystem` | Documents, fichiers, playbooks | `read_document`, `list_playbooks`, `upload_report` | Phase 4 |
 
 **Interfaces** :
 - **Entrante** : appels protocole MCP depuis l'Orchestrateur (tools calls avec paramètres typés + tenant_id)
-- **Sortante** : données structurées retournées au format JSON, accès DB PostgreSQL via sqlx
+- **Sortante** : appels HTTP internes vers le Backend API (`/internal/v1/...`) avec `X-Internal-API-Key` + `X-Tenant-ID`
 
 **Responsabilités** :
-- Validation systématique du `tenant_id` à chaque appel
-- Autorisation granulaire par action (read/write/delete)
-- Audit log de chaque action LLM
-- Rate limiting par tenant
-- Schémas d'entrée/sortie validés (pas d'injection via le LLM)
+- Validation et propagation systématique du `tenant_id` à chaque appel
+- Traduction des tool calls MCP en requêtes HTTP vers le backend
+- Gestion des erreurs HTTP → McpError (codes JSON-RPC standardisés)
+- Schémas d'entrée/sortie validés par Pydantic (pas d'injection via le LLM)
+
+**Ce que les MCPs ne font PAS** (par construction) :
+- Aucune connexion Postgres directe
+- Aucune requête SQL
+- Aucun appel entre MCPs
+- Aucune logique de RBAC ou de RLS (délégué au backend)
 
 ---
 
@@ -540,12 +548,14 @@ OpenTelemetry est instrumenté dès le départ dans tous les services. Chaque re
 
 | ADR | Décision | Lien |
 |-----|----------|------|
-| ADR-001 | Rust pour MCP et Orchestrateur | [ADR-001](./adr/ADR-001-rust-mcp-orchestrator.md) |
+| ADR-001 | Rust pour MCP et Orchestrateur (voir exception ADR-008) | [ADR-001](./adr/ADR-001-rust-mcp-orchestrator.md) |
 | ADR-002 | LLM Stateless avec Queue | [ADR-002](./adr/ADR-002-llm-stateless-queue.md) |
 | ADR-003 | MCP comme unique couche métier | [ADR-003](./adr/ADR-003-mcp-couche-metier.md) |
 | ADR-004 | RAG pour la mémoire documentaire | [ADR-004](./adr/ADR-004-rag-memoire-documentaire.md) |
 | ADR-005 | Isolation multi-tenant dans le Backend | [ADR-005](./adr/ADR-005-backend-multitenant.md) |
 | ADR-006 | Stack technologique globale | [ADR-006](./adr/ADR-006-stack-technologique.md) |
+| ADR-007 | Structure Monorepo | [ADR-007](./adr/ADR-007-monorepo-structure.md) |
+| ADR-008 | Architecture MCP CRM — Phase 2 | [ADR-008](./adr/ADR-008-mcp-crm-architecture.md) |
 
 ---
 

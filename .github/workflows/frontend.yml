@@ -1,0 +1,321 @@
+name: CI — Frontend (Next.js / TypeScript)
+# ═══════════════════════════════════════════════════════════════════════════════
+# PÉRIMÈTRE : CI (Versioning & CI/CD) — jobs lint, test, security, build
+# CD (DevOps) : jobs deploy-staging et deploy-production
+# Frontière : build produit les artefacts, deploy les consomme.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend.yml"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: frontend
+
+permissions:
+  contents: read
+  security-events: write
+
+env:
+  NODE_VERSION: "20"
+  IMAGE_NAME: revops-frontend
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Lint & Type Check
+  # ────────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & TypeScript Check
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4.0.2
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run TypeScript type check
+        run: npm run type-check
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Tests unitaires (Jest)
+  # ────────────────────────────────────────────────────────────────────────────
+  test:
+    name: Unit Tests (Jest)
+    runs-on: ubuntu-22.04
+    needs: lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4.0.2
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline
+
+      - name: Run Jest tests with coverage
+        run: npm run test -- --coverage --ci --forceExit
+        env:
+          CI: true
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4.3.1
+        if: always()
+        with:
+          files: frontend/coverage/lcov.info
+          flags: frontend
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 3 — Security (npm audit)
+  # ────────────────────────────────────────────────────────────────────────────
+  security:
+    name: Security Scan (npm audit)
+    runs-on: ubuntu-22.04
+    needs: lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4.0.2
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline
+
+      - name: Run npm audit (critical & high only)
+        run: npm audit --audit-level=high --json > npm-audit-report.json
+        continue-on-error: true
+
+      - name: Upload npm audit report
+        uses: actions/upload-artifact@v4.3.3
+        if: always()
+        with:
+          name: npm-audit-report
+          path: frontend/npm-audit-report.json
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 4 — Build Next.js
+  # ────────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build Next.js Application
+    runs-on: ubuntu-22.04
+    needs: [test, security]
+
+    env:
+      NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL_STAGING }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4.0.2
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline
+
+      - name: Build Next.js application
+        run: npm run build
+        env:
+          CI: true
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4.3.3
+        with:
+          name: nextjs-build
+          path: |
+            frontend/.next/
+            !frontend/.next/cache
+          retention-days: 7
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 5 — Build Docker image & Trivy scan
+  # ────────────────────────────────────────────────────────────────────────────
+  docker:
+    name: Build Docker Image & Trivy Scan
+    runs-on: ubuntu-22.04
+    needs: build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5.5.1
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+
+      - name: Build Docker image (no push on PR)
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: true
+
+      - name: Run Trivy vulnerability scan on Docker image
+        uses: aquasecurity/trivy-action@0.21.0
+        with:
+          image-ref: "${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
+          format: sarif
+          output: trivy-frontend-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3.25.5
+        if: always()
+        with:
+          sarif_file: trivy-frontend-results.sarif
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 6 — Deploy to staging (merge main only)
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-22.04
+    needs: docker
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: https://staging.revops-ia.example.com
+
+    steps:
+      # SECRETS STRATEGY:
+      # - CI/CD secrets (REGISTRY_*, KUBECONFIG_*) : GitHub Secrets (CI natif)
+      # - Runtime secrets (DB, API keys) : HashiCorp Vault injecté via Vault Agent
+      # Ces deux périmètres sont distincts et ne se chevauchent pas.
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3.2.0
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push Docker image to staging registry
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: true
+          tags: ${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:staging,${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL_STAGING }}
+
+      - name: Deploy to staging via kubectl
+        run: |
+          echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl set image deployment/frontend frontend=${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }} -n revops-staging
+          kubectl rollout status deployment/frontend -n revops-staging --timeout=5m
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 7 — Deploy to production (tag vX.Y.Z only)
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-22.04
+    needs: docker
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+      url: https://app.revops-ia.example.com
+
+    steps:
+      # SECRETS STRATEGY:
+      # - CI/CD secrets (REGISTRY_*, KUBECONFIG_*) : GitHub Secrets (CI natif)
+      # - Runtime secrets (DB, API keys) : HashiCorp Vault injecté via Vault Agent
+      # Ces deux périmètres sont distincts et ne se chevauchent pas.
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3.2.0
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push Docker image with release tag
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+            ${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL_PRODUCTION }}
+
+      - name: Deploy to production via kubectl
+        run: |
+          echo "${{ secrets.KUBECONFIG_PRODUCTION }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl set image deployment/frontend frontend=${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }} -n revops-prod
+          kubectl rollout status deployment/frontend -n revops-prod --timeout=10m

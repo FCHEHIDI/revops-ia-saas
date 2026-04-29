@@ -15,12 +15,12 @@ function MetricCard({ metric }: { metric: Metric }) {
 
   return (
     <Card className="flex flex-col gap-3">
-      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{metric.label}</p>
+      <p className="text-xs font-medium text-text-muted uppercase tracking-wide">{metric.label}</p>
       <div className="flex items-end justify-between gap-2">
         <div>
-          <span className="text-2xl font-bold text-slate-100">{metric.value}</span>
+          <span className="text-2xl font-bold text-text-primary">{metric.value}</span>
           {metric.unit && (
-            <span className="ml-1 text-sm text-slate-500">{metric.unit}</span>
+            <span className="ml-1 text-sm text-text-muted">{metric.unit}</span>
           )}
         </div>
         {hasChange && (
@@ -28,8 +28,8 @@ function MetricCard({ metric }: { metric: Metric }) {
             className={cn(
               "flex items-center gap-1 text-xs font-medium",
               isIncrease && "text-emerald-400",
-              isDecrease && "text-red-400",
-              !isIncrease && !isDecrease && "text-slate-500"
+              isDecrease && "text-red",
+              !isIncrease && !isDecrease && "text-text-muted"
             )}
           >
             {isIncrease && <TrendingUp size={14} />}
@@ -40,7 +40,7 @@ function MetricCard({ metric }: { metric: Metric }) {
         )}
       </div>
       {metric.period && (
-        <p className="text-xs text-slate-600">{metric.period}</p>
+        <p className="text-xs text-text-muted">{metric.period}</p>
       )}
     </Card>
   );

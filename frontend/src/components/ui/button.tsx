@@ -1,4 +1,4 @@
-import { forwardRef, type ButtonHTMLAttributes } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
@@ -10,25 +10,38 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   isLoading?: boolean;
 }
 
-const variantClasses: Record<ButtonVariant, string> = {
-  primary:
-    "bg-indigo-500 hover:bg-indigo-600 text-white border-transparent focus-visible:ring-indigo-500",
-  secondary:
-    "bg-slate-700 hover:bg-slate-600 text-slate-100 border-slate-600 focus-visible:ring-slate-500",
-  ghost:
-    "bg-transparent hover:bg-slate-700 text-slate-300 border-transparent focus-visible:ring-slate-500",
-  danger:
-    "bg-red-600 hover:bg-red-700 text-white border-transparent focus-visible:ring-red-500",
+const variantStyles: Record<ButtonVariant, CSSProperties> = {
+  primary: {
+    background: "var(--accent-red)",
+    color: "#fff",
+    border: "none",
+    boxShadow: "0 0 20px rgba(255,0,0,0.28)",
+  },
+  secondary: {
+    background: "var(--bg-elevated)",
+    color: "var(--text-primary)",
+    border: "1px solid var(--border-default)",
+  },
+  ghost: {
+    background: "transparent",
+    color: "var(--text-secondary)",
+    border: "1px solid transparent",
+  },
+  danger: {
+    background: "rgba(255,0,0,0.12)",
+    color: "var(--accent-red)",
+    border: "1px solid rgba(255,0,0,0.3)",
+  },
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
   sm: "px-3 py-1.5 text-sm",
   md: "px-4 py-2 text-sm",
-  lg: "px-5 py-2.5 text-base",
+  lg: "px-5 py-3 text-sm",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = "primary", size = "md", isLoading = false, className, disabled, children, ...props },
+  { variant = "primary", size = "md", isLoading = false, className, disabled, style, children, ...props },
   ref
 ) {
   return (
@@ -36,13 +49,17 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       disabled={disabled || isLoading}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-lg border font-medium",
-        "transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900",
+        "inline-flex items-center justify-center gap-2 font-semibold tracking-wide",
+        "transition-all duration-200 outline-none",
         "disabled:opacity-50 disabled:cursor-not-allowed",
-        variantClasses[variant],
         sizeClasses[size],
         className
       )}
+      style={{
+        borderRadius: "var(--radius-btn)",
+        ...variantStyles[variant],
+        ...style,
+      }}
       {...props}
     >
       {isLoading && (

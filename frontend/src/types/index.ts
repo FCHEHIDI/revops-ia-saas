@@ -70,29 +70,67 @@ export interface ProcessRequest {
 
 export type ContactStatus = "active" | "inactive" | "lead" | "customer" | "churned";
 
+/** Miroir de ContactRead (backend app/crm/schemas.py). */
 export interface Contact {
   id: string;
-  tenant_id: string;
+  org_id: string;
   first_name: string;
   last_name: string;
   email: string;
   phone?: string;
-  company?: string;
+  job_title?: string;
   status: ContactStatus;
+  account_id?: string;
+  created_by?: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
-export interface Company {
+/** Miroir de AccountRead (backend app/crm/schemas.py). */
+export interface Account {
   id: string;
-  tenant_id: string;
+  org_id: string;
   name: string;
   domain?: string;
   industry?: string;
   size?: string;
-  contact_count: number;
+  arr?: number;
+  status?: string;
+  created_by?: string;
   created_at: string;
+  updated_at?: string;
 }
+
+export type DealStage =
+  | "prospecting"
+  | "qualification"
+  | "proposal"
+  | "negotiation"
+  | "closing"
+  | "won"
+  | "lost";
+
+/** Miroir de DealRead (backend app/crm/schemas.py). */
+export interface Deal {
+  id: string;
+  org_id: string;
+  account_id: string;
+  contact_id?: string;
+  owner_id?: string;
+  title: string;
+  stage: DealStage;
+  amount?: number;
+  currency: string;
+  close_date?: string;
+  probability?: number;
+  notes?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+/** @deprecated Utiliser Account. Conservé pour compatibilité temporaire. */
+export type Company = Account;
 
 // ---------------------------------------------------------------------------
 // Billing

@@ -27,21 +27,21 @@ function SequenceCard({ sequence }: { sequence: Sequence }) {
   const isActive = sequence.status === "active";
 
   return (
-    <Card className="flex items-start justify-between gap-4 hover:border-slate-600 transition-colors">
+    <Card className="flex items-start justify-between gap-4 hover:border-border-strong transition-colors">
       <div className="flex items-start gap-3 min-w-0">
-        <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${isActive ? "bg-emerald-500/10" : "bg-slate-700"}`}>
+        <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${isActive ? "bg-emerald-500/10" : "bg-elevated"}`}>
           {isActive ? (
             <Play size={14} className="text-emerald-400" />
           ) : (
-            <Pause size={14} className="text-slate-500" />
+            <Pause size={14} className="text-text-muted" />
           )}
         </div>
         <div className="min-w-0">
-          <p className="font-medium text-slate-100 truncate">{sequence.name}</p>
+          <p className="font-medium text-text-primary truncate">{sequence.name}</p>
           {sequence.description && (
-            <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">{sequence.description}</p>
+            <p className="mt-0.5 text-xs text-text-muted line-clamp-1">{sequence.description}</p>
           )}
-          <div className="mt-2 flex items-center gap-3 text-xs text-slate-500">
+          <div className="mt-2 flex items-center gap-3 text-xs text-text-muted">
             <span className="flex items-center gap-1">
               <FileText size={11} />
               {sequence.step_count} étapes
@@ -50,7 +50,7 @@ function SequenceCard({ sequence }: { sequence: Sequence }) {
               <Users size={11} />
               {sequence.enrolled_count} inscrits
             </span>
-            <span className="text-slate-600">{formatDate(sequence.updated_at)}</span>
+            <span className="text-text-muted">{formatDate(sequence.updated_at)}</span>
           </div>
         </div>
       </div>
@@ -77,7 +77,7 @@ export function SequencesList() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-800/50 bg-red-900/10 p-6 text-center text-sm text-red-400">
+      <div className="rounded-lg border border-red/30 bg-red-dim/30 p-6 text-center text-sm text-red">
         Erreur lors du chargement des séquences : {error.message}
       </div>
     );
@@ -87,8 +87,8 @@ export function SequencesList() {
 
   if (sequences.length === 0) {
     return (
-      <div className="rounded-xl border border-slate-700 bg-slate-800 p-12 text-center">
-        <p className="text-slate-400">Aucune séquence trouvée.</p>
+      <div className="rounded-xl border border-border-default bg-surface p-12 text-center">
+        <p className="text-text-secondary">Aucune séquence trouvée.</p>
       </div>
     );
   }

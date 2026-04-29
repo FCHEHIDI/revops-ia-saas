@@ -29,11 +29,19 @@ class ApiClient {
     });
 
     if (res.status === 401 && !skipRefresh) {
-      const refreshed = await refreshSession();
-      if (refreshed) {
-        return this.request<T>(path, { ...options, skipRefresh: true });
+      // Don't attempt refresh for auth endpoints — avoids redirect loops
+      const isAuthPath = path.startsWith("/auth/");
+      if (!isAuthPath) {
+        const refreshed = await refreshSession();
+        if (refreshed) {
+          return this.request<T>(path, { ...options, skipRefresh: true });
+        }
       }
-      if (typeof window !== "undefined") {
+      // Only redirect if not already on the login page
+      if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.startsWith("/login")
+      ) {
         window.location.href = "/login";
       }
       throw new Error("Unauthorized");
@@ -94,17 +102,48 @@ export const authApi = {
 };
 
 // ---------------------------------------------------------------------------
-// CRM endpoints
+// CRM endpoints  (public CRUD — /api/v1/crm/*)
 // ---------------------------------------------------------------------------
 
-import type { Contact, Company, PaginatedResponse } from "@/types";
+import type { Contact, Account, Deal, PaginatedResponse } from "@/types";
 
 export const crmApi = {
-  listContacts: (page = 1, pageSize = 20) =>
-    api.get<PaginatedResponse<Contact>>(`/crm/contacts?page=${page}&page_size=${pageSize}`),
+  // Contacts
+  listContacts: (params?: { query?: string; account_id?: string; page?: number; limit?: number }) => {
+    const p = new URLSearchParams();
+    if (params?.query)      p.set("query", params.query);
+    if (params?.account_id) p.set("account_id", params.account_id);
+    p.set("page",  String(params?.page  ?? 1));
+    p.set("limit", String(params?.limit ?? 20));
+    return api.get<PaginatedResponse<Contact>>(`/crm/contacts?${p}`);
+  },
   getContact: (id: string) => api.get<Contact>(`/crm/contacts/${id}`),
+
+  // Accounts
+  listAccounts: (params?: { query?: string; industry?: string; page?: number; limit?: number }) => {
+    const p = new URLSearchParams();
+    if (params?.query)    p.set("query", params.query);
+    if (params?.industry) p.set("industry", params.industry);
+    p.set("page",  String(params?.page  ?? 1));
+    p.set("limit", String(params?.limit ?? 20));
+    return api.get<PaginatedResponse<Account>>(`/crm/accounts?${p}`);
+  },
+  getAccount: (id: string) => api.get<Account>(`/crm/accounts/${id}`),
+
+  // Deals
+  listDeals: (params?: { stage?: string; owner_id?: string; page?: number; limit?: number }) => {
+    const p = new URLSearchParams();
+    if (params?.stage)    p.set("stage", params.stage);
+    if (params?.owner_id) p.set("owner_id", params.owner_id);
+    p.set("page",  String(params?.page  ?? 1));
+    p.set("limit", String(params?.limit ?? 20));
+    return api.get<PaginatedResponse<Deal>>(`/crm/deals?${p}`);
+  },
+  getDeal: (id: string) => api.get<Deal>(`/crm/deals/${id}`),
+
+  /** @deprecated Utiliser listAccounts */
   listCompanies: (page = 1, pageSize = 20) =>
-    api.get<PaginatedResponse<Company>>(`/crm/companies?page=${page}&page_size=${pageSize}`),
+    api.get<PaginatedResponse<Account>>(`/crm/accounts?page=${page}&limit=${pageSize}`),
 };
 
 // ---------------------------------------------------------------------------

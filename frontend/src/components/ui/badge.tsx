@@ -10,9 +10,9 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 const variantClasses: Record<BadgeVariant, string> = {
   success: "bg-emerald-900/50 text-emerald-400 border-emerald-800",
   warning: "bg-amber-900/50 text-amber-400 border-amber-800",
-  error: "bg-red-900/50 text-red-400 border-red-800",
-  info: "bg-indigo-900/50 text-indigo-400 border-indigo-800",
-  neutral: "bg-slate-700/50 text-slate-400 border-slate-600",
+  error: "bg-red-dim/50 text-red border-red/30",
+  info: "bg-blue-dim text-blue border-blue/30",
+  neutral: "bg-elevated/50 text-text-secondary border-border-default",
 };
 
 export function Badge({ variant = "neutral", className, children, ...props }: BadgeProps) {

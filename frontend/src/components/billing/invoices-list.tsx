@@ -39,7 +39,7 @@ export function InvoicesList() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-800/50 bg-red-900/10 p-6 text-center text-sm text-red-400">
+      <div className="rounded-lg border border-red/30 bg-red-dim/30 p-6 text-center text-sm text-red">
         Erreur lors du chargement des factures : {error.message}
       </div>
     );
@@ -49,33 +49,33 @@ export function InvoicesList() {
 
   if (invoices.length === 0) {
     return (
-      <div className="rounded-xl border border-slate-700 bg-slate-800 p-12 text-center">
-        <p className="text-slate-400">Aucune facture trouvée.</p>
+      <div className="rounded-xl border border-border-default bg-surface p-12 text-center">
+        <p className="text-text-secondary">Aucune facture trouvée.</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-700">
+    <div className="overflow-hidden rounded-xl border border-border-default">
       <table className="w-full text-sm">
-        <thead className="bg-slate-800/80 border-b border-slate-700">
+        <thead className="bg-surface/80 border-b border-border-default">
           <tr>
             {["N°", "Client", "Montant", "Statut", "Échéance", "Émise le"].map((h) => (
-              <th key={h} className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">
+              <th key={h} className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wide">
                 {h}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-700/50 bg-slate-800">
+        <tbody className="divide-y divide-border-default/50 bg-surface">
           {invoices.map((invoice) => (
-            <tr key={invoice.id} className="hover:bg-slate-700/30 transition-colors">
-              <td className="px-4 py-3 font-mono text-slate-300">{invoice.number}</td>
+            <tr key={invoice.id} className="hover:bg-elevated/30 transition-colors">
+              <td className="px-4 py-3 font-mono text-text-secondary">{invoice.number}</td>
               <td className="px-4 py-3">
-                <div className="font-medium text-slate-100">{invoice.customer_name}</div>
-                <div className="text-xs text-slate-500">{invoice.customer_email}</div>
+                <div className="font-medium text-text-primary">{invoice.customer_name}</div>
+                <div className="text-xs text-text-muted">{invoice.customer_email}</div>
               </td>
-              <td className="px-4 py-3 font-medium text-slate-100">
+              <td className="px-4 py-3 font-medium text-text-primary">
                 {formatCurrency(invoice.amount, invoice.currency)}
               </td>
               <td className="px-4 py-3">
@@ -83,8 +83,8 @@ export function InvoicesList() {
                   {statusLabel[invoice.status]}
                 </Badge>
               </td>
-              <td className="px-4 py-3 text-slate-400">{formatDate(invoice.due_date)}</td>
-              <td className="px-4 py-3 text-slate-500">{formatDate(invoice.issued_at)}</td>
+              <td className="px-4 py-3 text-text-secondary">{formatDate(invoice.due_date)}</td>
+              <td className="px-4 py-3 text-text-muted">{formatDate(invoice.issued_at)}</td>
             </tr>
           ))}
         </tbody>

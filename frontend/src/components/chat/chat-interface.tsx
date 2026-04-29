@@ -1,12 +1,18 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Image from "next/image";
 import { Trash2 } from "lucide-react";
 import { ChatWindow } from "./ChatWindow";
 import { MessageInput } from "./message-input";
-import { Button } from "@/components/ui/button";
 import { useChat } from "@/hooks/useChat";
 import { useAuth } from "@/hooks/useAuth";
+
+const SUGGESTIONS = [
+  "Montre-moi les contacts actifs",
+  "Quelles factures sont en retard ?",
+  "Résume mes métriques du mois",
+];
 
 export function ChatInterface() {
   const { user } = useAuth();
@@ -22,60 +28,151 @@ export function ChatInterface() {
   }, [messages]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div
+      className="flex h-full flex-col relative"
+      style={{
+        background: "radial-gradient(ellipse 80% 60% at 50% 0%, #1a0000 0%, #0a0a0a 55%, #000 100%)",
+      }}
+    >
       {/* Toolbar */}
-      <div className="flex items-center justify-between border-b border-slate-700 px-4 py-2.5">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-slate-300">Nouvelle conversation</span>
-          {isStreaming && (
-            <span className="flex items-center gap-1 text-xs text-indigo-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
-              L&apos;IA répond…
+      <div
+        className="relative flex items-center justify-between px-5 py-3 flex-shrink-0"
+        style={{ borderBottom: "1px solid rgba(255,0,0,0.12)", background: "rgba(0,0,0,0.5)", backdropFilter: "blur(12px)" }}
+      >
+        <div className="flex items-center gap-3">
+          {/* Xenito identity */}
+          <div className="flex items-center gap-2.5">
+            <div
+              className="relative flex h-7 w-7 items-center justify-center rounded-lg overflow-hidden"
+              style={{
+                background: "rgba(0,0,0,0.8)",
+                border: "1px solid rgba(255,0,0,0.3)",
+                boxShadow: isStreaming ? "0 0 12px rgba(255,0,0,0.4)" : "0 0 6px rgba(255,0,0,0.15)",
+                transition: "box-shadow 0.4s ease",
+              }}
+            >
+              <Image src="/xenito.png" alt="Xenito" width={24} height={24} className="object-contain scale-110" />
+            </div>
+            <span
+              className="font-mono-geist font-medium tracking-widest uppercase"
+              style={{ color: "rgba(255,80,80,0.85)", fontSize: "11px", letterSpacing: "0.2em" }}
+            >
+              XENITO
             </span>
+          </div>
+          {/* AI status indicator */}
+          <div className="flex items-center gap-2">
+            <div
+              className="h-1.5 w-1.5 rounded-full"
+              style={{
+                background: isStreaming ? "#ff0000" : "#333",
+                boxShadow: isStreaming ? "0 0 8px #ff0000, 0 0 20px rgba(255,0,0,0.4)" : "none",
+                transition: "all 0.3s",
+              }}
+            />
+            <span
+              className="font-mono-geist text-xs tracking-widest uppercase"
+              style={{ color: isStreaming ? "rgba(255,80,80,0.9)" : "var(--text-muted)", fontSize: "10px" }}
+            >
+              {isStreaming ? "PROCESSING…" : "READY"}
+            </span>
+          </div>
+          {isStreaming && (
+            <div className="data-flow-line w-16 rounded-full" />
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
+
+        <button
           onClick={clearMessages}
-          className="text-slate-500 hover:text-red-400"
+          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition-all duration-200"
+          style={{ color: "var(--text-muted)", border: "1px solid transparent" }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = "#ff4444";
+            e.currentTarget.style.border = "1px solid rgba(255,0,0,0.25)";
+            e.currentTarget.style.background = "rgba(255,0,0,0.06)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = "var(--text-muted)";
+            e.currentTarget.style.border = "1px solid transparent";
+            e.currentTarget.style.background = "transparent";
+          }}
+          aria-label="Effacer la conversation"
         >
-          <Trash2 size={14} />
-          Effacer
-        </Button>
+          <Trash2 size={13} />
+          <span className="hidden sm:inline font-mono-geist tracking-wide" style={{ fontSize: "10px", textTransform: "uppercase" }}>
+            Clear
+          </span>
+        </button>
       </div>
 
-      {/* Messages */}
+      {/* Messages / Empty state */}
       {messages.length === 0 ? (
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-          <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/10 border border-indigo-500/20">
-              <svg className="h-7 w-7 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-              </svg>
+        <div className="flex-1 chat-scroll flex items-center justify-center p-6">
+          <div className="flex flex-col items-center gap-6 text-center max-w-sm msg-enter">
+            {/* Xenito avatar orb */}
+            <div
+              className="relative flex h-20 w-20 items-center justify-center rounded-2xl overflow-hidden"
+              style={{
+                background: "rgba(0,0,0,0.8)",
+                border: "1px solid rgba(255,0,0,0.25)",
+                boxShadow: "0 0 40px rgba(255,0,0,0.15), 0 0 80px rgba(255,0,0,0.06), inset 0 0 20px rgba(255,0,0,0.05)",
+              }}
+            >
+              <Image
+                src="/xenito.png"
+                alt="Xenito"
+                width={72}
+                height={72}
+                className="object-contain scale-105"
+                style={{ filter: "drop-shadow(0 0 12px rgba(255,0,0,0.6))" }}
+              />
             </div>
+
             <div>
-              <p className="text-slate-300 font-medium">Bonjour{user ? `, ${user.full_name.split(" ")[0]}` : ""} !</p>
-              <p className="mt-1 text-sm text-slate-500">
-                Je suis votre assistant RevOps. Posez-moi une question sur vos contacts, factures ou métriques.
+              <p
+                className="font-mono-geist font-semibold tracking-widest uppercase text-center"
+                style={{ color: "rgba(255,80,80,0.9)", fontSize: "13px", letterSpacing: "0.25em" }}
+              >
+                XENITO
+              </p>
+              <p className="mt-1 text-sm font-medium text-center" style={{ color: "var(--text-secondary)" }}>
+                Bonjour{user ? `, ${user.full_name.split(" ")[0]}` : ""}
+              </p>
+              <p className="mt-1.5 text-sm leading-relaxed text-center" style={{ color: "var(--text-muted)" }}>
+                Interface vivante. Posez une question sur vos contacts,<br />
+                factures ou métriques RevOps.
               </p>
             </div>
-            <div className="flex flex-wrap justify-center gap-2 mt-2">
-              {[
-                "Montre-moi les contacts actifs",
-                "Quelles factures sont en retard ?",
-                "Résume mes métriques du mois",
-              ].map((suggestion) => (
+
+            {/* Suggestion chips */}
+            <div className="flex flex-wrap justify-center gap-2">
+              {SUGGESTIONS.map((s) => (
                 <button
-                  key={suggestion}
-                  onClick={() => sendMessage(suggestion)}
+                  key={s}
+                  onClick={() => sendMessage(s)}
                   disabled={isStreaming}
-                  className="rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-400 hover:border-indigo-500 hover:text-indigo-400 transition-colors"
+                  className="rounded-lg px-3 py-1.5 text-xs transition-all duration-200"
+                  style={{ color: "var(--text-muted)", border: "1px solid var(--border-default)", background: "rgba(255,255,255,0.02)" }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = "var(--text-secondary)";
+                    e.currentTarget.style.border = "1px solid rgba(255,0,0,0.3)";
+                    e.currentTarget.style.background = "rgba(255,0,0,0.04)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = "var(--text-muted)";
+                    e.currentTarget.style.border = "1px solid var(--border-default)";
+                    e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+                  }}
                 >
-                  {suggestion}
+                  {s}
                 </button>
               ))}
             </div>
+
+            {/* Signature line */}
+            <p className="font-mono-geist text-center" style={{ color: "#333", fontSize: "10px", letterSpacing: "0.12em" }}>
+              ROUGE = CONSCIENCE · BLEU = ANALYSE · NOIR = SILENCE
+            </p>
           </div>
           <div ref={bottomRef} />
         </div>
@@ -83,13 +180,20 @@ export function ChatInterface() {
         <ChatWindow messages={messages} />
       )}
 
-      {/* Input */}
-      <div className="border-t border-slate-700 p-4">
+      {/* Input zone */}
+      <div
+        className="flex-shrink-0 p-4"
+        style={{ borderTop: "1px solid rgba(255,0,0,0.1)", background: "rgba(0,0,0,0.6)", backdropFilter: "blur(16px)" }}
+      >
         <MessageInput onSend={sendMessage} isStreaming={isStreaming} />
-        <p className="mt-2 text-center text-xs text-slate-600">
-          Shift+Entrée pour aller à la ligne · Entrée pour envoyer
+        <p
+          className="mt-2 text-center font-mono-geist"
+          style={{ color: "#333", fontSize: "10px", letterSpacing: "0.08em" }}
+        >
+          SHIFT+ENTER — nouvelle ligne · ENTER — envoyer
         </p>
       </div>
     </div>
   );
 }
+

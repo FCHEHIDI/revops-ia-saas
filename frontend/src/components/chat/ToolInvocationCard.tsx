@@ -1,32 +1,39 @@
 "use client";
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Wrench } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { ToolCallData } from "@/types";
 
 export function ToolInvocationCard({ toolCall }: { toolCall: ToolCallData }) {
   const [expanded, setExpanded] = useState(false);
   return (
-    <div className="rounded-lg border border-indigo-800/50 bg-indigo-950/30">
+    <div
+      className="rounded-lg overflow-hidden"
+      style={{ border: "1px solid rgba(255,0,0,0.15)", background: "rgba(255,0,0,0.04)" }}
+    >
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-indigo-300 hover:bg-indigo-900/20 transition-colors rounded-lg"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors"
+        style={{ color: "rgba(255,80,80,0.8)" }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,0,0,0.06)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
         aria-expanded={expanded}
         aria-controls={`tool-invocation-${toolCall.tool}`}
       >
-        <Wrench size={12} className="shrink-0 text-indigo-400" />
-        <span className="font-medium font-mono">{toolCall.tool}</span>
-        <span className="ml-auto">
-          {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        <Wrench size={11} className="shrink-0" style={{ color: "rgba(255,80,80,0.7)" }} />
+        <span className="font-mono-geist font-medium" style={{ letterSpacing: "0.06em" }}>
+          {toolCall.tool}
+        </span>
+        <span className="ml-auto opacity-50">
+          {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
         </span>
       </button>
       {expanded && (
-        <div id={`tool-invocation-${toolCall.tool}`} className="border-t border-indigo-800/30 px-3 py-2">
-          <pre
-            className={cn(
-              "text-xs text-slate-400 overflow-auto max-h-48 font-mono whitespace-pre-wrap break-all"
-            )}
-          >
+        <div
+          id={`tool-invocation-${toolCall.tool}`}
+          className="px-3 py-2"
+          style={{ borderTop: "1px solid rgba(255,0,0,0.1)" }}
+        >
+          <pre className="font-mono-geist text-xs overflow-auto max-h-48 whitespace-pre-wrap break-all" style={{ color: "#555" }}>
             {JSON.stringify(toolCall.result, null, 2)}
           </pre>
         </div>

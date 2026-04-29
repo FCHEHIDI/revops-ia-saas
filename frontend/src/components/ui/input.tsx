@@ -8,7 +8,7 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { label, error, hint, className, id, ...props },
+  { label, error, hint, className, id, style, ...props },
   ref
 ) {
   const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
@@ -16,7 +16,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   return (
     <div className="flex flex-col gap-1.5">
       {label && (
-        <label htmlFor={inputId} className="text-sm font-medium text-slate-300">
+        <label
+          htmlFor={inputId}
+          className="text-xs font-medium tracking-widest uppercase"
+          style={{ color: "var(--text-muted)" }}
+        >
           {label}
         </label>
       )}
@@ -24,17 +28,36 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         ref={ref}
         id={inputId}
         className={cn(
-          "w-full rounded-lg border bg-slate-800 px-3 py-2 text-sm text-slate-100",
-          "placeholder:text-slate-500 outline-none transition-colors",
-          "focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
-          "disabled:opacity-50 disabled:cursor-not-allowed",
-          error ? "border-red-500 focus:border-red-500 focus:ring-red-500" : "border-slate-700",
+          "w-full text-sm outline-none transition-all duration-200",
+          "placeholder:opacity-40 disabled:opacity-50 disabled:cursor-not-allowed",
           className
         )}
+        style={{
+          background: "var(--bg-elevated)",
+          border: error ? "1px solid rgba(255,0,0,0.5)" : "1px solid var(--border-default)",
+          borderRadius: "var(--radius-input)",
+          color: "var(--text-primary)",
+          padding: "10px 14px",
+          ...style,
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.border = error
+            ? "1px solid rgba(255,0,0,0.7)"
+            : "1px solid rgba(63,79,255,0.5)";
+          e.currentTarget.style.boxShadow = error ? "var(--shadow-glow)" : "var(--shadow-blue)";
+          props.onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.border = error
+            ? "1px solid rgba(255,0,0,0.5)"
+            : "1px solid var(--border-default)";
+          e.currentTarget.style.boxShadow = "none";
+          props.onBlur?.(e);
+        }}
         {...props}
       />
-      {error && <p className="text-xs text-red-400">{error}</p>}
-      {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
+      {error && <p className="text-xs" style={{ color: "var(--accent-red)" }}>{error}</p>}
+      {hint && !error && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{hint}</p>}
     </div>
   );
 });

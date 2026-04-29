@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            activity_type::text         AS \"activity_type!: String\",\n            COUNT(*)                    AS \"count!: i64\"\n        FROM activities\n        WHERE tenant_id          = $1\n          AND occurred_at::date >= $2\n          AND occurred_at::date <= $3\n          AND ($4::uuid IS NULL OR performed_by = $4)\n          AND ($5::text IS NULL OR activity_type::text = $5)\n        GROUP BY activity_type\n        ORDER BY COUNT(*) DESC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "activity_type!: String",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "count!: i64",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Date",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "da2daeaaf8282eff8f8faf009aa39e365cf9c2a0ca56c7abc43e531f57ec6f5f"
+}

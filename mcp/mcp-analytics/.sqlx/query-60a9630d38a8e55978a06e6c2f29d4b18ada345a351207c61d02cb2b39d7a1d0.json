@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            u.id                                                                             AS \"rep_id!: Uuid\",\n            COALESCE(u.name, u.id::text)                                                    AS \"rep_name!: String\",\n            COUNT(d.id) FILTER (WHERE d.stage = 'closed_won')                               AS \"deals_won!: i64\",\n            COALESCE(SUM(d.value) FILTER (WHERE d.stage = 'closed_won'), 0)                 AS \"revenue!: Decimal\",\n            COUNT(a.id)                                                                      AS \"activities!: i64\"\n        FROM users u\n        LEFT JOIN deals d\n            ON d.assigned_to   = u.id\n           AND d.tenant_id     = u.tenant_id\n           AND d.created_at::date >= $2\n           AND d.created_at::date <= $3\n        LEFT JOIN activities a\n            ON a.performed_by   = u.id\n           AND a.tenant_id      = u.tenant_id\n           AND a.occurred_at::date >= $2\n           AND a.occurred_at::date <= $3\n        WHERE u.tenant_id = $1\n        GROUP BY u.id, u.name\n        ORDER BY\n            CASE $4\n                WHEN 'revenue'    THEN COALESCE(SUM(d.value) FILTER (WHERE d.stage = 'closed_won'), 0)::float8\n                WHEN 'deals_won'  THEN COUNT(d.id) FILTER (WHERE d.stage = 'closed_won')::float8\n                WHEN 'activities' THEN COUNT(a.id)::float8\n                ELSE COALESCE(SUM(d.value) FILTER (WHERE d.stage = 'closed_won'), 0)::float8\n            END DESC\n        LIMIT $5\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "rep_id!: Uuid",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "rep_name!: String",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "deals_won!: i64",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "revenue!: Decimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 4,
+        "name": "activities!: i64",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Date",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "60a9630d38a8e55978a06e6c2f29d4b18ada345a351207c61d02cb2b39d7a1d0"
+}

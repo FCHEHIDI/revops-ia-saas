@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT COALESCE(SUM(mrr), 0) AS \"mrr!: Decimal\"\n                    FROM subscriptions\n                    WHERE tenant_id = $1 AND status = 'active'\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mrr!: Decimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "512ef44fdd2a8053c1666aadbb4dfa5e13b6035b7280d39e199f4666ae940cdc"
+}

@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) AS \"activities_logged!: i64\"\n        FROM activities\n        WHERE tenant_id    = $1\n          AND performed_by = $2\n          AND occurred_at::date >= $3\n          AND occurred_at::date <= $4\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "activities_logged!: i64",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "f498db0af98e69cc776e15aa56e557a6b8cd9892306845bb78e348d40f08ad26"
+}

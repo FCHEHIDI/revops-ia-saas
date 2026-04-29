@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COALESCE(SUM(value), 0) AS \"open_pipeline!: Decimal\"\n        FROM deals\n        WHERE tenant_id   = $1\n          AND assigned_to = $2\n          AND stage NOT IN ('closed_won', 'closed_lost')\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "open_pipeline!: Decimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ef47d575ebf1a1c9346ffc864b8d794b45b77a05baef568d03dea22353510477"
+}

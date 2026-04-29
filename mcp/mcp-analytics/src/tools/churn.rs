@@ -56,8 +56,8 @@ pub async fn compute_churn_rate(
                 COALESCE(SUM(mrr), 0) AS starting_mrr
             FROM subscriptions
             WHERE tenant_id = $1
-              AND started_at < $2
-              AND (churned_at IS NULL OR churned_at > $2)
+              AND started_at < $2::date
+              AND (churned_at IS NULL OR churned_at > $2::date)
         ),
         churned AS (
             SELECT
@@ -65,8 +65,8 @@ pub async fn compute_churn_rate(
                 COALESCE(SUM(mrr), 0) AS churned_mrr
             FROM subscriptions
             WHERE tenant_id = $1
-              AND churned_at >= $2
-              AND churned_at <= $3
+              AND churned_at >= $2::date
+              AND churned_at <= $3::date
         ),
         expansion AS (
             SELECT COALESCE(SUM(s.mrr - s_prev.mrr), 0) AS expansion_mrr
@@ -75,8 +75,8 @@ pub async fn compute_churn_rate(
               ON s.account_id = s_prev.account_id
              AND s.tenant_id  = s_prev.tenant_id
             WHERE s.tenant_id  = $1
-              AND s.started_at >= $2
-              AND s.started_at <= $3
+              AND s.started_at >= $2::date
+              AND s.started_at <= $3::date
               AND s.mrr > s_prev.mrr
         )
         SELECT
@@ -203,7 +203,7 @@ pub async fn get_at_risk_accounts(
             a.name                                                                          AS "account_name!: String",
             COALESCE(s.mrr, 0)                                                             AS "mrr!: Decimal",
             EXTRACT(DAY FROM NOW() - MAX(act.occurred_at))::bigint                         AS "last_activity_days_ago?: i64",
-            COUNT(inv.id) FILTER (WHERE inv.status = 'unpaid')                             AS "unpaid_invoices!: i64",
+            COUNT(inv.id) FILTER (WHERE inv.status = 'pending')                             AS "unpaid_invoices!: i64",
             COUNT(inv.id) FILTER (WHERE inv.status = 'overdue')                            AS "overdue_invoices!: i64"
         FROM accounts a
         LEFT JOIN subscriptions s

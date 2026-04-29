@@ -1,0 +1,48 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH starting AS (\n            SELECT\n                COUNT(*)          AS starting_count,\n                COALESCE(SUM(mrr), 0) AS starting_mrr\n            FROM subscriptions\n            WHERE tenant_id = $1\n              AND started_at < $2::date\n              AND (churned_at IS NULL OR churned_at > $2::date)\n        ),\n        churned AS (\n            SELECT\n                COUNT(*)          AS churned_count,\n                COALESCE(SUM(mrr), 0) AS churned_mrr\n            FROM subscriptions\n            WHERE tenant_id = $1\n              AND churned_at >= $2::date\n              AND churned_at <= $3::date\n        ),\n        expansion AS (\n            SELECT COALESCE(SUM(s.mrr - s_prev.mrr), 0) AS expansion_mrr\n            FROM subscriptions s\n            JOIN subscriptions s_prev\n              ON s.account_id = s_prev.account_id\n             AND s.tenant_id  = s_prev.tenant_id\n            WHERE s.tenant_id  = $1\n              AND s.started_at >= $2::date\n              AND s.started_at <= $3::date\n              AND s.mrr > s_prev.mrr\n        )\n        SELECT\n            starting.starting_count  AS \"starting_count!: i64\",\n            churned.churned_count    AS \"churned_count!: i64\",\n            starting.starting_mrr   AS \"starting_mrr!: Decimal\",\n            churned.churned_mrr     AS \"churned_mrr!: Decimal\",\n            expansion.expansion_mrr AS \"expansion_mrr!: Decimal\"\n        FROM starting, churned, expansion\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "starting_count!: i64",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "churned_count!: i64",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "starting_mrr!: Decimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "churned_mrr!: Decimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 4,
+        "name": "expansion_mrr!: Decimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "7a6c40b7cb8c22c498031788412ce6c32db59c7e4f6c44f783e126aa22b720a2"
+}

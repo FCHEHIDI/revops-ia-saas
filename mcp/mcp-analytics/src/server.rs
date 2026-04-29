@@ -1,13 +1,18 @@
 use rmcp::{
     model::{
-        CallToolRequest, CallToolResult, Content, ListToolsResult, ServerCapabilities, ServerInfo,
-        Tool,
+        CallToolRequestParam, CallToolResult, Content, ListToolsResult, PaginatedRequestParam,
+        ServerCapabilities, ServerInfo, Tool,
     },
-    server::ServerHandler,
-    service::RequestContext,
+    service::{RequestContext, RoleServer},
     Error as McpError,
+    ServerHandler,
 };
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
+
+/// Convert a `serde_json::Value::Object` into `Arc<Map<String, Value>>` for Tool::input_schema.
+fn s(v: Value) -> Arc<Map<String, Value>> {
+    Arc::new(v.as_object().cloned().unwrap_or_default())
+}
 use sqlx::PgPool;
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -75,19 +80,17 @@ impl AnalyticsServer {
 // ServerHandler implementation
 // ---------------------------------------------------------------------------
 
-#[rmcp::async_trait]
 impl ServerHandler for AnalyticsServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
-            name: Cow::Borrowed("mcp-analytics"),
-            version: Cow::Borrowed(env!("CARGO_PKG_VERSION")),
-            ..Default::default()
-        }
-    }
-
-    fn get_capabilities(&self) -> ServerCapabilities {
-        ServerCapabilities {
-            tools: Some(rmcp::model::ToolsCapability { list_changed: None }),
+            capabilities: ServerCapabilities {
+                tools: Some(rmcp::model::ToolsCapability { list_changed: None }),
+                ..Default::default()
+            },
+            server_info: rmcp::model::Implementation {
+                name: "mcp-analytics".to_string(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+            },
             ..Default::default()
         }
     }
@@ -95,8 +98,8 @@ impl ServerHandler for AnalyticsServer {
     #[instrument(skip(self, _ctx), name = "list_tools")]
     async fn list_tools(
         &self,
-        _cursor: Option<String>,
-        _ctx: RequestContext,
+        _request: PaginatedRequestParam,
+        _ctx: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, McpError> {
         let tools = vec![
             // ----------------------------------------------------------------
@@ -104,10 +107,10 @@ impl ServerHandler for AnalyticsServer {
             // ----------------------------------------------------------------
             Tool {
                 name: Cow::Borrowed("get_pipeline_metrics"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Aggregated pipeline metrics over a date range: conversion rates per stage, win rate, avg cycle, revenue generated.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id", "period_start", "period_end"],
                     "properties": {
@@ -118,14 +121,14 @@ impl ServerHandler for AnalyticsServer {
                         "assigned_to":    { "type": "string", "format": "uuid" },
                         "include_closed": { "type": "boolean" }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("get_deal_velocity"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Deal velocity score for a period: deals_won × win_rate × avg_value / avg_cycle_days, with optional breakdown by stage, rep, or segment.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id", "period_start", "period_end"],
                     "properties": {
@@ -135,14 +138,14 @@ impl ServerHandler for AnalyticsServer {
                         "period_end":    { "type": "string", "format": "date" },
                         "breakdown_by":  { "type": "string", "enum": ["stage", "rep", "segment"] }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("get_funnel_analysis"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Full funnel analysis across pipeline stages: entered, converted, conversion rate, avg time in stage, and bottleneck detection.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id", "period_start", "period_end"],
                     "properties": {
@@ -151,17 +154,17 @@ impl ServerHandler for AnalyticsServer {
                         "period_start": { "type": "string", "format": "date" },
                         "period_end":   { "type": "string", "format": "date" }
                     }
-                }),
+                })),
             },
             // ----------------------------------------------------------------
             // Revenue
             // ----------------------------------------------------------------
             Tool {
                 name: Cow::Borrowed("forecast_revenue"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Monthly revenue forecast for up to 12 months using weighted_pipeline, conservative (×0.7), or linear_trend model.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id", "forecast_months", "model", "include_existing_mrr"],
                     "properties": {
@@ -172,14 +175,14 @@ impl ServerHandler for AnalyticsServer {
                         "include_existing_mrr":{ "type": "boolean" },
                         "assigned_to":         { "type": "string", "format": "uuid" }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("get_mrr_trend"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Monthly MRR trend for the past N months: MRR, new MRR, churned MRR, net new MRR, and month-over-month growth.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id"],
                     "properties": {
@@ -187,17 +190,17 @@ impl ServerHandler for AnalyticsServer {
                         "user_id":   { "type": "string", "format": "uuid" },
                         "months":    { "type": "integer", "minimum": 1, "maximum": 24 }
                     }
-                }),
+                })),
             },
             // ----------------------------------------------------------------
             // Churn
             // ----------------------------------------------------------------
             Tool {
                 name: Cow::Borrowed("compute_churn_rate"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Computes customer churn rate or revenue churn rate over a date range, including NRR and GRR.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id", "period_start", "period_end", "churn_type"],
                     "properties": {
@@ -207,14 +210,14 @@ impl ServerHandler for AnalyticsServer {
                         "period_end":   { "type": "string", "format": "date" },
                         "churn_type":   { "type": "string", "enum": ["customer", "revenue"] }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("get_at_risk_accounts"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Returns accounts at risk of churn using a composite score of inactivity, unpaid invoices and overdue invoices.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id"],
                     "properties": {
@@ -223,17 +226,17 @@ impl ServerHandler for AnalyticsServer {
                         "risk_threshold": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
                         "limit":          { "type": "integer", "minimum": 1, "maximum": 200 }
                     }
-                }),
+                })),
             },
             // ----------------------------------------------------------------
             // Performance
             // ----------------------------------------------------------------
             Tool {
                 name: Cow::Borrowed("get_rep_performance"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Individual sales rep performance: deals won, revenue, quota attainment, avg deal size, cycle time, activities, pipeline coverage.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id", "rep_id", "period_start", "period_end"],
                     "properties": {
@@ -243,14 +246,14 @@ impl ServerHandler for AnalyticsServer {
                         "period_start": { "type": "string", "format": "date" },
                         "period_end":   { "type": "string", "format": "date" }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("get_team_leaderboard"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Team leaderboard ranked by revenue, deals_won, or activity count over a period.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id", "period_start", "period_end", "metric", "limit"],
                     "properties": {
@@ -261,17 +264,17 @@ impl ServerHandler for AnalyticsServer {
                         "metric":       { "type": "string", "enum": ["revenue", "deals_won", "activities"] },
                         "limit":        { "type": "integer", "minimum": 1, "maximum": 100 }
                     }
-                }),
+                })),
             },
             // ----------------------------------------------------------------
             // Activity
             // ----------------------------------------------------------------
             Tool {
                 name: Cow::Borrowed("get_activity_metrics"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Activity metrics over a date range: total count, breakdown by type with percentages, daily trend.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id", "period_start", "period_end"],
                     "properties": {
@@ -282,7 +285,7 @@ impl ServerHandler for AnalyticsServer {
                         "rep_id":        { "type": "string", "format": "uuid" },
                         "activity_type": { "type": "string", "enum": ["call", "email", "meeting", "note", "task"] }
                     }
-                }),
+                })),
             },
         ];
 
@@ -292,14 +295,14 @@ impl ServerHandler for AnalyticsServer {
         })
     }
 
-    #[instrument(skip(self, _ctx), name = "call_tool", fields(tool = %request.params.name))]
+    #[instrument(skip(self, _ctx), name = "call_tool", fields(tool = %request.name))]
     async fn call_tool(
         &self,
-        request: CallToolRequest,
-        _ctx: RequestContext,
+        request: CallToolRequestParam,
+        _ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
-        let name = request.params.name.as_ref();
-        let args = request.params.arguments.clone();
+        let name = request.name.as_ref();
+        let args = request.arguments.map(Value::Object);
         let pool = self.pool.as_ref();
 
         info!("Dispatching tool: {}", name);
@@ -392,7 +395,7 @@ impl ServerHandler for AnalyticsServer {
             }
             unknown => {
                 error!("Unknown tool requested: {}", unknown);
-                Err(McpError::method_not_found(format!("Unknown tool: {unknown}")))
+                Err(McpError::internal_error(format!("Unknown tool: {unknown}"), None))
             }
         }
     }

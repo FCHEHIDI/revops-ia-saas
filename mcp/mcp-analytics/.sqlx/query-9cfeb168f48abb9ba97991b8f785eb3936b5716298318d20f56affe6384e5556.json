@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            COUNT(*) FILTER (WHERE stage = 'closed_won')                                   AS \"deals_won!: i64\",\n            COALESCE(SUM(value) FILTER (WHERE stage = 'closed_won'), 0)                    AS \"revenue_generated!: Decimal\",\n            COALESCE(AVG(value) FILTER (WHERE stage = 'closed_won'), 0)                    AS \"avg_deal_size!: Decimal\",\n            COALESCE(\n                AVG(EXTRACT(EPOCH FROM (closed_at - created_at)) / 86400.0)\n                FILTER (WHERE stage = 'closed_won' AND closed_at IS NOT NULL),\n                0\n            )                                                                              AS \"avg_cycle_days!: f64\"\n        FROM deals\n        WHERE tenant_id    = $1\n          AND assigned_to  = $2\n          AND created_at::date >= $3\n          AND created_at::date <= $4\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "deals_won!: i64",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "revenue_generated!: Decimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "avg_deal_size!: Decimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "avg_cycle_days!: f64",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "9cfeb168f48abb9ba97991b8f785eb3936b5716298318d20f56affe6384e5556"
+}

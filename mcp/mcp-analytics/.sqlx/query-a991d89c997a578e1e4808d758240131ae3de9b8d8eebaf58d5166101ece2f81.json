@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    DATE_TRUNC('month', close_date)::date                AS \"close_month!: NaiveDate\",\n                    COALESCE(SUM(value * probability), 0)                AS \"weighted_revenue!: Decimal\"\n                FROM deals\n                WHERE tenant_id = $1\n                  AND stage NOT IN ('closed_won', 'closed_lost')\n                  AND close_date >= $2\n                  AND close_date < $2 + ($3::int * INTERVAL '1 month')\n                  AND ($4::uuid IS NULL OR assigned_to = $4)\n                GROUP BY DATE_TRUNC('month', close_date)\n                ORDER BY DATE_TRUNC('month', close_date)\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "close_month!: NaiveDate",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 1,
+        "name": "weighted_revenue!: Decimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "a991d89c997a578e1e4808d758240131ae3de9b8d8eebaf58d5166101ece2f81"
+}

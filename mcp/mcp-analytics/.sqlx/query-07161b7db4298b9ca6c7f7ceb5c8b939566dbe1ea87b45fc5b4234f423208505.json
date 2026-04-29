@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            a.id                                                                            AS \"account_id!: Uuid\",\n            a.name                                                                          AS \"account_name!: String\",\n            COALESCE(s.mrr, 0)                                                             AS \"mrr!: Decimal\",\n            EXTRACT(DAY FROM NOW() - MAX(act.occurred_at))::bigint                         AS \"last_activity_days_ago?: i64\",\n            COUNT(inv.id) FILTER (WHERE inv.status = 'pending')                             AS \"unpaid_invoices!: i64\",\n            COUNT(inv.id) FILTER (WHERE inv.status = 'overdue')                            AS \"overdue_invoices!: i64\"\n        FROM accounts a\n        LEFT JOIN subscriptions s\n            ON s.account_id = a.id AND s.tenant_id = a.tenant_id AND s.status = 'active'\n        LEFT JOIN activities act\n            ON act.entity_id = a.id AND act.tenant_id = a.tenant_id\n        LEFT JOIN invoices inv\n            ON inv.account_id = a.id AND inv.tenant_id = a.tenant_id\n        WHERE a.tenant_id = $1\n        GROUP BY a.id, a.name, s.mrr\n        ORDER BY s.mrr DESC NULLS LAST\n        LIMIT $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "account_id!: Uuid",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "account_name!: String",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "mrr!: Decimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "last_activity_days_ago?: i64",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "unpaid_invoices!: i64",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "overdue_invoices!: i64",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "07161b7db4298b9ca6c7f7ceb5c8b939566dbe1ea87b45fc5b4234f423208505"
+}

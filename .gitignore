@@ -37,3 +37,7 @@ Thumbs.db
 *.log
 *.db
 *.sqlite
+
+## Assets media lourds (videos, captures temporaires)
+*.mp4
+screenshot_*.png

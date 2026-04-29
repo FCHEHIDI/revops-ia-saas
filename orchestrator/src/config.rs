@@ -42,6 +42,10 @@ pub struct Config {
 
     pub otel_exporter_otlp_endpoint: Option<String>,
     pub rust_log: String,
+
+    /// If true, skip all LLM API calls and use a deterministic mock provider.
+    /// Enable with `LLM_MOCK=true`. Useful for E2E tests without API keys.
+    pub llm_mock: bool,
 }
 
 impl Config {
@@ -83,6 +87,10 @@ impl Config {
 
             otel_exporter_otlp_endpoint: env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok(),
             rust_log: env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()),
+
+            llm_mock: env::var("LLM_MOCK")
+                .map(|v| v.to_lowercase() == "true" || v == "1")
+                .unwrap_or(false),
         })
     }
 

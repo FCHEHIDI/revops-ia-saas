@@ -8,6 +8,9 @@ class UserResponse(BaseModel):
     id: UUID
     org_id: UUID
     email: EmailStr
+    full_name: Optional[str] = None
+    job_title: Optional[str] = None
+    avatar: Optional[str] = None
     roles: list[str]
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
@@ -15,3 +18,6 @@ class UserResponse(BaseModel):
 
 class UpdateProfileRequest(BaseModel):
     email: Optional[EmailStr] = None
+    full_name: Optional[str] = None
+    job_title: Optional[str] = None
+    avatar: Optional[str] = None

@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import ARRAY, Boolean, Column, DateTime, ForeignKey, String, func
+from sqlalchemy import (
+    ARRAY, Boolean, Column, DateTime, ForeignKey, String, Text, func,
+)
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.common.db import Base
@@ -36,6 +38,8 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=True)
+    job_title = Column(String(255), nullable=True)
+    avatar = Column(Text, nullable=True)
     roles = Column(ARRAY(String), nullable=False, server_default="{}", default=list)
     permissions = Column(
         ARRAY(String), nullable=False, server_default="{}", default=list

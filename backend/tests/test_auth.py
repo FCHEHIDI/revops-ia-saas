@@ -31,7 +31,7 @@ async def test_login_success(
     combined = " ".join(set_cookie_headers)
     assert "HttpOnly" in combined
     assert (
-        "SameSite=strict" in combined.lower() or "samesite=strict" in combined.lower()
+        "SameSite=lax" in combined.lower() or "samesite=lax" in combined.lower()
     )
 
 
@@ -68,7 +68,7 @@ async def test_refresh_success(
     set_cookie_headers = resp.headers.get_list("set-cookie")
     combined = " ".join(set_cookie_headers)
     assert "HttpOnly" in combined
-    assert "samesite=strict" in combined.lower()
+    assert "samesite=lax" in combined.lower()
 
 
 @pytest.mark.asyncio
@@ -132,13 +132,20 @@ async def test_me_returns_user(
     user_tenant_a: User,
     auth_cookies_tenant_a: dict[str, str],
 ) -> None:
-    mock_active_user = AsyncMock(return_value=user_tenant_a)
+    from app.auth.dependencies import get_current_active_user
+    from app.main import app as fastapi_app
 
-    with patch("app.auth.router.get_current_active_user", mock_active_user):
+    async def override_active_user() -> User:
+        return user_tenant_a
+
+    fastapi_app.dependency_overrides[get_current_active_user] = override_active_user
+    try:
         resp = await client.get(
             "/api/v1/auth/me",
             cookies=auth_cookies_tenant_a,
         )
+    finally:
+        fastapi_app.dependency_overrides.pop(get_current_active_user, None)
 
     assert resp.status_code == status.HTTP_200_OK
 

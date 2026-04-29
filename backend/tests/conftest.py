@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.auth.service import create_access_token
 from app.main import app
@@ -13,6 +14,30 @@ from app.models.user import User
 
 TENANT_A_ID: UUID = uuid4()
 TENANT_B_ID: UUID = uuid4()
+
+
+# ── Test DB ─────────────────────────────────────────────────────────────────
+# Points to the revops_test database (see root conftest.py for env setup).
+_TEST_DB_URL = "postgresql+asyncpg://revops:revops@localhost:5433/revops_test"
+
+
+@pytest_asyncio.fixture
+async def test_db() -> AsyncGenerator[AsyncSession, None]:
+    """Real async DB session against revops_test with automatic rollback.
+
+    Each test gets an isolated session; uncommitted writes are rolled back
+    on teardown so tests do not pollute each other.
+    """
+    # Create a fresh engine per test to avoid event loop mismatch issues
+    engine = create_async_engine(_TEST_DB_URL, future=True, echo=False)
+    factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with factory() as session:
+        try:
+            yield session
+        finally:
+            await session.rollback()
+            await session.close()
+    await engine.dispose()
 
 
 def make_user(tenant_id: UUID, email: str = "user@test.com") -> User:

@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 
 _TEST_ENV_DEFAULTS: dict[str, str] = {
-    "DATABASE_URL": "postgresql+asyncpg://test:test@localhost:5432/revops_test",
+    "DATABASE_URL": "postgresql+asyncpg://revops:revops@localhost:5433/revops_test",
     "JWT_SECRET": "test-jwt-secret-not-for-production",
     "JWT_ALGORITHM": "HS256",
     "ACCESS_TOKEN_EXPIRE_MINUTES": "60",

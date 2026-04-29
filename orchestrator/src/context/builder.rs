@@ -490,6 +490,103 @@ pub fn default_tool_definitions() -> Vec<Tool> {
             "Get average time (in days) deals spend in each pipeline stage",
             &[("period", "string", "Time period to analyze", true)],
         ),
+        make_tool(
+            "mcp_billing__list_invoices",
+            "List all invoices for an account with optional status filter",
+            &[
+                ("account_id", "string", "UUID of the account", true),
+                (
+                    "status",
+                    "string",
+                    "Filter by status: 'paid', 'pending', 'overdue' (optional)",
+                    false,
+                ),
+            ],
+        ),
+        make_tool(
+            "mcp_billing__get_subscription",
+            "Fetch full subscription details for an account",
+            &[("account_id", "string", "UUID of the account", true)],
+        ),
+        make_tool(
+            "mcp_billing__update_subscription_status",
+            "Update the status of an account subscription (e.g. cancel, reactivate)",
+            &[
+                ("account_id", "string", "UUID of the account", true),
+                (
+                    "status",
+                    "string",
+                    "New status: 'active', 'cancelled', 'suspended'",
+                    true,
+                ),
+            ],
+        ),
+        make_tool(
+            "mcp_billing__get_customer_billing_summary",
+            "Get a full billing summary for a customer: MRR, invoices, subscription",
+            &[("account_id", "string", "UUID of the account", true)],
+        ),
+        make_tool(
+            "mcp_billing__get_mrr",
+            "Compute total Monthly Recurring Revenue for the tenant",
+            &[(
+                "period",
+                "string",
+                "Month/year for MRR calculation (e.g. '2025-01')",
+                true,
+            )],
+        ),
+        make_tool(
+            "mcp_analytics__get_funnel_analysis",
+            "Get stage-by-stage conversion rates across the sales funnel",
+            &[("period", "string", "Time period to analyze", true)],
+        ),
+        make_tool(
+            "mcp_analytics__forecast_revenue",
+            "Forecast future revenue based on current pipeline and historical close rates",
+            &[
+                ("period", "string", "Forecast horizon (e.g. 'next_quarter')", true),
+                (
+                    "confidence_level",
+                    "string",
+                    "Confidence band: 'low', 'mid', 'high' (default 'mid')",
+                    false,
+                ),
+            ],
+        ),
+        make_tool(
+            "mcp_analytics__get_mrr_trend",
+            "Get the monthly MRR trend over a given period",
+            &[("period", "string", "Time range (e.g. 'last_12_months')", true)],
+        ),
+        make_tool(
+            "mcp_analytics__get_at_risk_accounts",
+            "Identify accounts at high risk of churn based on activity and usage signals",
+            &[(
+                "limit",
+                "integer",
+                "Maximum number of at-risk accounts to return (default 10)",
+                false,
+            )],
+        ),
+        make_tool(
+            "mcp_analytics__get_rep_performance",
+            "Get individual sales rep KPIs: quota attainment, win rate, average deal size",
+            &[
+                ("rep_id", "string", "UUID of the sales rep", true),
+                ("period", "string", "Time period to evaluate", true),
+            ],
+        ),
+        make_tool(
+            "mcp_analytics__get_team_leaderboard",
+            "Get ranked leaderboard of all sales reps by quota attainment for the period",
+            &[("period", "string", "Time period to rank (e.g. 'current_quarter')", true)],
+        ),
+        make_tool(
+            "mcp_analytics__get_activity_metrics",
+            "Get activity volume metrics: calls, emails, meetings per rep or team",
+            &[("period", "string", "Time period to analyze", true)],
+        ),
         // ── mcp-sequences ──────────────────────────────────────────────────
         make_tool(
             "mcp_sequences__create_sequence",

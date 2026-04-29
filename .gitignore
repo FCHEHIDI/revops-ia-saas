@@ -41,3 +41,17 @@ Thumbs.db
 ## Assets media lourds (videos, captures temporaires)
 *.mp4
 screenshot_*.png
+
+## Fichiers design source (non déployés en prod)
+Analytics_icon*.png
+CRM_icon.png
+Facturation_icon.png
+Sequences_icon.png
+Xenito_icon.png
+dashboard_icon*.png
+documents_icon.png
+favicon-grand.png
+ROI-RevOps*.png
+ROI-endframe.png
+ROI-logon*.png
+ROI-logor.png

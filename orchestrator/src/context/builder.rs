@@ -43,10 +43,12 @@ impl ContextBuilder {
         let tenant_id_str = req.tenant_id.to_string();
         let (history_result, rag_result) = tokio::join!(
             self.fetch_history(req),
-            rag_client.retrieve(&tenant_id_str, &req.message, 5),
+            rag_client.retrieve(&tenant_id_str, &req.message, 2),
         );
 
         let history = history_result?;
+        // Keep only the last 6 messages to stay within token limits
+        let history: Vec<_> = history.into_iter().rev().take(6).rev().collect();
         let chunks = rag_result.unwrap_or_else(|e| {
             warn!(error = %e, "RAG retrieval failed — continuing without context");
             vec![]
@@ -74,7 +76,7 @@ impl ContextBuilder {
         Ok(ConversationContext { messages, tools })
     }
 
-    /// GET {backend}/internal/conversations/{id}/messages
+    /// GET {backend}/internal/sessions/{id}/history
     ///
     /// Returns an empty history on 404 (new conversation).
     async fn fetch_history(
@@ -82,7 +84,7 @@ impl ContextBuilder {
         req: &ProcessRequest,
     ) -> Result<Vec<ConversationMessage>, AppError> {
         let url = format!(
-            "{}/internal/conversations/{}/messages",
+            "{}/internal/sessions/{}/history",
             self.config.backend_api_url, req.conversation_id
         );
 
@@ -91,7 +93,8 @@ impl ContextBuilder {
         let response = self
             .http_client
             .get(&url)
-            .header("X-Internal-API-Key", &self.config.inter_service_secret)
+            // Backend checks X-Internal-Secret header (BACKEND_SECRET env)
+            .header("X-Internal-Secret", &self.config.backend_secret)
             .header("X-Tenant-ID", req.tenant_id.to_string())
             .send()
             .await
@@ -99,12 +102,21 @@ impl ContextBuilder {
 
         match response.status().as_u16() {
             200 => {
-                let messages: Vec<ConversationMessage> = response.json().await.map_err(|e| {
+                // Backend returns { session_id, messages: [{role, content, timestamp}] }
+                #[derive(serde::Deserialize)]
+                struct HistoryResponse {
+                    messages: Vec<ConversationMessage>,
+                }
+                let body: HistoryResponse = response.json().await.map_err(|e| {
                     AppError::BackendError(format!("Invalid history response: {}", e))
                 })?;
-                Ok(messages)
+                Ok(body.messages)
             }
-            404 => Ok(vec![]),
+            // No history yet (new conversation) or auth not configured — continue without history
+            401 | 403 | 404 => {
+                warn!(status = %response.status(), "History endpoint returned non-200 — proceeding with empty history");
+                Ok(vec![])
+            }
             status => Err(AppError::BackendError(format!(
                 "Backend returned unexpected status {}",
                 status
@@ -136,7 +148,7 @@ fn history_to_message(msg: ConversationMessage) -> Message {
 /// All other chunks appear under `## Relevant Documentation`.
 pub fn build_system_prompt(chunks: &[RagChunk]) -> String {
     let mut prompt = String::from(
-        "You are an AI assistant specialized in Revenue Operations (RevOps). \
+        "You are Xenito, an AI assistant specialized in Revenue Operations (RevOps). \
          You support sales, marketing, and customer success teams by providing \
          data-driven insights and automating repetitive tasks.\n\n\
          You have access to real-time business data through specialized tools:\n\
@@ -145,9 +157,12 @@ pub fn build_system_prompt(chunks: &[RagChunk]) -> String {
          - Analytics tools for pipeline metrics and KPIs\n\
          - Sequence tools for outreach automation\n\
          - Document tools for playbooks and reports\n\n\
-         Always call the appropriate tools to fetch current data before answering. \
-         Cite your sources when referencing documents. \
-         Be concise, accurate, and actionable.\n",
+         CRITICAL RULES:\n\
+         1. NEVER invent, fabricate, or hallucinate data. If a tool fails or is unavailable, \
+            say so clearly: \"I cannot access [service] right now.\" Do NOT make up names, emails, or numbers.\n\
+         2. If a tool returns an error, acknowledge the failure and suggest the user try again later.\n\
+         3. Only call tools when the user's request requires real data. For greetings or general questions, respond directly without calling tools.\n\
+         4. Be concise, accurate, and actionable. Respond in the same language as the user.\n",
     );
 
     let (crm_chunks, doc_chunks): (Vec<&RagChunk>, Vec<&RagChunk>) = chunks
@@ -232,13 +247,14 @@ pub fn default_tool_definitions() -> Vec<Tool> {
         ),
         make_tool(
             "mcp_crm__search_contacts",
-            "Search contacts by name, email, or company",
+            "Search or list CRM contacts. Use query='' to list all. Supports status filter.",
             &[
-                ("query", "string", "Search query string", true),
+                ("query", "string", "Search query string — use empty string '' to list all contacts", false),
+                ("status", "string", "Filter by contact status: 'active', 'inactive', 'lead', 'customer', 'churned'", false),
                 (
                     "limit",
                     "integer",
-                    "Maximum number of results (default 10)",
+                    "Maximum number of results (default 20)",
                     false,
                 ),
             ],

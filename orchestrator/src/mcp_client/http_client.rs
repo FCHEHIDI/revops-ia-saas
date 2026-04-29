@@ -112,18 +112,25 @@ where
     F: Fn() -> Fut,
     Fut: std::future::Future<Output = Result<reqwest::Response, reqwest::Error>>,
 {
-    const MAX_RETRIES: u32 = 3;
-    let mut delay_ms = 100u64;
+    // Connection refused = server is down, no point retrying (saves 5+ seconds).
+    // Only retry on transient errors (timeout, intermittent network).
+    const MAX_RETRIES: u32 = 2;
+    let mut delay_ms = 200u64;
 
     for attempt in 1..=MAX_RETRIES {
         match f().await {
             Ok(resp) => return Ok(resp),
-            Err(e) if attempt < MAX_RETRIES && (e.is_timeout() || e.is_connect()) => {
+            Err(e) if e.is_connect() => {
+                // Connection refused — server is down, fail immediately.
+                warn!(error = %e, "MCP server unreachable — skipping retries");
+                return Err(e);
+            }
+            Err(e) if attempt < MAX_RETRIES && e.is_timeout() => {
                 warn!(
                     attempt,
                     delay_ms,
                     error = %e,
-                    "MCP call failed, retrying"
+                    "MCP call timed out, retrying"
                 );
                 tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
                 delay_ms *= 2;

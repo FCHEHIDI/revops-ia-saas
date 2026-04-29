@@ -39,6 +39,13 @@ async fn main() -> Result<()> {
         .build()
         .context("Failed to build HTTP client")?;
 
+    // ── MCP client — short connect timeout so offline servers fail fast ───────
+    let mcp_client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .connect_timeout(std::time::Duration::from_millis(800))
+        .build()
+        .context("Failed to build MCP HTTP client")?;
+
     // ── Redis — fail fast if unavailable at startup ───────────────────────────
     //
     // `QueueDispatcher::connect()` creates and owns the primary Redis connection.
@@ -74,6 +81,7 @@ async fn main() -> Result<()> {
     let state = Arc::new(AppState {
         config: Arc::new(config.clone()),
         http_client,
+        mcp_client,
         queue: Some(Arc::new(queue_dispatcher)),
         dlq: Some(Arc::new(dlq_dispatcher.clone())),
     });

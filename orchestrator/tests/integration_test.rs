@@ -36,6 +36,7 @@ fn test_app() -> axum::Router {
     let state = Arc::new(AppState {
         config: Arc::new(test_config()),
         http_client: reqwest::Client::new(),
+        mcp_client: reqwest::Client::new(),
         queue: None,
         dlq: None,
     });

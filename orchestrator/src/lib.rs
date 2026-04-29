@@ -26,6 +26,9 @@ use queue::{DlqDispatcher, QueueDispatcher};
 pub struct AppState {
     pub config: Arc<Config>,
     pub http_client: reqwest::Client,
+    /// Dedicated client for MCP tool calls — short connect timeout (2s) so
+    /// unavailable MCP servers fail fast instead of blocking the response.
+    pub mcp_client: reqwest::Client,
     /// Producer for the Redis Streams job queue (HIGH / NORMAL / LOW).
     /// `None` only in test contexts; always `Some` in production.
     pub queue: Option<Arc<QueueDispatcher>>,

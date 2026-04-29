@@ -13,6 +13,9 @@ pub struct Config {
     /// Shared secret between the backend and the orchestrator.
     /// Validated on every request via `X-Internal-API-Key`.
     pub inter_service_secret: String,
+    /// Secret sent to the backend in `X-Internal-Secret` header (BACKEND_SECRET env).
+    /// Falls back to INTER_SERVICE_SECRET if not set.
+    pub backend_secret: String,
 
     // Internal service URLs
     pub backend_api_url: String,
@@ -28,9 +31,13 @@ pub struct Config {
     // LLM provider credentials
     pub openai_api_key: Option<String>,
     pub anthropic_api_key: Option<String>,
+    /// Groq API key — enables llama3.1-70b at cloud speed
+    pub groq_api_key: Option<String>,
+    /// Ollama base URL — defaults to http://localhost:11434
+    pub ollama_base_url: Option<String>,
 
     /// Default LLM model name. Provider is inferred from the prefix:
-    /// `gpt-*` → OpenAI, `claude-*` → Anthropic.
+    /// `gpt-*` → OpenAI, `claude-*` → Anthropic, `ollama:*` → Ollama.
     pub default_model: String,
 
     pub otel_exporter_otlp_endpoint: Option<String>,
@@ -48,6 +55,9 @@ impl Config {
 
             inter_service_secret: env::var("INTER_SERVICE_SECRET")
                 .context("INTER_SERVICE_SECRET is required")?,
+            backend_secret: env::var("BACKEND_SECRET")
+                .or_else(|_| env::var("INTER_SERVICE_SECRET"))
+                .unwrap_or_default(),
 
             backend_api_url: env::var("BACKEND_API_URL")
                 .unwrap_or_else(|_| "http://backend:8000".to_string()),
@@ -67,6 +77,8 @@ impl Config {
 
             openai_api_key: env::var("OPENAI_API_KEY").ok(),
             anthropic_api_key: env::var("ANTHROPIC_API_KEY").ok(),
+            groq_api_key: env::var("GROQ_API_KEY").ok(),
+            ollama_base_url: env::var("OLLAMA_BASE_URL").ok(),
             default_model: env::var("DEFAULT_MODEL").unwrap_or_else(|_| "gpt-4o".to_string()),
 
             otel_exporter_otlp_endpoint: env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok(),
@@ -76,12 +88,17 @@ impl Config {
 
     /// Returns the provider inferred from the model name.
     pub fn provider_for_model(model: &str) -> &'static str {
-        if model.starts_with("gpt-") || model.starts_with("o1") || model.starts_with("o3") {
+        if model.starts_with("groq:") || model.starts_with("groq/") {
+            "groq"
+        } else if model.starts_with("ollama:") || model.starts_with("ollama/") {
+            "ollama"
+        } else if model.starts_with("gpt-") || model.starts_with("o1") || model.starts_with("o3") {
             "openai"
         } else if model.starts_with("claude-") {
             "anthropic"
         } else {
-            "openai"
+            // bare model names without prefix (e.g. "llama3.2:3b") → treated as Ollama
+            "ollama"
         }
     }
 }

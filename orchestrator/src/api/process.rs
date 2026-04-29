@@ -186,7 +186,7 @@ async fn orchestrate(
         state.config.inter_service_secret.clone(),
     );
 
-    let mcp_dispatcher = McpDispatcher::new(state.http_client.clone(), state.config.clone());
+    let mcp_dispatcher = McpDispatcher::new(state.mcp_client.clone(), state.config.clone());
 
     let model_router = ModelRouter::new(state.config.clone());
     let model = model_router.select_model(&req);
@@ -199,6 +199,14 @@ async fn orchestrate(
 
     let mut ctx = context_builder.build(&req, &rag_client).await?;
 
+    // If the message doesn't appear to require live data, strip tools so the
+    // LLM responds directly in one pass instead of triggering a tool-call loop
+    // (which costs an extra ~20s LLM call for nothing).
+    if !needs_tools(&req.message) {
+        ctx.tools.clear();
+        info!("Message classified as conversational — skipping tool definitions");
+    }
+
     info!(model = %model, "Starting agentic loop");
 
     // Agentic loop: call LLM, dispatch tool calls, repeat until no tool calls
@@ -209,8 +217,14 @@ async fn orchestrate(
             .map_err(|e| AppError::LlmError(e.to_string()))?;
 
         // Stream content tokens to client (chunked to simulate token streaming)
-        if let Some(ref content) = llm_response.content {
-            stream_content_tokens(&tx, content).await;
+        // Only stream tokens for the FINAL response (no tool calls).
+        // If the LLM returns both content and tool calls in the same turn
+        // (Llama behaviour), suppress the text — the tool results will
+        // produce a clean final answer on the next iteration.
+        if llm_response.tool_calls.is_empty() {
+            if let Some(ref content) = llm_response.content {
+                stream_content_tokens(&tx, content).await;
+            }
         }
 
         if llm_response.tool_calls.is_empty() {
@@ -249,6 +263,11 @@ async fn orchestrate(
             &req.tenant_id.to_string(),
         )
         .await;
+
+        // After dispatching tools, strip tool definitions from the context.
+        // The next LLM call only needs to format the results — sending all
+        // tool schemas again wastes ~4-5k tokens and can hit TPM rate limits.
+        ctx.tools.clear();
     }
 
     Ok(())
@@ -403,4 +422,32 @@ async fn dispatch_tool_calls(
         // Inject tool result into conversation context
         messages.push(Message::tool_result(tc.id.clone(), result_content));
     }
+}
+
+/// Heuristic classifier: returns `true` if the message likely needs live MCP
+/// tool data (CRM contacts, deals, billing, metrics, etc.).
+///
+/// When `false`, the tools list is cleared before sending to the LLM, saving
+/// one full LLM inference round-trip (~20s on CPU) for conversational messages
+/// like greetings, thanks, or general questions.
+fn needs_tools(message: &str) -> bool {
+    let msg = message.to_lowercase();
+
+    // Data-oriented keywords that require tool calls
+    const DATA_KEYWORDS: &[&str] = &[
+        // CRM entities
+        "contact", "client", "account", "deal", "lead", "prospect", "opportunit",
+        "pipeline", "société", "societe", "entreprise", "company",
+        // Billing / revenue
+        "facture", "invoice", "billing", "paiement", "payment", "revenue", "chiffre",
+        "mrr", "arr", "montant", "amount", "abonnement", "subscription",
+        // Actions that imply data retrieval
+        "liste", "montre", "affiche", "recherche", "trouve", "show", "list", "find",
+        "search", "get", "fetch", "donne-moi", "donne moi", "combien", "quel",
+        // Sequences / analytics
+        "séquence", "sequence", "campagne", "campaign", "metric", "dashboard",
+        "report", "rapport", "analyse", "analytics", "statistique",
+    ];
+
+    DATA_KEYWORDS.iter().any(|kw| msg.contains(kw))
 }

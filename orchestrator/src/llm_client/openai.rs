@@ -13,14 +13,21 @@ pub struct OpenAiProvider {
     client: reqwest::Client,
     api_key: String,
     model: String,
+    base_url: String,
 }
 
 impl OpenAiProvider {
-    pub fn new(client: reqwest::Client, api_key: String, model: String) -> Self {
+    /// Create an OpenAI-compatible provider.
+    ///
+    /// `base_url` is the API root, e.g.:
+    /// - `https://api.openai.com/v1`
+    /// - `https://api.groq.com/openai/v1`
+    pub fn new(client: reqwest::Client, api_key: String, model: String, base_url: String) -> Self {
         Self {
             client,
             api_key,
             model,
+            base_url,
         }
     }
 }
@@ -167,11 +174,12 @@ impl LlmProvider for OpenAiProvider {
             temperature: 0.7,
         };
 
-        debug!("Calling OpenAI chat completions API");
+        let endpoint = format!("{}/chat/completions", self.base_url.trim_end_matches('/'));
+        debug!(endpoint = %endpoint, "Calling OpenAI-compatible chat completions API");
 
         let http_response = self
             .client
-            .post("https://api.openai.com/v1/chat/completions")
+            .post(&endpoint)
             .bearer_auth(&self.api_key)
             .json(&request)
             .send()

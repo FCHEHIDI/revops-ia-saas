@@ -94,6 +94,12 @@ async def mcp_call(request: Request) -> JSONResponse:
     tool_name: str | None = body.get("tool")
     params: dict = body.get("params") or {}
 
+    # The orchestrator sends tenant_id at the top level of the request body.
+    # Tools expect it inside params — forward it so they can enforce isolation.
+    top_level_tenant = body.get("tenant_id", "")
+    if top_level_tenant and "tenant_id" not in params:
+        params["tenant_id"] = top_level_tenant
+
     if not tool_name:
         return JSONResponse(
             content=error_response("INVALID_REQUEST", "'tool' field is required"),

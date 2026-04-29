@@ -122,11 +122,13 @@ services:
       # 8080 souvent occupe -> 18080 cote hote.
       - "18080:8080"
     environment:
-      BACKEND_URL: http://backend:8000
+      BACKEND_API_URL: http://backend:8000
       REDIS_URL: redis://redis:6379/0
-      INTERNAL_API_KEY: dev-internal-key-change-me
+      INTER_SERVICE_SECRET: dev-internal-key-change-me
       MCP_CRM_URL: http://mcp-crm:9001
-      RAG_URL: http://rag:8500
+      RAG_API_URL: http://rag:8500
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      DEFAULT_MODEL: llama3.2:3b
       RUST_LOG: info
       PORT: "8080"
     depends_on:

@@ -46,7 +46,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           }}
         >
           <Image
-            src="/xenito.png"
+            src="/brand/xenito.png"
             alt="Xenito"
             width={28}
             height={28}

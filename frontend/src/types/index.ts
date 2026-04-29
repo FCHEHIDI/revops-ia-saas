@@ -9,6 +9,8 @@ export interface User {
   tenant_id: string;
   is_active: boolean;
   created_at: string;
+  job_title?: string | null;
+  avatar?: string | null;
 }
 
 export interface LoginRequest {

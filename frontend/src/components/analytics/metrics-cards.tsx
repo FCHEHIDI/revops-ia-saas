@@ -46,12 +46,12 @@ function MetricCard({ metric }: { metric: Metric }) {
   );
 }
 
-// Placeholder metrics shown when the API isn't available yet
+// Demo metrics shown when the API isn't available yet
 const placeholderMetrics: Metric[] = [
-  { label: "Contacts actifs", value: "—", changeType: "neutral" },
-  { label: "MRR", value: "—", unit: "€", changeType: "neutral" },
-  { label: "Taux de conversion", value: "—", unit: "%", changeType: "neutral" },
-  { label: "Séquences actives", value: "—", changeType: "neutral" },
+  { label: "Contacts actifs",      value: "312",   changeType: "increase", change: 8.4,  period: "vs mois dernier" },
+  { label: "MRR",                  value: "28 400", unit: "€", changeType: "increase", change: 12.1, period: "Avril 2026" },
+  { label: "Taux de conversion",   value: "34",    unit: "%", changeType: "increase", change: 3.0,  period: "vs Q1" },
+  { label: "Séquences actives",    value: "7",     changeType: "neutral",  period: "sur 12 créées" },
 ];
 
 export function MetricsCards() {

@@ -43,7 +43,7 @@ export function ChatInterface() {
           {/* Xenito identity */}
           <div className="flex items-center gap-2.5">
             <div
-              className="relative flex h-7 w-7 items-center justify-center rounded-lg overflow-hidden"
+              className="relative flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden"
               style={{
                 background: "rgba(0,0,0,0.8)",
                 border: "1px solid rgba(255,0,0,0.3)",
@@ -51,7 +51,7 @@ export function ChatInterface() {
                 transition: "box-shadow 0.4s ease",
               }}
             >
-              <Image src="/xenito.png" alt="Xenito" width={24} height={24} className="object-contain scale-110" />
+              <Image src="/brand/xenito.png" alt="Xenito" width={36} height={36} className="object-contain scale-110" />
             </div>
             <span
               className="font-mono-geist font-medium tracking-widest uppercase"
@@ -119,7 +119,7 @@ export function ChatInterface() {
               }}
             >
               <Image
-                src="/xenito.png"
+                src="/brand/xenito.png"
                 alt="Xenito"
                 width={72}
                 height={72}

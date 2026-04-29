@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { generateId } from "@/lib/utils";
 import type { ChatMessage, SseEvent, ToolCallData, UsageStats } from "@/types";
 
@@ -8,6 +8,30 @@ interface UseChatOptions {
   tenantId: string;
   userId: string;
   conversationId?: string;
+}
+
+function storageKey(tenantId: string, userId: string) {
+  return `xenito_chat_${tenantId}_${userId}`;
+}
+
+function loadPersistedState(tenantId: string, userId: string): { messages: ChatMessage[]; conversationId: string } {
+  if (typeof window === "undefined" || !tenantId || !userId) {
+    return { messages: [], conversationId: generateId() };
+  }
+  try {
+    const raw = localStorage.getItem(storageKey(tenantId, userId));
+    if (!raw) return { messages: [], conversationId: generateId() };
+    const parsed = JSON.parse(raw) as { messages: ChatMessage[]; conversationId: string };
+    // Rehydrate Date objects
+    const messages = parsed.messages.map((m) => ({
+      ...m,
+      createdAt: new Date(m.createdAt),
+      isStreaming: false, // never persist a streaming state
+    }));
+    return { messages, conversationId: parsed.conversationId ?? generateId() };
+  } catch {
+    return { messages: [], conversationId: generateId() };
+  }
 }
 
 interface UseChatReturn {
@@ -24,11 +48,39 @@ export function useChat({
   userId,
   conversationId: initialConversationId,
 }: UseChatOptions): UseChatReturn {
+  // Start empty — we'll hydrate from localStorage once tenantId/userId are available
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [lastUsage, setLastUsage] = useState<UsageStats | null>(null);
   const conversationIdRef = useRef<string>(initialConversationId ?? generateId());
+  const hydratedRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Hydrate from localStorage as soon as tenantId + userId are known (only once)
+  useEffect(() => {
+    if (hydratedRef.current || !tenantId || !userId) return;
+    hydratedRef.current = true;
+    const saved = loadPersistedState(tenantId, userId);
+    if (saved.messages.length > 0) {
+      setMessages(saved.messages);
+    }
+    if (!initialConversationId) {
+      conversationIdRef.current = saved.conversationId;
+    }
+  }, [tenantId, userId, initialConversationId]);
+
+  // Persist messages + conversationId to localStorage whenever they change
+  useEffect(() => {
+    if (!tenantId || !userId) return;
+    try {
+      localStorage.setItem(
+        storageKey(tenantId, userId),
+        JSON.stringify({ messages, conversationId: conversationIdRef.current })
+      );
+    } catch {
+      // quota exceeded or SSR — ignore
+    }
+  }, [messages, tenantId, userId]);
 
   // ---------------------------------------------------------------------------
   // 1) handleSseEvent REMONTÉ AVANT sendMessage → dépendances OK
@@ -179,7 +231,12 @@ export function useChat({
   const clearMessages = useCallback(() => {
     setMessages([]);
     conversationIdRef.current = generateId();
-  }, []);
+    try {
+      localStorage.removeItem(storageKey(tenantId, userId));
+    } catch {
+      // ignore
+    }
+  }, [tenantId, userId]);
 
   return {
     messages,

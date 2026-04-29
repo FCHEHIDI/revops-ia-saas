@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { TrendingUp, TrendingDown, Activity, BarChart2, Users, MessageSquare } from "lucide-react";
-import { Header } from "@/components/layout/header";
+import { TrendingUp, TrendingDown, Activity } from "lucide-react";
 
 /* ── Static KPI data (placeholder until API is wired) ─── */
 const KPI_DATA = [
@@ -66,13 +64,6 @@ const BARS = [
   { label: "Avr", h: 91, accent: true },
 ];
 
-/* ── Quick-access tiles ──────────────────────────────── */
-const SHORTCUTS = [
-  { href: "/chat",      icon: MessageSquare, label: "Ask ROI",  accent: true  },
-  { href: "/crm",       icon: Users,         label: "Contacts", accent: false },
-  { href: "/analytics", icon: BarChart2,     label: "Analytics",accent: false },
-];
-
 export default function DashboardPage() {
   const today = new Date().toLocaleDateString("fr-FR", {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
@@ -80,32 +71,13 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <Header eyebrow="Overview" title="Dashboard" />
-
       <main
         className="flex-1 overflow-y-auto px-6 py-6 space-y-8"
         style={{ background: "var(--bg-base)" }}
       >
         {/* Sub-header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center">
           <p className="text-xs capitalize" style={{ color: "var(--text-muted)" }}>{today}</p>
-          <div className="flex gap-2">
-            {SHORTCUTS.map(({ href, icon: Icon, label, accent }) => (
-              <Link
-                key={href}
-                href={href}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200"
-                style={
-                  accent
-                    ? { background: "var(--accent-red)", color: "#fff", border: "1px solid transparent" }
-                    : { background: "var(--bg-elevated)", color: "var(--text-secondary)", border: "1px solid var(--border-default)" }
-                }
-              >
-                <Icon size={12} />
-                {label}
-              </Link>
-            ))}
-          </div>
         </div>
 
         {/* ── KPI section ── */}

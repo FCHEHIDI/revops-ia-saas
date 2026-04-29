@@ -1,4 +1,4 @@
-import { Sidebar } from "@/components/layout/sidebar";
+import { TopNav } from "@/components/layout/top-nav";
 
 export default function DashboardLayout({
   children,
@@ -7,10 +7,10 @@ export default function DashboardLayout({
 }) {
   return (
     <div
-      className="flex h-screen overflow-hidden"
+      className="flex flex-col h-screen overflow-hidden"
       style={{ background: "var(--bg-base)" }}
     >
-      <Sidebar />
+      <TopNav />
       <div
         className="flex flex-1 flex-col overflow-hidden"
         style={{ background: "var(--bg-base)" }}

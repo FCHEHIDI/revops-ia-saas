@@ -1,0 +1,66 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            status AS \"status: SubscriptionStatus\",\n            plan_name,\n            current_period_end,\n            trial_end,\n            seats,\n            features\n        FROM subscriptions\n        WHERE tenant_id = $1\n            AND status IN ('active', 'trialing', 'past_due')\n        ORDER BY created_at DESC\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status: SubscriptionStatus",
+        "type_info": {
+          "Custom": {
+            "name": "subscription_status",
+            "kind": {
+              "Enum": [
+                "trialing",
+                "active",
+                "past_due",
+                "canceled",
+                "suspended",
+                "paused"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "plan_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "current_period_end",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "trial_end",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "seats",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "features",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "d0457c21ef524a847107cb82779fc5caa2a889c4f88a9b05738a710ef823a02d"
+}

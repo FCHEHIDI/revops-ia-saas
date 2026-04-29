@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT mrr AS \"mrr: Decimal\"\n        FROM subscriptions\n        WHERE tenant_id = $1\n            AND status IN ('active', 'trialing', 'past_due')\n        ORDER BY created_at DESC\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mrr: Decimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "fe7acfaa99e7a8c27e62fc641cee534e6027e60dafbabbc2bd333f2e2df47356"
+}

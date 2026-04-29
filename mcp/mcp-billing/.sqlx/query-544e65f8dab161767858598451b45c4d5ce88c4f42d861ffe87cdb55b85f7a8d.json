@@ -1,0 +1,114 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    id, tenant_id, plan_id, plan_name,\n                    status AS \"status: SubscriptionStatus\",\n                    seats, mrr, currency,\n                    current_period_start, current_period_end,\n                    cancel_at_period_end, trial_end,\n                    features, created_at\n                FROM subscriptions\n                WHERE tenant_id = $1\n                ORDER BY created_at DESC\n                LIMIT 1\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "tenant_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "plan_id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "plan_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "status: SubscriptionStatus",
+        "type_info": {
+          "Custom": {
+            "name": "subscription_status",
+            "kind": {
+              "Enum": [
+                "trialing",
+                "active",
+                "past_due",
+                "canceled",
+                "suspended",
+                "paused"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "seats",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "mrr",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 7,
+        "name": "currency",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 8,
+        "name": "current_period_start",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "current_period_end",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "cancel_at_period_end",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
+        "name": "trial_end",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 12,
+        "name": "features",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 13,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "544e65f8dab161767858598451b45c4d5ce88c4f42d861ffe87cdb55b85f7a8d"
+}

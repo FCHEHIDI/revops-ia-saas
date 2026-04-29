@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            SUM(amount) AS \"total_overdue_amount: Decimal\",\n            COUNT(*)::bigint AS \"count: i64\",\n            MIN(currency) AS \"currency: String\"\n        FROM invoices\n        WHERE tenant_id = $1\n            AND status = 'overdue'\n            AND due_date < NOW()\n            AND ($2::integer IS NULL OR EXTRACT(DAY FROM NOW() - due_date)::integer >= $2)\n            AND ($3::integer IS NULL OR EXTRACT(DAY FROM NOW() - due_date)::integer <= $3)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "total_overdue_amount: Decimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 1,
+        "name": "count: i64",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "currency: String",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "6cd30b3b30866bf105f221e2a6263134545b4441a07ae549fb279493b449c72f"
+}

@@ -1,0 +1,48 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            DATE_TRUNC('month', snapshot_date)::date AS \"month_date: NaiveDate\",\n            AVG(mrr) AS \"mrr: Decimal\",\n            SUM(new_mrr) AS \"new_mrr: Decimal\",\n            SUM(expansion_mrr) AS \"expansion_mrr: Decimal\",\n            SUM(churned_mrr) AS \"churned_mrr: Decimal\"\n        FROM mrr_snapshots\n        WHERE tenant_id = $1\n            AND snapshot_date >= $2\n            AND snapshot_date <= $3\n        GROUP BY DATE_TRUNC('month', snapshot_date)\n        ORDER BY DATE_TRUNC('month', snapshot_date) ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "month_date: NaiveDate",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 1,
+        "name": "mrr: Decimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "new_mrr: Decimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "expansion_mrr: Decimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 4,
+        "name": "churned_mrr: Decimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "fe082e71f5d810b2e3715bf375434d1cdebed6bfadce3c3fa27f984f0e4c7636"
+}

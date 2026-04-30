@@ -1,0 +1,74 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            s.id,\n            s.name,\n            s.status AS \"status: SequenceStatus\",\n            COUNT(DISTINCT ss.id) AS steps_count,\n            COUNT(DISTINCT CASE WHEN e.status = 'active' THEN e.id END) AS active_enrollments,\n            COUNT(DISTINCT e.id) AS total_enrolled,\n            s.created_at\n        FROM sequences s\n        LEFT JOIN sequence_steps ss ON ss.sequence_id = s.id\n        LEFT JOIN enrollments e ON e.sequence_id = s.id AND e.tenant_id = s.tenant_id\n        WHERE s.tenant_id = $1\n          AND ($2::text IS NULL OR s.status = $2::sequence_status)\n          AND ($3::text[] IS NULL OR s.tags && $3::text[])\n        GROUP BY s.id, s.name, s.status, s.created_at\n        ORDER BY s.created_at DESC\n        LIMIT $4 OFFSET $5\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "status: SequenceStatus",
+        "type_info": {
+          "Custom": {
+            "name": "sequence_status",
+            "kind": {
+              "Enum": [
+                "active",
+                "paused",
+                "draft",
+                "archived"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "steps_count",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "active_enrollments",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "total_enrolled",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "TextArray",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      false
+    ]
+  },
+  "hash": "fa12184eeb7a13be51a023b54af49bbdf2807d90228ec1e7a8f25846c95a74a1"
+}

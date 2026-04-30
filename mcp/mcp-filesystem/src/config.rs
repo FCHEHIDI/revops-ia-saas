@@ -5,12 +5,14 @@ use std::env;
 pub enum McpTransport {
     Stdio,
     Sse,
+    Http,
 }
 
 impl McpTransport {
     fn from_str(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "sse" => McpTransport::Sse,
+            "http" => McpTransport::Http,
             _ => McpTransport::Stdio,
         }
     }
@@ -39,6 +41,8 @@ pub struct Config {
     pub storage_base_dir: String,
     pub rag_service_url: String,
     pub log_level: String,
+    pub http_bind: String,
+    pub inter_service_secret: String,
 }
 
 impl Config {
@@ -61,6 +65,12 @@ impl Config {
         let log_level = env::var("LOG_LEVEL")
             .unwrap_or_else(|_| "info".to_string());
 
+        let http_bind = env::var("HTTP_BIND")
+            .unwrap_or_else(|_| "0.0.0.0:19005".to_string());
+
+        let inter_service_secret = env::var("INTER_SERVICE_SECRET")
+            .unwrap_or_else(|_| "dev-internal-key-change-me".to_string());
+
         Ok(Config {
             database_url,
             transport: McpTransport::from_str(&transport),
@@ -68,6 +78,8 @@ impl Config {
             storage_base_dir,
             rag_service_url,
             log_level,
+            http_bind,
+            inter_service_secret,
         })
     }
 }

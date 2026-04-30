@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            COUNT(*) FILTER (WHERE TRUE) AS total_enrolled,\n            COUNT(*) FILTER (WHERE status = 'completed') AS total_completed,\n            COUNT(*) FILTER (WHERE status = 'unenrolled') AS total_unenrolled,\n            COUNT(*) FILTER (WHERE status = 'active') AS total_active\n        FROM enrollments\n        WHERE sequence_id = $1 AND tenant_id = $2\n          AND ($3::date IS NULL OR enrolled_at::date >= $3)\n          AND ($4::date IS NULL OR enrolled_at::date <= $4)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "total_enrolled",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "total_completed",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "total_unenrolled",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "total_active",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "9455c7bbce1889621b9af543adb7a50815e37aa18962668d27db5fd786ecaf02"
+}

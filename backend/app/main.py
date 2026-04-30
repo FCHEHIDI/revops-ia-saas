@@ -12,6 +12,7 @@ from app.crm import router as crm_router
 from app.crm.public_router import router as crm_public_router
 from app.documents import router as documents_router
 from app.audit import router as audit_router
+from app.proxy import router as proxy_router
 
 app = FastAPI(title="RevOps IA SaaS API", version="1.0.0")
 
@@ -65,6 +66,7 @@ app.include_router(
     documents_router.router, prefix="/api/v1/documents", tags=["documents"]
 )
 app.include_router(audit_router.router, prefix="/api/v1/audit", tags=["audit"])
+app.include_router(proxy_router.router, prefix="/api/v1", tags=["proxy"])
 
 
 @app.get("/health")

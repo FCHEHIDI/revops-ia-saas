@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO sequence_steps (\n                id, sequence_id, tenant_id, position, step_type,\n                delay_days, delay_hours, template_id, subject, body_template\n            )\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int4",
+        {
+          "Custom": {
+            "name": "step_type",
+            "kind": {
+              "Enum": [
+                "email",
+                "linkedin_message",
+                "task",
+                "call",
+                "wait"
+              ]
+            }
+          }
+        },
+        "Int4",
+        "Int4",
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d5796a069275ea25aa842fa9146417d4f7bc52dab24aa345ac7c28cfcaa9d59b"
+}

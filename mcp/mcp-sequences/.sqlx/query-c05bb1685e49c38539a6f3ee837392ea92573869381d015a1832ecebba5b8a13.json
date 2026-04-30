@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE enrollments\n        SET status = 'paused'\n        WHERE sequence_id = $1 AND tenant_id = $2 AND status = 'active'\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c05bb1685e49c38539a6f3ee837392ea92573869381d015a1832ecebba5b8a13"
+}

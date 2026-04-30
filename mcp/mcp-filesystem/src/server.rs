@@ -1,13 +1,17 @@
 use rmcp::{
     model::{
-        CallToolRequest, CallToolResult, Content, ListToolsResult, ServerCapabilities,
-        ServerInfo, Tool,
+        CallToolRequestParam, CallToolResult, Content, ListToolsResult, PaginatedRequestParam,
+        ServerCapabilities, ServerInfo, Tool,
     },
-    server::ServerHandler,
-    service::RequestContext,
+    service::{RequestContext, RoleServer},
     Error as McpError,
+    ServerHandler,
 };
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
+
+fn s(v: Value) -> std::sync::Arc<Map<String, Value>> {
+    std::sync::Arc::new(v.as_object().cloned().unwrap_or_default())
+}
 use sqlx::PgPool;
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -88,19 +92,17 @@ impl FilesystemServer {
 // ServerHandler
 // ---------------------------------------------------------------------------
 
-#[rmcp::async_trait]
 impl ServerHandler for FilesystemServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
-            name: Cow::Borrowed("mcp-filesystem"),
-            version: Cow::Borrowed(env!("CARGO_PKG_VERSION")),
-            ..Default::default()
-        }
-    }
-
-    fn get_capabilities(&self) -> ServerCapabilities {
-        ServerCapabilities {
-            tools: Some(rmcp::model::ToolsCapability { list_changed: None }),
+            capabilities: ServerCapabilities {
+                tools: Some(rmcp::model::ToolsCapability { list_changed: None }),
+                ..Default::default()
+            },
+            server_info: rmcp::model::Implementation {
+                name: "mcp-filesystem".to_string(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+            },
             ..Default::default()
         }
     }
@@ -108,8 +110,8 @@ impl ServerHandler for FilesystemServer {
     #[instrument(skip(self, _ctx), name = "list_tools")]
     async fn list_tools(
         &self,
-        _cursor: Option<String>,
-        _ctx: RequestContext,
+        _request: PaginatedRequestParam,
+        _ctx: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, McpError> {
         let tools = vec![
             // ----------------------------------------------------------------
@@ -117,10 +119,10 @@ impl ServerHandler for FilesystemServer {
             // ----------------------------------------------------------------
             Tool {
                 name: Cow::Borrowed("read_document"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Reads the text content of a document by ID. Returns up to max_chars characters (default 10 000, max 50 000). Never exposes storage paths.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "document_id"],
                     "properties": {
@@ -135,14 +137,14 @@ impl ServerHandler for FilesystemServer {
                             "maxItems": 2
                         }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("list_documents"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Lists documents for a tenant with optional filters on type, tags, filename search, and upload date. Never exposes storage paths.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id"],
                     "properties": {
@@ -155,14 +157,14 @@ impl ServerHandler for FilesystemServer {
                         "limit":          { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 },
                         "offset":         { "type": "integer", "minimum": 0, "default": 0 }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("get_document_metadata"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Returns metadata for a single document (filename, type, MIME, size, tags, RAG index status). Never includes storage path.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "document_id"],
                     "properties": {
@@ -170,14 +172,14 @@ impl ServerHandler for FilesystemServer {
                         "user_id":     { "type": "string", "format": "uuid" },
                         "document_id": { "type": "string", "format": "uuid" }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("delete_document"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Permanently deletes a document and its storage object. Requires confirm=true. Returns bytes freed.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "document_id", "confirm"],
                     "properties": {
@@ -186,17 +188,17 @@ impl ServerHandler for FilesystemServer {
                         "document_id": { "type": "string", "format": "uuid" },
                         "confirm":     { "type": "boolean", "description": "Must be true to confirm permanent deletion" }
                     }
-                }),
+                })),
             },
             // ----------------------------------------------------------------
             // Playbooks
             // ----------------------------------------------------------------
             Tool {
                 name: Cow::Borrowed("list_playbooks"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Lists active playbooks for a tenant, optionally filtered by category and tags.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id"],
                     "properties": {
@@ -207,14 +209,14 @@ impl ServerHandler for FilesystemServer {
                         "limit":     { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 },
                         "offset":    { "type": "integer", "minimum": 0, "default": 0 }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("get_playbook"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Returns the full content (markdown) of an active playbook by ID.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "playbook_id"],
                     "properties": {
@@ -222,17 +224,17 @@ impl ServerHandler for FilesystemServer {
                         "user_id":     { "type": "string", "format": "uuid" },
                         "playbook_id": { "type": "string", "format": "uuid" }
                     }
-                }),
+                })),
             },
             // ----------------------------------------------------------------
             // Reports
             // ----------------------------------------------------------------
             Tool {
                 name: Cow::Borrowed("upload_report"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Uploads a text/markdown/JSON/HTML report (max 5 MB). Optionally queues it for RAG ingestion. Returns document_id and ingestion job_id if queued.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "filename", "content", "mime_type", "report_type", "tags", "ingest_to_rag", "metadata"],
                     "properties": {
@@ -246,14 +248,14 @@ impl ServerHandler for FilesystemServer {
                         "ingest_to_rag":{ "type": "boolean" },
                         "metadata":     { "type": "object" }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("list_reports"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Lists uploaded reports for a tenant, optionally filtered by type and date range.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id"],
                     "properties": {
@@ -265,17 +267,17 @@ impl ServerHandler for FilesystemServer {
                         "limit":       { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 },
                         "offset":      { "type": "integer", "minimum": 0, "default": 0 }
                     }
-                }),
+                })),
             },
             // ----------------------------------------------------------------
             // Search
             // ----------------------------------------------------------------
             Tool {
                 name: Cow::Borrowed("search_documents"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Performs semantic search over tenant documents via the RAG service. Returns ranked chunks with similarity scores. top_k default=5 max=20.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "query"],
                     "properties": {
@@ -286,7 +288,7 @@ impl ServerHandler for FilesystemServer {
                         "top_k":          { "type": "integer", "minimum": 1, "maximum": 20, "default": 5 },
                         "min_score":      { "type": "number", "minimum": 0.0, "maximum": 1.0, "default": 0.5 }
                     }
-                }),
+                })),
             },
         ];
 
@@ -296,14 +298,14 @@ impl ServerHandler for FilesystemServer {
         })
     }
 
-    #[instrument(skip(self, _ctx), name = "call_tool", fields(tool = %request.params.name))]
+    #[instrument(skip(self, _ctx), name = "call_tool", fields(tool = %request.name))]
     async fn call_tool(
         &self,
-        request: CallToolRequest,
-        _ctx: RequestContext,
+        request: CallToolRequestParam,
+        _ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
-        let name = request.params.name.as_ref();
-        let args = request.params.arguments.clone();
+        let name = request.name.as_ref();
+        let args = request.arguments.map(Value::Object);
         let pool = self.pool.as_ref();
         let storage = self.storage.as_ref();
         let rag = self.rag_client.as_ref();
@@ -380,9 +382,7 @@ impl ServerHandler for FilesystemServer {
             }
             unknown => {
                 error!("Unknown tool requested: {}", unknown);
-                Err(McpError::method_not_found(format!(
-                    "Unknown tool: {unknown}"
-                )))
+                Err(McpError::internal_error(format!("Unknown tool: {unknown}"), None))
             }
         }
     }

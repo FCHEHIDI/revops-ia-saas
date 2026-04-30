@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, sequence_id, current_step\n        FROM enrollments\n        WHERE id = $1 AND tenant_id = $2\n          AND status NOT IN ('unenrolled', 'completed')\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "sequence_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "current_step",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "54f91e29aace65736ecd92788fa717302ed763a3979d5d941717189199a3069e"
+}

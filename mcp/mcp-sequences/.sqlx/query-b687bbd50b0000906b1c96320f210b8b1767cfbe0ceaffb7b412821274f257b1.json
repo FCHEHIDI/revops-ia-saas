@@ -1,0 +1,55 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            ss.position AS step_position,\n            ss.step_type::text AS step_type,\n            COUNT(*) FILTER (WHERE ee.event_type = 'sent') AS sent,\n            COUNT(*) FILTER (WHERE ee.event_type = 'opened') AS opened,\n            COUNT(*) FILTER (WHERE ee.event_type = 'clicked') AS clicked,\n            COUNT(*) FILTER (WHERE ee.event_type = 'replied') AS replied\n        FROM sequence_steps ss\n        LEFT JOIN email_events ee ON ee.step_id = ss.id\n            AND ($3::date IS NULL OR ee.occurred_at::date >= $3)\n            AND ($4::date IS NULL OR ee.occurred_at::date <= $4)\n        WHERE ss.sequence_id = $1 AND ss.tenant_id = $2\n        GROUP BY ss.position, ss.step_type\n        ORDER BY ss.position ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "step_position",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "step_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "sent",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "opened",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "clicked",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "replied",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "b687bbd50b0000906b1c96320f210b8b1767cfbe0ceaffb7b412821274f257b1"
+}

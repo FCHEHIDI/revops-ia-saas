@@ -86,7 +86,7 @@ pub async fn upload_report(
     // Insert into DB
     let db_result = sqlx::query!(
         r#"
-        INSERT INTO documents (
+        INSERT INTO fs_documents (
             id, tenant_id, filename, document_type, mime_type,
             size_bytes, storage_path, tags, rag_indexed,
             uploaded_by, created_at, updated_at
@@ -240,7 +240,7 @@ pub async fn list_reports(
             uploaded_by,
             created_at,
             updated_at
-        FROM documents
+        FROM fs_documents
         WHERE tenant_id = $1
           AND document_type = 'report'
           AND ($2::timestamptz IS NULL OR created_at >= $2)
@@ -263,7 +263,7 @@ pub async fn list_reports(
     let total: i64 = sqlx::query_scalar!(
         r#"
         SELECT COUNT(*)
-        FROM documents
+        FROM fs_documents
         WHERE tenant_id = $1
           AND document_type = 'report'
           AND ($2::timestamptz IS NULL OR created_at >= $2)

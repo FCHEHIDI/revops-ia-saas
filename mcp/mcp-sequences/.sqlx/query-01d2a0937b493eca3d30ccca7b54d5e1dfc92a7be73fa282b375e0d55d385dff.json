@@ -1,0 +1,61 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            COUNT(*) FILTER (WHERE event_type = 'sent') AS sent,\n            COUNT(*) FILTER (WHERE event_type = 'opened') AS opened,\n            COUNT(*) FILTER (WHERE event_type = 'clicked') AS clicked,\n            COUNT(*) FILTER (WHERE event_type = 'replied') AS replied,\n            COUNT(*) FILTER (WHERE event_type = 'bounced') AS bounced,\n            COUNT(*) FILTER (WHERE event_type = 'unsubscribed') AS unsubscribed,\n            COUNT(*) FILTER (WHERE event_type = 'converted') AS converted\n        FROM email_events ee\n        JOIN enrollments e ON e.id = ee.enrollment_id\n        WHERE e.sequence_id = $1 AND e.tenant_id = $2\n          AND ($3::date IS NULL OR ee.occurred_at::date >= $3)\n          AND ($4::date IS NULL OR ee.occurred_at::date <= $4)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sent",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "opened",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "clicked",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "replied",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "bounced",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "unsubscribed",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "converted",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "01d2a0937b493eca3d30ccca7b54d5e1dfc92a7be73fa282b375e0d55d385dff"
+}

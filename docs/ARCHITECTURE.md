@@ -2,8 +2,8 @@
 
 Document de référence architecturale pour tous les agents développeurs du projet.
 
-> **Dernière mise à jour** : 2026-03-17  
-> **Phase** : Phase 2 — MCP CRM (en cours)  
+> **Dernière mise à jour** : 2026-04-30  
+> **Phase** : Phase 3 — Multi-MCP + RAG + Filesystem (complétée)  
 > **Décideurs** : Architecte Système  
 > **Charte** : [docs/PROJECT_MANAGER_CHARTER.md](./PROJECT_MANAGER_CHARTER.md)  
 > **ADRs** : [docs/adr/README.md](./adr/README.md)

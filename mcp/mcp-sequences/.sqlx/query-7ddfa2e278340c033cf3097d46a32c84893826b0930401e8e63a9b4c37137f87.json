@@ -1,0 +1,84 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            id, sequence_id, position,\n            step_type AS \"step_type: StepType\",\n            delay_days, delay_hours, template_id, subject, body_template\n        FROM sequence_steps\n        WHERE sequence_id = $1 AND tenant_id = $2\n        ORDER BY position ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "sequence_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "position",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "step_type: StepType",
+        "type_info": {
+          "Custom": {
+            "name": "step_type",
+            "kind": {
+              "Enum": [
+                "email",
+                "linkedin_message",
+                "task",
+                "call",
+                "wait"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "delay_days",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "delay_hours",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "template_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "subject",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "body_template",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "7ddfa2e278340c033cf3097d46a32c84893826b0930401e8e63a9b4c37137f87"
+}

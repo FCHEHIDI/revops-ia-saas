@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE enrollments\n            SET status = 'unenrolled', unenroll_reason = 'override_enrollment', completed_at = NOW()\n            WHERE id = $1 AND tenant_id = $2\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "05466424e60edd05c5bc9589fef2cca61abcc8b3f5f7384548969f6a2e169990"
+}

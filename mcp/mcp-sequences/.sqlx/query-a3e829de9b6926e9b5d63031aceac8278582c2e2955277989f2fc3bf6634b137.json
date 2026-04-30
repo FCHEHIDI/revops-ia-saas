@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) FROM sequences\n        WHERE tenant_id = $1\n          AND ($2::text IS NULL OR status = $2::sequence_status)\n          AND ($3::text[] IS NULL OR tags && $3::text[])\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a3e829de9b6926e9b5d63031aceac8278582c2e2955277989f2fc3bf6634b137"
+}

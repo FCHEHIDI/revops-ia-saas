@@ -6,7 +6,16 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.auth.service import verify_access_token
 
-BYPASS_PATHS = ["/api/v1/auth", "/health", "/internal/sessions", "/internal/llm"]
+BYPASS_PATHS = [
+    "/api/v1/auth",
+    "/health",
+    "/internal/sessions",
+    "/internal/llm",
+    "/api/v1/billing/health",
+    "/api/v1/analytics/health",
+    "/api/v1/sequences/health",
+    "/api/v1/filesystem/health",
+]
 # Routes under /internal/v1/ use the internal-API-key fast-path (sets tenant context).
 INTERNAL_API_PREFIX = "/internal/v1/"
 

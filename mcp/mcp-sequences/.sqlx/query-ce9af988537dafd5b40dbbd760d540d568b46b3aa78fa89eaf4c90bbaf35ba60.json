@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) FROM enrollments\n        WHERE sequence_id = $1 AND tenant_id = $2\n          AND ($3::text IS NULL OR status = $3::enrollment_status)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ce9af988537dafd5b40dbbd760d540d568b46b3aa78fa89eaf4c90bbaf35ba60"
+}

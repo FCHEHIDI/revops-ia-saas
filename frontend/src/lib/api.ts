@@ -92,10 +92,11 @@ export const api = new ApiClient(BACKEND_URL);
 // Auth endpoints
 // ---------------------------------------------------------------------------
 
-import type { User, LoginRequest } from "@/types";
+import type { User, LoginRequest, RegisterRequest } from "@/types";
 
 export const authApi = {
   login: (data: LoginRequest) => api.post<User>("/auth/login", data),
+  register: (data: RegisterRequest) => api.post<User>("/auth/register", data),
   me: () => api.get<User>("/auth/me"),
   logout: () => api.post<{ message: string }>("/auth/logout"),
   refresh: () => api.post<{ message: string }>("/auth/refresh"),
@@ -164,8 +165,36 @@ export const billingApi = {
 
 import type { Metric } from "@/types";
 
+// MCP proxy call shape
+export interface McpCallResponse<T = unknown> {
+  result: T;
+}
+
 export const analyticsApi = {
   getMetrics: () => api.get<Metric[]>("/analytics/metrics"),
+
+  // MCP proxy calls
+  getMrrTrend: (months = 12) =>
+    api.post<McpCallResponse<{
+      data_points: Array<{ month: string; mrr: string; new_mrr: string; churned_mrr: string; net_new_mrr: string }>;
+      current_mrr: string;
+      mom_growth_rate: number;
+    }>>("/analytics/call", { tool: "get_mrr_trend", params: { months } }),
+
+  getFunnelAnalysis: () =>
+    api.post<McpCallResponse<{
+      stages: Array<{ stage: string; entered: number; exited: number; converted: number; conversion_rate: number; avg_time_days: number }>;
+      overall_conversion: number;
+      bottleneck_stage: string | null;
+    }>>("/analytics/call", { tool: "get_funnel_analysis", params: {} }),
+
+  getChurnRate: () =>
+    api.post<McpCallResponse<{
+      churn_rate: number;
+      churned_count: number;
+      starting_count: number;
+      net_revenue_retention: number;
+    }>>("/analytics/call", { tool: "compute_churn_rate", params: {} }),
 };
 
 // ---------------------------------------------------------------------------
@@ -174,9 +203,41 @@ export const analyticsApi = {
 
 import type { Sequence } from "@/types";
 
+export interface SequenceStepInput {
+  step_type: "email" | "linkedin_message" | "call" | "task" | "wait";
+  delay_days: number;
+  delay_hours: number;
+  subject?: string;
+  body_template?: string;
+}
+
 export const sequencesApi = {
   listSequences: (page = 1, pageSize = 20) =>
     api.get<PaginatedResponse<Sequence>>(`/sequences?page=${page}&page_size=${pageSize}`),
+
+  createSequence: (params: {
+    tenant_id: string;
+    user_id: string;
+    name: string;
+    description?: string;
+    steps: SequenceStepInput[];
+    tags?: string[];
+  }) =>
+    api.post<McpCallResponse<{ sequence_id: string; steps_count: number; created_at: string }>>(
+      "/sequences/call",
+      { tool: "create_sequence", params: { ...params, exit_conditions: [], tags: params.tags ?? [] } }
+    ),
+
+  updateSequenceStatus: (params: {
+    tenant_id: string;
+    user_id: string;
+    sequence_id: string;
+    status: "active" | "paused" | "draft" | "archived";
+  }) =>
+    api.post<McpCallResponse<unknown>>(
+      "/sequences/call",
+      { tool: "update_sequence", params }
+    ),
 };
 
 // ---------------------------------------------------------------------------

@@ -4,10 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LogOut } from "lucide-react";
+import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { ProfileCard } from "@/components/layout/profile-card";
+import { NotificationPanel } from "@/components/notifications/notification-panel";
 
 const navItems = [
   { href: "/chat",      label: "Xenito",      section: "IA",  customIcon: "/icons/xenito-icon.png"     },
@@ -30,9 +31,13 @@ export function TopNav() {
       className="flex items-center w-full shrink-0 px-6 gap-3"
       style={{
         height: "170px",
-        background: "linear-gradient(90deg, #0d001a 0%, #0a0012 60%, #070010 100%)",
-        borderBottom: "1px solid rgba(255,0,0,0.12)",
-        boxShadow: "0 2px 32px rgba(255,0,0,0.04)",
+        position: "relative",
+        zIndex: 50,
+        background: "rgba(5,5,5,0.75)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+        borderBottom: "1px solid var(--red-dark)",
+        boxShadow: "0 2px 32px rgba(0,0,0,0.8), 0 1px 0 rgba(138,0,0,0.2)",
       }}
     >
       {/* ── Logo → Logout ── */}
@@ -61,23 +66,26 @@ export function TopNav() {
         />
         <div className="hidden sm:flex flex-col">
           <div
-            className="font-orbitron text-sm font-black tracking-widest"
+            className="font-cinzel text-sm font-bold tracking-[0.18em] uppercase"
             style={{
-              color: logoHover ? "#ffffff" : "#f5f5f5",
-              transition: "color 0.2s",
+              color: logoHover ? "#ffffff" : "var(--white-spectral)",
+              textShadow: logoHover ? "0 0 14px rgba(192,0,0,0.8)" : "none",
+              transition: "color 0.2s, text-shadow 0.2s",
             }}
           >
-            ROI
+            RevOps
           </div>
           <div
             className="text-xs"
             style={{
-              color: logoHover ? "rgba(255,255,255,0.5)" : "#444",
-              letterSpacing: "0.05em",
+              color: logoHover ? "var(--red-doge)" : "var(--red-dark)",
+              letterSpacing: "0.12em",
+              fontSize: "0.65rem",
               transition: "color 0.2s",
+              fontFamily: "var(--font-body)",
             }}
           >
-            RevOps
+            Intelligence
           </div>
           {/* "Déconnexion" visible seulement au hover */}
           <div
@@ -116,14 +124,14 @@ export function TopNav() {
               style={
                 isActive
                   ? {
-                      background: "rgba(255,0,0,0.08)",
-                      border: "1px solid rgba(255,0,0,0.2)",
-                      boxShadow: "inset 0 0 16px rgba(255,0,0,0.05), 0 0 16px rgba(255,0,0,0.12)",
+                      background: "rgba(138,0,0,0.15)",
+                      border: "1px solid var(--red-dark)",
+                      boxShadow: "var(--inner-shadow-red), var(--glow-red)",
                       padding: "4px 6px",
                     }
                   : {
-                      background: isHovered ? "rgba(255,255,255,0.03)" : "transparent",
-                      border: isHovered ? "1px solid rgba(255,255,255,0.06)" : "1px solid transparent",
+                      background: isHovered ? "rgba(138,0,0,0.07)" : "transparent",
+                      border: isHovered ? "1px solid rgba(138,0,0,0.3)" : "1px solid transparent",
                       padding: "4px 6px",
                     }
               }
@@ -161,8 +169,56 @@ export function TopNav() {
         })}
       </nav>
 
-      {/* ── Profile card ── */}
-      {user && <ProfileCard user={user} />}
+      {/* ── Search button + Notification bell + Profile card ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+        {/* Cmd+K search trigger */}
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("cmdpalette:open"))}
+          aria-label="Recherche globale (Ctrl+K)"
+          title="Ctrl+K"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            height: 32,
+            padding: "0 10px",
+            borderRadius: 7,
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.07)",
+            cursor: "pointer",
+            transition: "background 0.15s, border-color 0.15s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
+          }}
+        >
+          <Search size={13} color="#666" />
+          <span style={{ fontSize: 12, color: "#555", whiteSpace: "nowrap" }}>
+            Rechercher…
+          </span>
+          <kbd
+            style={{
+              fontSize: 9,
+              color: "#444",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              borderRadius: 3,
+              padding: "1px 4px",
+              marginLeft: 4,
+            }}
+          >
+            Ctrl K
+          </kbd>
+        </button>
+
+        <NotificationPanel />
+        {user && <ProfileCard user={user} />}
+      </div>
     </header>
   );
 }

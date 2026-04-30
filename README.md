@@ -1,9 +1,25 @@
 # ROI — RevOps Intelligence
 
 > Plateforme RevOps **IA-native** propulsée par **Xenito**, le copilote IA dédié aux équipes Sales, Marketing et Customer Success.  
-> Dark. Fast. Opinionated.
+> Design system **Venetian Cyber-Gothic OS** — crimson · marbre noir · ambre doré.
 
 ![Login](./docs/screenshots/00-login.png)
+
+---
+
+## Design System — Venetian Cyber-Gothic OS
+
+L'interface adopte une esthétique "Palais Ducal cyberpunk" : fonds noirs marbrés, typographie Cinzel romaine, accents rouge cramoisi et ambre doré, animations `pulseMarbre` sur chaque tableau de données.
+
+| Token | Valeur | Usage |
+|---|---|---|
+| `--red-doge` | `#C00000` | Accents primaires, bordures actives |
+| `--red-glow` | `#FF1A1A` | Glows, badges, erreurs |
+| `--amber-gold` | `#D4A000` | Métriques positives, headings secondaires |
+| `--amethyst` | `#9B4FD4` | Info, séquences |
+| `--black-deep` | `#050505` | Fond principal |
+| `font-cinzel` | Google Fonts | Titres, labels uppercase |
+| `pulseMarbre` | 2.4s ease-in-out | Animation box-shadow rouge sur tableaux |
 
 ---
 
@@ -15,13 +31,13 @@ Interface conversationnelle full-screen. Xenito orchestre vos données CRM, fact
 
 ![Xenito Chat](./docs/screenshots/01-xenito-chat.png)
 
-> **Pipeline MCP** : le badge `mcp_crm__search_contacts` confirme que l'orchestrateur Rust appelle les outils métier avant de synthétiser la réponse via Groq `llama-3.3-70b-versatile`.
+> **Pipeline MCP** : les badges `Billing · list_overdue_payments` et `Analytics · get_mrr_trend` confirment que l'orchestrateur Rust appelle les outils métier avant de synthétiser la réponse via Groq `llama-3.3-70b-versatile`.
 
 ---
 
-### Dashboard — Vue exécutive
+### Dashboard — Salle du Conseil
 
-KPIs temps réel : ARR, pipeline, deals actifs, win rate. Graphique revenue mensuel/trimestriel + fil d'activité récente.
+KPIs temps réel : ARR, pipeline, deals actifs, win rate. Graphique revenue mensuel/trimestriel + fil d'activité récente + deals en vedette.
 
 ![Dashboard](./docs/screenshots/02-dashboard.png)
 
@@ -34,41 +50,41 @@ KPIs temps réel : ARR, pipeline, deals actifs, win rate. Graphique revenue mens
 
 ---
 
-### CRM — Contacts & Deals
+### CRM — Salle des Masques
 
-50 contacts seedés avec statut, poste, email. Recherche full-text. RLS PostgreSQL garantit l'isolation stricte par tenant.
+Contacts & deals avec galerie de portraits, sidebar de navigation (Contacts / Companies / Activities / Segments), tableau full-text searchable. RLS PostgreSQL garantit l'isolation stricte par tenant.
 
 ![CRM](./docs/screenshots/03-crm.png)
 
 ---
 
-### Analytics — Métriques RevOps
+### Analytics — Salle des Archives
 
-Vue consolidée des indicateurs clés : contacts actifs, MRR, taux de conversion, séquences actives.
+Vue consolidée : contacts actifs (312), MRR (28 400 €), taux de conversion (34%), séquences actives (7). Charts MRR trend + funnel pipeline + état factures.
 
 ![Analytics](./docs/screenshots/04-analytics.png)
 
 ---
 
-### Facturation — Invoices
+### Facturation — Salle des Comptes
 
-Pipeline de facturation avec statuts (Payée / En attente / En retard / Brouillon) et suivi des échéances par client.
+Registre des factures avec statuts colorés (Payée · En attente · En retard), totaux encaissé/attente/retard en header, tri par échéance.
 
 ![Facturation](./docs/screenshots/05-billing.png)
 
 ---
 
-### Séquences — Outreach Cadences
+### Séquences — Salle des Rituels
 
-Cadences d'outreach multi-canal (email, LinkedIn, appels). Statuts Active / En pause / Brouillon / Terminée avec métriques d'inscription.
+Cadences d'outreach multi-canal nommées "rituels". Statuts Active / En pause / Brouillon / Terminée avec barres de progression et métriques d'inscription.
 
 ![Séquences](./docs/screenshots/06-sequences.png)
 
 ---
 
-### Documents — RAG
+### Documents — Salle des Manuscrits
 
-Ingestion documentaire multi-tenant. Drag & drop PDF/DOCX/TXT → indexation pgvector → accessible depuis Xenito en contexte conversationnel.
+Ingestion documentaire multi-tenant. Drag & drop PDF/DOCX/TXT/MD → indexation pgvector → accessible depuis Xenito en contexte conversationnel.
 
 ![Documents](./docs/screenshots/07-documents.png)
 
@@ -181,27 +197,44 @@ cd backend && python -m pytest tests/ -q
 
 ---
 
-## État du projet (29 avril 2026)
+## État du projet (1er mai 2026)
 
-### Fonctionnalités livrées ✅
+### Frontend v1 — Design System stabilisé ✅
 
-- **Auth** : login/logout cookie httpOnly, refresh token, middleware JWT pur ASGI, RLS multi-tenant
-- **Chat IA** : interface Xenito, SSE streaming end-to-end, orchestrateur Rust stateless
-- **MCP** : routing langage naturel → outils métier (`mcp_crm__search_contacts`, etc.)
-- **CRM** : contacts, deals — RLS par tenant, permissions RBAC
-- **Dashboard** : KPIs ARR, pipeline, win rate, activité récente
-- **Analytics** : métriques consolidées MRR, conversion, séquences
-- **Facturation** : invoices multi-statut avec échéances
-- **Séquences** : cadences outreach multi-canal
-- **Documents** : upload + indexation RAG multi-tenant
-- **Seed data** : 50 contacts, 6 invoices, 6 séquences, 4 métriques
+- **Design System Venetian Cyber-Gothic** : palette crimson/ambre/améthyste, Cinzel, animations CSS (pulseMarbre, bellRing, badgePulse, fog/smoke)
+- **Login** : fond gothique, médaillon ROI logo, fumée 4 couches `mix-blend-mode: screen`
+- **Navigation** : 8 médaillons dorés, z-index fix (notifications au-dessus des heroes)
+- **XENITO** (ex-Chat) : hero "Salle du Guide", interface border crimson animée pulseMarbre
+- **Dashboard** : KPIs, revenue chart, activité récente, deals en vedette
+- **CRM** : galerie portraits, tableau contacts RLS, sidebar navigation
+- **Analytics** : metrics cards + MRR chart + funnel pipeline + billing status
+- **Facturation** : registre invoices multi-statut, totaux header
+- **Séquences** : rituels outreach avec progression, 6 cadences seedées
+- **Documents** : drop zone RAG + registre manuscrits
+- **Notifications** : panel Venetian pulseMarbre + bellRing badge
+- **Profile card** : médaillon THE DOGE 150×150
+
+### Backend & Infra ✅
+
+- **Auth** : login/logout cookie httpOnly, refresh token, middleware JWT ASGI, RLS multi-tenant
+- **CRM** : contacts, deals — RLS par tenant, RBAC
+- **Seed data** : 50 contacts, 6 invoices, 6 séquences, 4 métriques analytiques
+- **Tests** : 28 passed — auth, JWT, CRM permissions, tenant isolation, RLS, sessions
+
+### Chat IA ✅
+
+- **Orchestrateur Rust** (Axum) : SSE streaming stateless end-to-end
+- **MCP routing** : `Billing · list_overdue_payments`, `Analytics · get_mrr_trend`, `CRM · search_contacts`
+- **RAG** : pgvector backend opérationnel
+- **LLM** : Groq `llama-3.3-70b-versatile`
 
 ### Prochaines étapes
 
-- [ ] MCP Billing + Analytics — connexion complète à l'orchestrateur
-- [ ] RAG : pipeline d'ingestion PDF → pgvector opérationnel
-- [ ] Observabilité : métriques LLM, coûts Groq, latences par tenant
-- [ ] Upgrade Groq tier (rate limit 12K TPM en free tier)
+- [ ] MCP Billing + Analytics — connexion complète orchestrateur (données live)
+- [ ] RAG : pipeline ingestion PDF → pgvector front-to-back
+- [ ] Observabilité : métriques LLM, coûts Groq, latences par tenant (OpenTelemetry)
+- [ ] Rate limiting production (Redis token bucket)
+- [ ] CI/CD pipeline GitHub Actions → Docker build → deploy
 
 ---
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useApiQuery } from "@/hooks/useApi";
 import { analyticsApi } from "@/lib/api";
@@ -13,36 +12,45 @@ function MetricCard({ metric }: { metric: Metric }) {
   const isDecrease = metric.changeType === "decrease";
   const hasChange = metric.change !== undefined && metric.changeType !== undefined;
 
+  const trendColor = isIncrease ? "#D4A000" : isDecrease ? "var(--red-glow)" : "var(--gray-silver)";
   return (
-    <Card className="flex flex-col gap-3">
-      <p className="text-xs font-medium text-text-muted uppercase tracking-wide">{metric.label}</p>
+    <div className="tablette-marbre tablette-metrique flex flex-col gap-3">
+      <p
+        className="font-cinzel text-xs uppercase tracking-[0.2em]"
+        style={{ color: "var(--gray-silver)" }}
+      >
+        {metric.label}
+      </p>
       <div className="flex items-end justify-between gap-2">
         <div>
-          <span className="text-2xl font-bold text-text-primary">{metric.value}</span>
+          <span
+            className="text-2xl font-bold font-cinzel"
+            style={{ color: "var(--white-spectral)", textShadow: "0 0 12px rgba(255,255,255,0.15)" }}
+          >
+            {metric.value}
+          </span>
           {metric.unit && (
-            <span className="ml-1 text-sm text-text-muted">{metric.unit}</span>
+            <span className="ml-1 text-sm" style={{ color: "var(--gray-silver)" }}>{metric.unit}</span>
           )}
         </div>
         {hasChange && (
           <div
-            className={cn(
-              "flex items-center gap-1 text-xs font-medium",
-              isIncrease && "text-emerald-400",
-              isDecrease && "text-red",
-              !isIncrease && !isDecrease && "text-text-muted"
-            )}
+            className="flex items-center gap-1 text-xs font-semibold"
+            style={{ color: trendColor }}
           >
-            {isIncrease && <TrendingUp size={14} />}
-            {isDecrease && <TrendingDown size={14} />}
-            {!isIncrease && !isDecrease && <Minus size={14} />}
+            {isIncrease && <TrendingUp size={13} />}
+            {isDecrease && <TrendingDown size={13} />}
+            {!isIncrease && !isDecrease && <Minus size={13} />}
             <span>{metric.change! > 0 ? "+" : ""}{metric.change}%</span>
           </div>
         )}
       </div>
       {metric.period && (
-        <p className="text-xs text-text-muted">{metric.period}</p>
+        <p className="text-xs" style={{ color: "var(--red-dark)", fontFamily: "var(--font-mono)", fontSize: "0.65rem" }}>
+          {metric.period}
+        </p>
       )}
-    </Card>
+    </div>
   );
 }
 

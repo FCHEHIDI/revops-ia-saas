@@ -18,6 +18,13 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  full_name: string;
+  company_name?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Chat & Messages
 // ---------------------------------------------------------------------------

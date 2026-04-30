@@ -38,7 +38,7 @@ export default function SplashPage() {
       {/* Video */}
       <video
         className="absolute inset-0 h-full w-full object-cover"
-        src="/media/teaser.mp4"
+        src="/media/final_teaser.mp4"
         autoPlay
         muted
         playsInline

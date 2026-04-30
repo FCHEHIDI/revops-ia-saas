@@ -24,14 +24,36 @@
     --text-inverse:   #000000;
 
     /* ── Accents ── */
-    --accent-red:      #ff0000;
+    --accent-red:      #C00000;
     --accent-red-dim:  #4a0000;
-    --accent-blue:     #2979ff;
-    --accent-blue-dim: rgba(41, 121, 255, 0.12);
+    --accent-blue:     #C00000;
+    --accent-blue-dim: rgba(192, 0, 0, 0.12);
     --accent-success:  #00ff88;
     --accent-warning:  #ff0066;
     --accent-white:    #ffffff;
-    --accent-glow:     rgba(255, 0, 0, 0.18);
+    --accent-glow:     rgba(192, 0, 0, 0.25);
+
+    /* ── Venetian Palette ── */
+    --black-palazzo:   #050505;
+    --black-marble:    #0A0A0A;
+    --red-doge:        #C00000;
+    --red-glow:        #FF1A1A;
+    --red-dark:        #8A0000;
+    --red-deep:        #220000;
+    --white-spectral:  #F2F2F2;
+    --gray-smoke:      #1A1A1A;
+    --gray-silver:     #B3B3B3;
+
+    /* ── Venetian Glows ── */
+    --glow-red:          0 0 12px rgba(255, 0, 0, 0.4);
+    --glow-red-strong:   0 0 28px rgba(255, 0, 0, 0.7);
+    --inner-shadow-red:  inset 0 0 20px rgba(138, 0, 0, 0.5);
+    --inner-shadow-dark: inset 0 0 40px rgba(0, 0, 0, 0.8);
+
+    /* ── Venetian Fonts ── */
+    --font-title: 'Cinzel', serif;
+    --font-body:  'Space Grotesk', system-ui, sans-serif;
+    --font-mono:  'Geist Mono', 'Courier New', monospace;
 
     /* ── Chat tokens ── */
     --chat-tool-border:    rgba(255, 80, 80, 0.2);
@@ -66,8 +88,8 @@
 
     /* ── Shadows ── */
     --shadow-card:  0 1px 3px rgba(0,0,0,0.9), 0 4px 16px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.025);
-    --shadow-glow:  0 0 0 1px rgba(255,0,0,0.35), 0 4px 28px rgba(255,0,0,0.2);
-    --shadow-blue:  0 0 0 1px rgba(41,121,255,0.4), 0 4px 28px rgba(41,121,255,0.22);
+    --shadow-glow:  0 0 0 1px rgba(192,0,0,0.4), 0 4px 28px rgba(192,0,0,0.25);
+    --shadow-blue:  0 0 0 1px rgba(192,0,0,0.4), 0 4px 28px rgba(192,0,0,0.22);
     --shadow-deep:  0 8px 48px rgba(0,0,0,0.95);
 
     /* ── Radii ── */
@@ -123,10 +145,133 @@
     border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
+  /* ── Fonts ── */
+  .font-cinzel { font-family: var(--font-title); }
+
   /* Glow text */
-  .text-glow-red  { text-shadow: 0 0 20px rgba(255,0,0,0.6); }
-  .text-glow-blue { text-shadow: 0 0 20px rgba(41,121,255,0.6); }
+  .text-glow-red   { text-shadow: 0 0 20px rgba(192,0,0,0.8), 0 0 40px rgba(255,0,0,0.4); }
+  .text-glow-doge  { text-shadow: 0 0 14px rgba(192,0,0,0.7); }
+  .text-glow-blue  { text-shadow: 0 0 20px rgba(192,0,0,0.6); }
   .text-glow-green { text-shadow: 0 0 20px rgba(0,255,136,0.5); }
+
+  /* ── Venetian background (palazzo) ── */
+  .bg-palazzo {
+    background-image: url('/background.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+  }
+  .bg-palazzo-overlay {
+    background: linear-gradient(
+      to bottom,
+      rgba(5,5,5,0.62) 0%,
+      rgba(5,5,5,0.50) 50%,
+      rgba(5,5,5,0.78) 100%
+    );
+  }
+
+  /* ── Medallion ── */
+  .medallion {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #C00000, #8A0000);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--inner-shadow-red), var(--glow-red), 0 2px 8px rgba(0,0,0,0.8);
+    transition: all 0.25s ease; cursor: pointer;
+    border: 1px solid rgba(192,0,0,0.4);
+  }
+  .medallion:hover  { transform: rotate(2deg) scale(1.06); box-shadow: var(--inner-shadow-red), var(--glow-red-strong); }
+  .medallion:active { transform: scale(0.94); box-shadow: inset 0 0 20px var(--red-dark); }
+
+  /* ── Card venetian ── */
+  .card-venetian {
+    background: var(--black-marble);
+    border: 1px solid var(--red-dark);
+    border-radius: 6px;
+    box-shadow: var(--inner-shadow-dark), 0 4px 32px rgba(0,0,0,0.9);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+  .card-venetian:hover {
+    box-shadow: var(--inner-shadow-dark), var(--glow-red), 0 8px 40px rgba(0,0,0,0.9);
+    transform: translateY(-2px);
+  }
+
+  /* ── Fog / Smoke layers ── */
+  @keyframes fogDrift {
+    0%   { transform: translateX(0)     scaleY(1)    scaleX(1); opacity: 0.85; }
+    35%  { transform: translateX(-70px) scaleY(1.06) scaleX(1.04); opacity: 1; }
+    70%  { transform: translateX(40px)  scaleY(0.97) scaleX(0.98); opacity: 0.9; }
+    100% { transform: translateX(0)     scaleY(1)    scaleX(1); opacity: 0.85; }
+  }
+  @keyframes smokeDrift2 {
+    0%   { transform: translateX(0)      translateY(0)   scaleX(1); opacity: 0.55; }
+    40%  { transform: translateX(90px)   translateY(-18px) scaleX(1.08); opacity: 0.75; }
+    80%  { transform: translateX(-50px)  translateY(-8px)  scaleX(0.95); opacity: 0.6; }
+    100% { transform: translateX(0)      translateY(0)   scaleX(1); opacity: 0.55; }
+  }
+  @keyframes smokeDrift3 {
+    0%   { transform: translateX(0)      translateY(0)    scaleY(1); opacity: 0.40; }
+    30%  { transform: translateX(-110px) translateY(-24px) scaleY(1.1); opacity: 0.65; }
+    65%  { transform: translateX(60px)   translateY(-12px) scaleY(1.05); opacity: 0.45; }
+    100% { transform: translateX(0)      translateY(0)    scaleY(1); opacity: 0.40; }
+  }
+  @keyframes smokeRise {
+    0%   { transform: translateY(0)   scaleX(1); opacity: 0; }
+    15%  { opacity: 0.5; }
+    60%  { transform: translateY(-40px) scaleX(1.15); opacity: 0.35; }
+    100% { transform: translateY(-80px) scaleX(1.3); opacity: 0; }
+  }
+
+  .fog-layer {
+    position: absolute;
+    bottom: 0; left: -10%; width: 120%; height: 220px;
+    background: radial-gradient(ellipse 90% 100% at 50% 100%,
+      rgba(220,200,200,0.18) 0%,
+      rgba(180,140,140,0.10) 35%,
+      transparent 70%);
+    pointer-events: none;
+    animation: fogDrift 16s ease-in-out infinite;
+    mix-blend-mode: screen;
+  }
+  .smoke-layer-2 {
+    position: absolute;
+    bottom: -20px; left: -15%; width: 130%; height: 260px;
+    background: radial-gradient(ellipse 65% 85% at 25% 100%,
+        rgba(200,180,180,0.13) 0%, transparent 60%),
+                radial-gradient(ellipse 55% 75% at 78% 100%,
+        rgba(210,190,190,0.11) 0%, transparent 58%);
+    pointer-events: none;
+    animation: smokeDrift2 20s ease-in-out infinite;
+    mix-blend-mode: screen;
+  }
+  .smoke-layer-3 {
+    position: absolute;
+    bottom: -10px; left: -5%; width: 110%; height: 300px;
+    background: radial-gradient(ellipse 55% 65% at 62% 100%,
+        rgba(190,170,170,0.09) 0%, transparent 58%),
+                radial-gradient(ellipse 45% 55% at 18% 100%,
+        rgba(200,180,180,0.08) 0%, transparent 52%);
+    pointer-events: none;
+    animation: smokeDrift3 24s ease-in-out infinite 3s;
+    mix-blend-mode: screen;
+  }
+  .smoke-wisp {
+    position: absolute;
+    bottom: 0; width: 100%; height: 160px;
+    background: radial-gradient(ellipse 28% 55% at 43% 100%,
+        rgba(230,210,210,0.10) 0%, transparent 65%),
+                radial-gradient(ellipse 22% 45% at 68% 100%,
+        rgba(220,200,200,0.08) 0%, transparent 60%);
+    pointer-events: none;
+    animation: smokeRise 9s ease-out infinite 1.5s;
+  }
+
+  /* ── Red candle pulse ── */
+  @keyframes candlePulse {
+    0%, 100% { opacity: 0.6; }
+    50%       { opacity: 1; }
+  }
+  .candle-pulse { animation: candlePulse 3s ease-in-out infinite; }
 
   /* ── Chat message entrance ── */
   @keyframes msg-in {
@@ -193,5 +338,210 @@
     );
     pointer-events: none;
     border-radius: inherit;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     TABLETTES DE MARBRE — système de cards vénitiennes
+  ═══════════════════════════════════════════════════════════ */
+
+  /* Base */
+  .tablette-marbre {
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(circle at 30% 30%, #111111 0%, #050505 80%);
+    border: 1px solid var(--red-dark);
+    border-radius: 6px;
+    padding: 24px;
+    box-shadow: inset 0 0 20px #220000, 0 0 12px rgba(255,0,0,0.4);
+    color: var(--white-spectral);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+  }
+
+  /* Veinure marbre simulée via pseudo */
+  .tablette-marbre::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(127deg, transparent 35%, rgba(138,0,0,0.04) 36%, rgba(138,0,0,0.04) 37%, transparent 38%),
+      linear-gradient(220deg, transparent 42%, rgba(34,0,0,0.06) 43%, rgba(34,0,0,0.06) 44%, transparent 45%);
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  /* Ligne décorative rouge en bas */
+  .tablette-marbre::after {
+    content: "";
+    position: absolute;
+    bottom: 0; left: 10%; right: 10%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--red-dark), var(--red-doge), var(--red-dark), transparent);
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  .tablette-marbre:hover {
+    box-shadow: inset 0 0 20px #220000, 0 0 24px rgba(255,0,0,0.7);
+    transform: translateY(-2px);
+  }
+
+  /* ── Variante : Métrique (gros chiffre + label) ── */
+  .tablette-metrique .tm-value {
+    font-family: var(--font-mono);
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 700;
+    line-height: 1;
+    color: var(--white-spectral);
+    text-shadow: var(--glow-red);
+  }
+  .tablette-metrique .tm-label {
+    font-family: var(--font-title);
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gray-silver);
+    margin-top: 6px;
+  }
+  .tablette-metrique .tm-delta {
+    font-size: 0.75rem;
+    font-family: var(--font-body);
+    margin-top: 8px;
+    color: var(--red-glow);
+  }
+  .tablette-metrique .tm-delta.positive { color: #4dff91; }
+  .tablette-metrique .tm-delta.negative { color: var(--red-glow); }
+
+  /* ── Variante : Graphique (zone de chart miniature) ── */
+  .tablette-graphique .tm-chart-zone {
+    margin-top: 12px;
+    height: 64px;
+  }
+  .tablette-graphique .tm-title {
+    font-family: var(--font-title);
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--red-doge);
+    margin-bottom: 4px;
+  }
+
+  /* ── Variante : Narrative (texte, citation, glyphe) ── */
+  .tablette-narrative .tm-quote {
+    font-family: var(--font-title);
+    font-size: 1rem;
+    font-style: italic;
+    color: var(--white-spectral);
+    opacity: 0.85;
+    line-height: 1.5;
+    border-left: 2px solid var(--red-dark);
+    padding-left: 12px;
+  }
+  .tablette-narrative .tm-glyph {
+    font-size: 2rem;
+    line-height: 1;
+    color: var(--red-dark);
+    text-shadow: var(--glow-red);
+    margin-bottom: 8px;
+  }
+
+  /* ── Variante : Interactive (hover + action) ── */
+  .tablette-interactive {
+    cursor: pointer;
+    user-select: none;
+  }
+  .tablette-interactive:hover {
+    border-color: var(--red-doge);
+    box-shadow: inset 0 0 24px #220000, var(--glow-red-strong);
+    transform: translateY(-3px);
+  }
+  .tablette-interactive:active {
+    transform: translateY(0) scale(0.99);
+    box-shadow: inset 0 0 32px #220000, var(--glow-red);
+  }
+
+  /* ── Animation : Pulse actif (tablette.active) ── */
+  @keyframes pulseMarbre {
+    0%,100% { box-shadow: inset 0 0 20px #220000, 0 0 12px rgba(255,0,0,0.4); }
+    50%      { box-shadow: inset 0 0 20px #220000, 0 0 28px rgba(255,0,0,0.75); }
+  }
+  .tablette-marbre.active {
+    animation: pulseMarbre 2.4s ease-in-out infinite;
+  }
+
+  /* ── Cloche notification ── */
+  @keyframes bellRing {
+    0%,100% { transform: rotate(0deg); }
+    6%       { transform: rotate(10deg); }
+    12%      { transform: rotate(-9deg); }
+    18%      { transform: rotate(7deg); }
+    24%      { transform: rotate(-5deg); }
+    30%      { transform: rotate(0deg); }
+  }
+  @keyframes badgePulse {
+    0%,100% { box-shadow: 0 0 8px rgba(255,0,0,0.7), 0 0 16px rgba(255,0,0,0.35); }
+    50%     { box-shadow: 0 0 14px rgba(255,0,0,0.95), 0 0 28px rgba(255,0,0,0.55); }
+  }
+
+  /* ── Séparateur interne ── */
+  .tm-divider {
+    height: 1px;
+    margin: 16px 0;
+    background: linear-gradient(90deg, transparent, var(--red-dark), transparent);
+    opacity: 0.5;
+  }
+
+  /* ── En-tête avec icône + titre ── */
+  .tm-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .tm-header .tm-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #8A0000, #220000);
+    border: 1px solid var(--red-dark);
+    box-shadow: var(--glow-red);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .tm-header .tm-heading {
+    font-family: var(--font-title);
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--white-spectral);
+  }
+  .tm-header .tm-subheading {
+    font-family: var(--font-body);
+    font-size: 0.65rem;
+    color: var(--gray-silver);
+    margin-top: 1px;
+  }
+
+  /* ── Badge état ── */
+  .tm-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--red-dark);
+    background: rgba(138,0,0,0.15);
+    color: var(--red-doge);
+  }
+  .tm-badge.success {
+    border-color: rgba(77,255,145,0.3);
+    background: rgba(77,255,145,0.07);
+    color: #4dff91;
+  }
+  .tm-badge.warning {
+    border-color: rgba(255,170,0,0.3);
+    background: rgba(255,170,0,0.07);
+    color: #ffaa00;
   }
 }

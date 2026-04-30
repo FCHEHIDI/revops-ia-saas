@@ -20,6 +20,7 @@ from app.dependencies import (
 from app.config import settings
 from app.embeddings.embedder import EmbeddingService
 from app.indexing.chunker import TextChunker
+from app.indexing.document_parser import detect_document_type, extract_text
 from app.models.schemas import DeleteResponse, IngestRequest, IngestResponse
 from app.vector_store.qdrant_store import QdrantVectorStore
 
@@ -66,7 +67,9 @@ async def ingest_document(
         document_id=body.document_id,
         storage_path=body.storage_path,
         filename=body.filename or os.path.basename(body.storage_path),
-        document_type=body.document_type or "other",
+        document_type=body.document_type or detect_document_type(
+            body.filename or os.path.basename(body.storage_path)
+        ),
         content=body.content,
     )
 
@@ -169,18 +172,27 @@ async def _run_ingestion(
 
 
 async def _read_from_storage(storage_path: str) -> str:
-    """Read content from the shared storage volume (async wrapper)."""
+    """Extract text from the shared storage volume, dispatching by file type.
+
+    Supports .txt, .md, .csv (plain UTF-8), .pdf (pypdf), .docx (python-docx),
+    and .xlsx/.xls (openpyxl).  Falls back to UTF-8 for unknown extensions.
+
+    Args:
+        storage_path: Relative path under ``settings.storage_base_path``.
+
+    Returns:
+        Extracted plain text ready for chunking.
+
+    Raises:
+        HTTPException 404: If the file does not exist in storage.
+    """
     full_path = os.path.join(settings.storage_base_path, storage_path)
     loop = asyncio.get_event_loop()
     try:
-        return await loop.run_in_executor(None, _read_file_sync, full_path)
+        text = await loop.run_in_executor(None, extract_text, full_path)
+        return text
     except FileNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Storage file not found: {storage_path}",
         )
-
-
-def _read_file_sync(path: str) -> str:
-    with open(path, encoding="utf-8", errors="replace") as fh:
-        return fh.read()

@@ -1,27 +1,44 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  RadialBarChart,
-  RadialBar,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
 import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useApiQuery } from "@/hooks/useApi";
 import { analyticsApi } from "@/lib/api";
+import { C } from "@/lib/chart-theme";
 
-interface TooltipPayload {
-  name: string;
-  value: number;
+/** Returns colour + label based on NRR health */
+function nrrHealth(nrr: number): { color: string; label: string; hint: string } {
+  if (nrr >= 110) return { color: C.success,  label: "Expansion",  hint: "Upsell > churn — excellent" };
+  if (nrr >= 100) return { color: C.green,    label: "Stable",     hint: "Revenus retenus intégralement" };
+  if (nrr >= 90)  return { color: C.blue,     label: "Attention",  hint: "Légère perte nette de revenu" };
+  return             { color: C.magenta,   label: "Alerte",     hint: "Churn supérieur aux upsells" };
 }
 
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: TooltipPayload[] }) {
-  if (!active || !payload?.length) return null;
+/** Returns colour + label based on churn rate % */
+function churnHealth(pct: number): { color: string; label: string } {
+  if (pct < 2)  return { color: C.success, label: "Très faible" };
+  if (pct < 5)  return { color: C.green,   label: "Normal"      };
+  if (pct < 8)  return { color: C.magenta, label: "Élevé"       };
+  return               { color: C.red,     label: "Critique"    };
+}
+
+interface BarProps { value: number; max: number; color: string }
+
+function HealthBar({ value, max, color }: BarProps) {
+  const pct = Math.min((value / max) * 100, 100);
   return (
-    <div className="rounded-lg border border-white/10 bg-bg-card px-3 py-2 shadow-lg text-xs">
-      <p className="text-text-muted">{payload[0].name}: <span className="text-text-primary font-medium">{payload[0].value.toFixed(1)}%</span></p>
+    <div style={{ height: 4, borderRadius: 2, background: "var(--border-default)", overflow: "hidden" }}>
+      <div
+        style={{
+          height: "100%",
+          width: `${pct}%`,
+          background: color,
+          borderRadius: 2,
+          transition: "width 0.6s ease",
+          boxShadow: `0 0 8px ${color}60`,
+        }}
+      />
     </div>
   );
 }
@@ -33,57 +50,82 @@ export function ChurnRateChart() {
     { refetchInterval: 30_000, retry: false }
   );
 
-  const { churnRate, nrr, churnedCount } = useMemo(() => {
+  const { nrr, churnPct, churnedCount, startingCount } = useMemo(() => {
     const r = raw?.result;
-    if (!r) return { churnRate: 4.2, nrr: 108.5, churnedCount: 3 };
+    if (!r) return { nrr: 108.5, churnPct: 4.2, churnedCount: 3, startingCount: 72 };
     return {
-      churnRate: r.churn_rate * 100,
-      nrr: r.net_revenue_retention * 100,
+      nrr:          r.net_revenue_retention * 100,
+      churnPct:     r.churn_rate * 100,
       churnedCount: r.churned_count,
+      startingCount: r.starting_count,
     };
   }, [raw]);
 
-  const gaugeData = [
-    { name: "NRR",   value: Math.min(nrr, 130),   fill: "#10b981" },
-    { name: "Churn", value: Math.min(churnRate * 3, 100), fill: "#ef4444" },
-  ];
+  const nrr_h   = nrrHealth(nrr);
+  const churn_h = churnHealth(churnPct);
+
+  if (isLoading) {
+    return (
+      <Card className="flex items-center justify-center" style={{ minHeight: 200 }}>
+        <Spinner size="lg" />
+      </Card>
+    );
+  }
 
   return (
-    <Card className="flex flex-col gap-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-medium text-text-muted uppercase tracking-wide">Rétention client</p>
-          <p className="mt-1 text-2xl font-bold text-emerald-400">{nrr.toFixed(1)}%</p>
-          <p className="text-xs text-text-muted">NRR · {churnedCount} churné{churnedCount > 1 ? "s" : ""}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-text-muted">Churn rate</p>
-          <p className={`text-lg font-bold ${churnRate > 5 ? "text-red-400" : "text-amber-400"}`}>
-            {churnRate.toFixed(1)}%
-          </p>
-        </div>
+    <Card className="flex flex-col gap-5">
+      {/* Section title */}
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wide" style={{ color: C.secondary }}>
+          Rétention client
+        </p>
+        <p className="text-xs mt-0.5" style={{ color: C.muted }}>
+          NRR &gt; 100% = le revenu croît malgré le churn
+        </p>
       </div>
 
-      {isLoading ? (
-        <div className="flex h-48 items-center justify-center">
-          <Spinner size="lg" />
-        </div>
-      ) : (
-        <ResponsiveContainer width="100%" height={180}>
-          <RadialBarChart
-            cx="50%"
-            cy="80%"
-            innerRadius="50%"
-            outerRadius="90%"
-            startAngle={180}
-            endAngle={0}
-            data={gaugeData}
+      {/* NRR */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs" style={{ color: C.muted }}>Net Revenue Retention (NRR)</span>
+          <span
+            className="text-xs font-semibold rounded px-1.5 py-0.5"
+            style={{ color: nrr_h.color, background: `${nrr_h.color}18`, border: `1px solid ${nrr_h.color}30` }}
           >
-            <RadialBar dataKey="value" cornerRadius={6} background={{ fill: "rgba(255,255,255,0.03)" }} />
-            <Tooltip content={<CustomTooltip />} />
-          </RadialBarChart>
-        </ResponsiveContainer>
-      )}
+            {nrr_h.label}
+          </span>
+        </div>
+        <p className="text-3xl font-bold tabular-nums" style={{ color: nrr_h.color }}>
+          {nrr.toFixed(1)}%
+        </p>
+        <HealthBar value={nrr} max={130} color={nrr_h.color} />
+        <p className="text-xs" style={{ color: C.muted }}>{nrr_h.hint}</p>
+      </div>
+
+      {/* Divider */}
+      <div style={{ borderTop: "1px solid var(--border-subtle)" }} />
+
+      {/* Churn rate */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs" style={{ color: C.muted }}>Taux de churn mensuel</span>
+          <span
+            className="text-xs font-semibold rounded px-1.5 py-0.5"
+            style={{ color: churn_h.color, background: `${churn_h.color}18`, border: `1px solid ${churn_h.color}30` }}
+          >
+            {churn_h.label}
+          </span>
+        </div>
+        <p className="text-3xl font-bold tabular-nums" style={{ color: churn_h.color }}>
+          {churnPct.toFixed(1)}%
+        </p>
+        {/* 10% = danger ceiling, so full bar = 10% churn */}
+        <HealthBar value={churnPct} max={10} color={churn_h.color} />
+        <p className="text-xs" style={{ color: C.muted }}>
+          {churnedCount} client{churnedCount > 1 ? "s" : ""} perdu{churnedCount > 1 ? "s" : ""}
+          {" "}sur {startingCount} en début de période
+        </p>
+      </div>
     </Card>
   );
 }

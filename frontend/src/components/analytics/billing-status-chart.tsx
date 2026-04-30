@@ -7,39 +7,43 @@ import {
   Cell,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useApiQuery } from "@/hooks/useApi";
 import { billingApi } from "@/lib/api";
+import { C, tooltipStyle } from "@/lib/chart-theme";
 
-const STATUS_CONFIG = {
-  paid:      { label: "Payée",    color: "#10b981" },
-  pending:   { label: "En attente", color: "#6366f1" },
-  overdue:   { label: "En retard",  color: "#ef4444" },
-  draft:     { label: "Brouillon",  color: "#6b7280" },
+/** Map invoice status → brand colour + French label */
+const STATUS: Record<string, { label: string; color: string }> = {
+  paid:      { label: "Payée",     color: C.green   },
+  pending:   { label: "En attente",color: C.blue    },
+  overdue:   { label: "En retard", color: C.red     },
+  draft:     { label: "Brouillon", color: C.muted   },
   cancelled: { label: "Annulée",   color: "#374151" },
-} as const;
+};
 
-type InvoiceStatus = keyof typeof STATUS_CONFIG;
+interface SliceData { name: string; value: number; color: string; amount: number }
 
-interface TooltipPayload {
-  name: string;
-  value: number;
-  payload: { color: string };
-}
-
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: TooltipPayload[] }) {
+function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: SliceData }> }) {
   if (!active || !payload?.length) return null;
-  const d = payload[0];
+  const d = payload[0].payload;
   return (
-    <div className="rounded-lg border border-white/10 bg-bg-card px-3 py-2 shadow-lg text-xs">
-      <div className="flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full" style={{ background: d.payload.color }} />
-        <span className="text-text-muted">{d.name}:</span>
-        <span className="font-medium text-text-primary">{d.value} facture{d.value > 1 ? "s" : ""}</span>
+    <div style={tooltipStyle}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", background: d.color, flexShrink: 0 }} />
+        <span style={{ fontWeight: 600, color: C.primary }}>{d.name}</span>
       </div>
+      <p style={{ color: C.secondary }}>
+        Factures : <span style={{ color: C.primary, fontWeight: 500 }}>{d.value}</span>
+      </p>
+      {d.amount > 0 && (
+        <p style={{ color: C.secondary }}>
+          Montant : <span style={{ color: C.primary, fontWeight: 500 }}>
+            {d.amount.toLocaleString("fr-FR")} €
+          </span>
+        </p>
+      )}
     </div>
   );
 }
@@ -51,59 +55,66 @@ export function BillingStatusChart() {
     { refetchInterval: 30_000, retry: false }
   );
 
-  const { chartData, overdueCount, overdueAmount } = useMemo(() => {
+  const { chartData, total, overdueCount, overdueAmount } = useMemo(() => {
     const items = data?.items ?? [];
-    const counts: Record<string, number> = {};
-    let overdueCount = 0;
-    let overdueAmount = 0;
+    const map: Record<string, { count: number; amount: number }> = {};
 
     for (const inv of items) {
       const s = inv.status as string;
-      counts[s] = (counts[s] ?? 0) + 1;
-      if (s === "overdue") {
-        overdueCount++;
-        overdueAmount += inv.amount;
-      }
+      if (!map[s]) map[s] = { count: 0, amount: 0 };
+      map[s].count++;
+      map[s].amount += inv.amount ?? 0;
     }
 
     if (!items.length) {
       return {
         chartData: [
-          { name: "Payée",     value: 8,  color: "#10b981" },
-          { name: "En attente", value: 3, color: "#6366f1" },
-          { name: "En retard",  value: 4, color: "#ef4444" },
-        ],
+          { name: "Payée",      value: 8, color: C.green, amount: 24000 },
+          { name: "En attente", value: 3, color: C.blue,  amount: 5400  },
+          { name: "En retard",  value: 4, color: C.red,   amount: 7800  },
+        ] as SliceData[],
+        total: 15,
         overdueCount: 4,
         overdueAmount: 7800,
       };
     }
 
-    const chartData = Object.entries(counts)
-      .filter(([, v]) => v > 0)
-      .map(([status, value]) => {
-        const cfg = STATUS_CONFIG[status as InvoiceStatus] ?? { label: status, color: "#6b7280" };
-        return { name: cfg.label, value, color: cfg.color };
+    const chartData: SliceData[] = Object.entries(map)
+      .filter(([, v]) => v.count > 0)
+      .map(([status, v]) => {
+        const cfg = STATUS[status] ?? { label: status, color: C.muted };
+        return { name: cfg.label, value: v.count, color: cfg.color, amount: v.amount };
       });
 
-    return { chartData, overdueCount, overdueAmount };
+    const overdue = map["overdue"] ?? { count: 0, amount: 0 };
+    return {
+      chartData,
+      total: items.length,
+      overdueCount: overdue.count,
+      overdueAmount: overdue.amount,
+    };
   }, [data]);
 
   return (
     <Card className="flex flex-col gap-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-medium text-text-muted uppercase tracking-wide">Statut des factures</p>
-          {overdueCount > 0 ? (
-            <>
-              <p className="mt-1 text-2xl font-bold text-red-400">{overdueCount}</p>
-              <p className="text-xs text-text-muted">
-                en retard · {overdueAmount.toLocaleString("fr-FR")} €
-              </p>
-            </>
-          ) : (
-            <p className="mt-1 text-2xl font-bold text-emerald-400">Tout à jour</p>
-          )}
-        </div>
+      {/* Header */}
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wide" style={{ color: C.secondary }}>
+          État des factures
+        </p>
+        <p className="text-xs mt-0.5" style={{ color: C.muted }}>
+          Répartition par statut de paiement
+        </p>
+        {overdueCount > 0 ? (
+          <div className="flex items-baseline gap-2 mt-2">
+            <p className="text-3xl font-bold" style={{ color: C.red }}>{overdueCount}</p>
+            <p className="text-xs" style={{ color: C.muted }}>
+              en retard · {overdueAmount.toLocaleString("fr-FR")} €
+            </p>
+          </div>
+        ) : (
+          <p className="mt-2 text-2xl font-bold" style={{ color: C.green }}>Tout à jour ✓</p>
+        )}
       </div>
 
       {isLoading ? (
@@ -111,27 +122,45 @@ export function BillingStatusChart() {
           <Spinner size="lg" />
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={200}>
-          <PieChart>
-            <Pie
-              data={chartData}
-              cx="50%"
-              cy="50%"
-              innerRadius={52}
-              outerRadius={80}
-              paddingAngle={3}
-              dataKey="value"
-            >
-              {chartData.map((entry, i) => (
-                <Cell key={i} fill={entry.color} fillOpacity={0.9} />
-              ))}
-            </Pie>
-            <Tooltip content={<CustomTooltip />} />
-            <Legend
-              formatter={(value) => <span style={{ color: "#9ca3af", fontSize: 12 }}>{value}</span>}
-            />
-          </PieChart>
-        </ResponsiveContainer>
+        <div className="flex items-center gap-4">
+          {/* Donut */}
+          <ResponsiveContainer width={160} height={160}>
+            <PieChart>
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                innerRadius={48}
+                outerRadius={72}
+                paddingAngle={3}
+                dataKey="value"
+                startAngle={90}
+                endAngle={-270}
+              >
+                {chartData.map((d, i) => (
+                  <Cell key={i} fill={d.color} fillOpacity={0.9} />
+                ))}
+              </Pie>
+              <Tooltip content={<CustomTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
+
+          {/* Legend */}
+          <div className="flex flex-col gap-2.5 flex-1">
+            {chartData.map((d) => (
+              <div key={d.name} className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: d.color, flexShrink: 0, display: "inline-block" }} />
+                  <span className="text-xs" style={{ color: C.secondary }}>{d.name}</span>
+                </div>
+                <span className="text-xs font-semibold tabular-nums" style={{ color: C.primary }}>
+                  {d.value}
+                  <span style={{ color: C.muted, fontWeight: 400 }}> / {total}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </Card>
   );

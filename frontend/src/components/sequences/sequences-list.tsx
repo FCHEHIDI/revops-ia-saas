@@ -1,12 +1,15 @@
 "use client";
 
-import { Play, Pause, FileText, Users } from "lucide-react";
+import { useState } from "react";
+import { Play, Pause, FileText, Users, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { Card } from "@/components/ui/card";
-import { useApiQuery } from "@/hooks/useApi";
+import { useApiQuery, useApiMutation } from "@/hooks/useApi";
+import { useAuth } from "@/hooks/useAuth";
 import { sequencesApi } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
+import { SequenceCreateModal } from "./sequence-create-modal";
 import type { Sequence, SequenceStatus } from "@/types";
 
 const statusVariant: Record<SequenceStatus, "success" | "info" | "warning" | "neutral"> = {
@@ -24,18 +27,47 @@ const statusLabel: Record<SequenceStatus, string> = {
 };
 
 function SequenceCard({ sequence }: { sequence: Sequence }) {
+  const { user } = useAuth();
   const isActive = sequence.status === "active";
+  const canToggle = sequence.status === "active" || sequence.status === "paused";
+
+  const toggleMutation = useApiMutation(
+    (vars: Parameters<typeof sequencesApi.updateSequenceStatus>[0]) =>
+      sequencesApi.updateSequenceStatus(vars),
+    [["sequences"]]
+  );
+
+  const handleToggle = () => {
+    if (!user || !canToggle || toggleMutation.isPending) return;
+    toggleMutation.mutate({
+      tenant_id: user.tenant_id,
+      user_id: user.id,
+      sequence_id: sequence.id,
+      status: isActive ? "paused" : "active",
+    });
+  };
 
   return (
     <Card className="flex items-start justify-between gap-4 hover:border-border-strong transition-colors">
       <div className="flex items-start gap-3 min-w-0">
-        <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${isActive ? "bg-emerald-500/10" : "bg-elevated"}`}>
-          {isActive ? (
+        {/* Play / Pause toggle */}
+        <button
+          onClick={handleToggle}
+          disabled={!canToggle || toggleMutation.isPending}
+          title={canToggle ? (isActive ? "Mettre en pause" : "Activer") : undefined}
+          className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
+            isActive ? "bg-emerald-500/10 hover:bg-emerald-500/20" : "bg-elevated hover:bg-border-subtle"
+          } ${!canToggle ? "cursor-default" : "cursor-pointer"}`}
+        >
+          {toggleMutation.isPending ? (
+            <Spinner size="sm" />
+          ) : isActive ? (
             <Play size={14} className="text-emerald-400" />
           ) : (
             <Pause size={14} className="text-text-muted" />
           )}
-        </div>
+        </button>
+
         <div className="min-w-0">
           <p className="font-medium text-text-primary truncate">{sequence.name}</p>
           {sequence.description && (
@@ -62,22 +94,11 @@ function SequenceCard({ sequence }: { sequence: Sequence }) {
 }
 
 export function SequencesList() {
-  const { data, isLoading, error } = useApiQuery(
+  const [showModal, setShowModal] = useState(false);
+  const { data, isLoading, error, refetch } = useApiQuery(
     ["sequences"],
     () => sequencesApi.listSequences()
   );
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
-  if (error) {
-    // API not available — render demo data instead of an error
-  }
 
   const demoSequences: Sequence[] = [
     { id: "seq-1", tenant_id: "", name: "Onboarding SaaS Enterprise",   description: "Séquence d'activation pour nouveaux comptes +50k ARR",  status: "active",    step_count: 6, enrolled_count: 14, completed_count: 8,  created_at: "2026-04-01T09:00:00Z", updated_at: "2026-04-28T14:22:00Z" },
@@ -90,19 +111,52 @@ export function SequencesList() {
 
   const sequences: Sequence[] = (error || !data) ? demoSequences : (data?.items ?? demoSequences);
 
-  if (sequences.length === 0) {
-    return (
-      <div className="rounded-xl border border-border-default bg-surface p-12 text-center">
-        <p className="text-text-secondary">Aucune séquence trouvée.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-3">
-      {sequences.map((seq) => (
-        <SequenceCard key={seq.id} sequence={seq} />
-      ))}
-    </div>
+    <>
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-text-primary">Séquences</h1>
+          <p className="mt-0.5 text-sm text-text-muted">
+            {sequences.length} séquence{sequences.length > 1 ? "s" : ""}
+            {" · "}
+            {sequences.filter((s) => s.status === "active").length} active{sequences.filter((s) => s.status === "active").length > 1 ? "s" : ""}
+          </p>
+        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+          style={{ background: "#2979ff", color: "#fff", border: "none", cursor: "pointer" }}
+        >
+          <Plus size={15} />
+          Créer une séquence
+        </button>
+      </div>
+
+      {/* List */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <Spinner size="lg" />
+        </div>
+      ) : sequences.length === 0 ? (
+        <div className="rounded-xl border border-border-default bg-surface p-12 text-center">
+          <p className="text-text-secondary">Aucune séquence. Créez-en une !</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {sequences.map((seq) => (
+            <SequenceCard key={seq.id} sequence={seq} />
+          ))}
+        </div>
+      )}
+
+      {/* Modal */}
+      {showModal && (
+        <SequenceCreateModal
+          onClose={() => setShowModal(false)}
+          onCreated={() => { refetch(); }}
+        />
+      )}
+    </>
   );
 }

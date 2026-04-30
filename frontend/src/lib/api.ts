@@ -202,9 +202,41 @@ export const analyticsApi = {
 
 import type { Sequence } from "@/types";
 
+export interface SequenceStepInput {
+  step_type: "email" | "linkedin_message" | "call" | "task" | "wait";
+  delay_days: number;
+  delay_hours: number;
+  subject?: string;
+  body_template?: string;
+}
+
 export const sequencesApi = {
   listSequences: (page = 1, pageSize = 20) =>
     api.get<PaginatedResponse<Sequence>>(`/sequences?page=${page}&page_size=${pageSize}`),
+
+  createSequence: (params: {
+    tenant_id: string;
+    user_id: string;
+    name: string;
+    description?: string;
+    steps: SequenceStepInput[];
+    tags?: string[];
+  }) =>
+    api.post<McpCallResponse<{ sequence_id: string; steps_count: number; created_at: string }>>(
+      "/sequences/call",
+      { tool: "create_sequence", params: { ...params, exit_conditions: [], tags: params.tags ?? [] } }
+    ),
+
+  updateSequenceStatus: (params: {
+    tenant_id: string;
+    user_id: string;
+    sequence_id: string;
+    status: "active" | "paused" | "draft" | "archived";
+  }) =>
+    api.post<McpCallResponse<unknown>>(
+      "/sequences/call",
+      { tool: "update_sequence", params }
+    ),
 };
 
 // ---------------------------------------------------------------------------

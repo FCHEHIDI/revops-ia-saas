@@ -11,7 +11,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { TrendingUp, TrendingDown } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useApiQuery } from "@/hooks/useApi";
 import { analyticsApi } from "@/lib/api";
@@ -39,7 +38,7 @@ function CustomTooltip({ active, payload, label }: {
     <div style={tooltipStyle}>
       <p style={{ fontWeight: 600, marginBottom: 6, color: C.primary }}>{label}</p>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <Row color={C.blue}   label="MRR total"  value={fmtEur(mrr)} />
+        <Row color="#FF2020"  label="MRR total"  value={fmtEur(mrr)} />
       </div>
     </div>
   );
@@ -84,17 +83,19 @@ export function MrrChart() {
   const growthColor = isPositive ? C.green : C.red;
 
   return (
-    <Card className="flex flex-col gap-4">
+    <div className="tablette-marbre flex flex-col gap-4"
+      style={{ background: "rgba(5,5,5,0.82)", border: "1px solid var(--red-dark)" }}
+    >
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide" style={{ color: C.secondary }}>
+          <p className="font-cinzel text-xs tracking-[0.2em] uppercase" style={{ color: "var(--red-doge)" }}>
             Revenu Récurrent Mensuel
           </p>
-          <p className="text-xs mt-0.5" style={{ color: C.muted }}>
+          <p className="text-xs mt-0.5" style={{ color: "var(--gray-silver)" }}>
             Abonnements actifs · 6 derniers mois
           </p>
-          <p className="mt-2 text-3xl font-bold" style={{ color: C.primary }}>
+          <p className="mt-2 text-3xl font-bold font-cinzel" style={{ color: "var(--white-spectral)", textShadow: "0 0 20px rgba(255,32,32,0.4)" }}>
             {fmtEur(currentMrr)}
           </p>
         </div>
@@ -116,8 +117,9 @@ export function MrrChart() {
           <AreaChart data={chartData} margin={CHART.margin}>
             <defs>
               <linearGradient id="mrrGradBrand" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor={C.blue} stopOpacity={0.25} />
-                <stop offset="95%" stopColor={C.blue} stopOpacity={0}    />
+                <stop offset="5%"  stopColor="#FF2020" stopOpacity={0.4} />
+                <stop offset="60%" stopColor="#8A0000" stopOpacity={0.12} />
+                <stop offset="95%" stopColor="#050505" stopOpacity={0}   />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} vertical={false} />
@@ -134,16 +136,16 @@ export function MrrChart() {
               tickLine={false}
               width={44}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: C.blue, strokeWidth: 1, strokeDasharray: "4 4" }} />
+            <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#8A0000", strokeWidth: 1, strokeDasharray: "4 4" }} />
             <Area
               type="monotone"
               dataKey="mrr"
               name="MRR total"
-              stroke={C.blue}
-              strokeWidth={2}
+              stroke="#FF2020"
+              strokeWidth={2.5}
               fill="url(#mrrGradBrand)"
               dot={false}
-              activeDot={{ r: 4, fill: C.blue, stroke: "#1a1a1a", strokeWidth: 2 }}
+              activeDot={{ r: 5, fill: "#FF2020", stroke: "#050505", strokeWidth: 2 }}
             />
           </AreaChart>
         </ResponsiveContainer>
@@ -152,11 +154,11 @@ export function MrrChart() {
       {/* Legend */}
       <div className="flex items-center gap-4 text-xs" style={{ color: C.secondary }}>
         <span className="flex items-center gap-1.5">
-          <span style={{ display:"inline-block", width:10, height:2, background: C.blue, borderRadius:1 }} />
+          <span style={{ display:"inline-block", width:10, height:2, background: "#FF2020", borderRadius:1, boxShadow: "0 0 6px #FF202080" }} />
           MRR total
         </span>
-        <span style={{ color: C.muted }}>· mise à jour toutes les 30 s</span>
+        <span style={{ color: "var(--gray-silver)" }}>· mise à jour toutes les 30 s</span>
       </div>
-    </Card>
+    </div>
   );
 }

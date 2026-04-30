@@ -12,7 +12,6 @@ import {
   Cell,
   LabelList,
 } from "recharts";
-import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useApiQuery } from "@/hooks/useApi";
 import { analyticsApi } from "@/lib/api";
@@ -91,19 +90,21 @@ export function ConversionFunnelChart() {
   }, [raw]);
 
   return (
-    <Card className="flex flex-col gap-4">
+    <div className="tablette-marbre flex flex-col gap-4"
+      style={{ background: "rgba(5,5,5,0.82)", border: "1px solid var(--red-dark)" }}
+    >
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide" style={{ color: C.secondary }}>
+          <p className="font-cinzel text-xs tracking-[0.2em] uppercase" style={{ color: "var(--red-doge)" }}>
             Pipeline de vente
           </p>
-          <p className="text-xs mt-0.5" style={{ color: C.muted }}>
+          <p className="text-xs mt-0.5" style={{ color: "var(--gray-silver)" }}>
             Taux de conversion par étape
           </p>
           <div className="flex items-baseline gap-2 mt-2">
-            <p className="text-3xl font-bold" style={{ color: C.primary }}>{overallConversion}%</p>
-            <p className="text-xs" style={{ color: C.muted }}>lead → client</p>
+            <p className="text-3xl font-bold font-cinzel" style={{ color: "var(--white-spectral)", textShadow: "0 0 20px rgba(255,32,32,0.4)" }}>{overallConversion}%</p>
+            <p className="text-xs" style={{ color: "var(--gray-silver)" }}>lead → client</p>
           </div>
         </div>
         {bottleneck && (
@@ -144,7 +145,7 @@ export function ConversionFunnelChart() {
               axisLine={false}
               tickLine={false}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(192,0,0,0.08)" }} />
             <Bar dataKey="conversion_rate" name="Conversion" radius={[0, 4, 4, 0]} maxBarSize={20}>
               {chartData.map((d, i) => (
                 <Cell
@@ -165,20 +166,20 @@ export function ConversionFunnelChart() {
       )}
 
       {/* Legend */}
-      <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: C.muted }}>
+      <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: "var(--gray-silver)" }}>
         <span className="flex items-center gap-1">
-          <span style={{ width:8, height:8, borderRadius:2, background: C.green, display:"inline-block" }} />
+          <span style={{ width:8, height:8, borderRadius:2, background: "#D4A000", display:"inline-block" }} />
           Bon (&gt;60%)
         </span>
         <span className="flex items-center gap-1">
-          <span style={{ width:8, height:8, borderRadius:2, background: C.blue, display:"inline-block" }} />
+          <span style={{ width:8, height:8, borderRadius:2, background: "#C00000", display:"inline-block" }} />
           Moyen (40–60%)
         </span>
         <span className="flex items-center gap-1">
-          <span style={{ width:8, height:8, borderRadius:2, background: C.magenta, display:"inline-block" }} />
+          <span style={{ width:8, height:8, borderRadius:2, background: "#FF1A1A", display:"inline-block" }} />
           À améliorer (&lt;40%)
         </span>
       </div>
-    </Card>
+    </div>
   );
 }

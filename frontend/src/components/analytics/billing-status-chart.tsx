@@ -8,7 +8,6 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useApiQuery } from "@/hooks/useApi";
 import { billingApi } from "@/lib/api";
@@ -16,11 +15,11 @@ import { C, tooltipStyle } from "@/lib/chart-theme";
 
 /** Map invoice status → brand colour + French label */
 const STATUS: Record<string, { label: string; color: string }> = {
-  paid:      { label: "Payée",     color: C.green   },
-  pending:   { label: "En attente",color: C.blue    },
-  overdue:   { label: "En retard", color: C.red     },
-  draft:     { label: "Brouillon", color: C.muted   },
-  cancelled: { label: "Annulée",   color: "#374151" },
+  paid:      { label: "Payée",     color: "#D4A000" }, // or vénitien
+  pending:   { label: "En attente",color: "#C07000" }, // ambre vénitien
+  overdue:   { label: "En retard", color: "#FF1A1A" }, // rouge incandescent
+  draft:     { label: "Brouillon", color: "#5A3535" }, // muted vénitien
+  cancelled: { label: "Annulée",   color: "#2A1A1A" }, // très sombre
 };
 
 interface SliceData { name: string; value: number; color: string; amount: number }
@@ -96,24 +95,26 @@ export function BillingStatusChart() {
   }, [data]);
 
   return (
-    <Card className="flex flex-col gap-4">
+    <div className="tablette-marbre flex flex-col gap-4"
+      style={{ background: "rgba(5,5,5,0.82)", border: "1px solid var(--red-dark)" }}
+    >
       {/* Header */}
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide" style={{ color: C.secondary }}>
+        <p className="font-cinzel text-xs tracking-[0.2em] uppercase" style={{ color: "var(--red-doge)" }}>
           État des factures
         </p>
-        <p className="text-xs mt-0.5" style={{ color: C.muted }}>
+        <p className="text-xs mt-0.5" style={{ color: "var(--gray-silver)" }}>
           Répartition par statut de paiement
         </p>
         {overdueCount > 0 ? (
           <div className="flex items-baseline gap-2 mt-2">
-            <p className="text-3xl font-bold" style={{ color: C.red }}>{overdueCount}</p>
-            <p className="text-xs" style={{ color: C.muted }}>
+            <p className="text-3xl font-bold font-cinzel" style={{ color: "#FF1A1A", textShadow: "0 0 16px rgba(255,26,26,0.5)" }}>{overdueCount}</p>
+            <p className="text-xs" style={{ color: "var(--gray-silver)" }}>
               en retard · {overdueAmount.toLocaleString("fr-FR")} €
             </p>
           </div>
         ) : (
-          <p className="mt-2 text-2xl font-bold" style={{ color: C.green }}>Tout à jour ✓</p>
+          <p className="mt-2 text-2xl font-bold font-cinzel" style={{ color: "#D4A000" }}>Tout à jour ✓</p>
         )}
       </div>
 
@@ -162,6 +163,6 @@ export function BillingStatusChart() {
           </div>
         </div>
       )}
-    </Card>
+    </div>
   );
 }

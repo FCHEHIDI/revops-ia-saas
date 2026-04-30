@@ -10,15 +10,20 @@ export default function DashboardLayout({
   return (
     <NotificationProvider>
       <div
-        className="flex flex-col h-screen overflow-hidden"
-        style={{ background: "var(--bg-base)" }}
+        className="flex flex-col h-screen overflow-hidden bg-palazzo"
       >
-        <TopNav />
+        {/* Global palazzo overlay — léger pour garder la lisibilité */}
         <div
-          className="flex flex-1 flex-col overflow-hidden"
-          style={{ background: "var(--bg-base)" }}
-        >
-          {children}
+          className="pointer-events-none fixed inset-0 z-0"
+          style={{
+            background: "linear-gradient(to bottom, rgba(5,5,5,0.70) 0%, rgba(5,5,5,0.82) 60%, rgba(5,5,5,0.90) 100%)",
+          }}
+        />
+        <div className="relative z-10 flex flex-col h-full">
+          <TopNav />
+          <div className="flex flex-1 flex-col overflow-hidden">
+            {children}
+          </div>
         </div>
       </div>
       <CommandPalette />

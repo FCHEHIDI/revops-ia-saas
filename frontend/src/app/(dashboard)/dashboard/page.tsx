@@ -1,68 +1,105 @@
 "use client";
 
-import { TrendingUp, TrendingDown, Activity } from "lucide-react";
+import { Activity, BarChart2, Zap } from "lucide-react";
+import {
+  TabletteHeader,
+  TabletteDivider,
+  TabletteBadge,
+} from "@/components/ui/tablette-marbre";
 
-/* ── Static KPI data (placeholder until API is wired) ─── */
+// ─── KPI data ──────────────────────────────────────────────────────────────
 const KPI_DATA = [
   {
     label: "ARR Total",
     value: "$4.2M",
-    change: "+18.4%",
-    up: true,
-    sub: "vs mois dernier",
+    delta: "↑ +18.4% vs mois dernier",
+    trend: "positive",
+    icon: "⚜",
     sparkPoints: "0,30 12,24 24,28 36,18 48,20 60,14 72,16 84,8 100,4",
-    sparkColor: "#f5f5f5",
-    glow: true,
+    sparkColor: "#C00000",
+    active: true,
   },
   {
     label: "Pipeline",
     value: "$1.8M",
-    change: "+7.2%",
-    up: true,
-    sub: "cette semaine",
+    delta: "↑ +7.2% cette semaine",
+    trend: "positive",
+    icon: "◈",
     sparkPoints: "0,28 16,20 32,22 48,16 64,10 80,14 100,6",
-    sparkColor: "#00ff88",
-    glow: false,
+    sparkColor: "#8A0000",
+    active: false,
   },
   {
     label: "Deals actifs",
     value: "25",
-    change: "−2",
-    up: false,
-    sub: "cette semaine",
+    delta: "↓ −2 cette semaine",
+    trend: "negative",
+    icon: "◉",
     sparkPoints: "0,16 20,18 40,14 60,12 80,20 100,24",
-    sparkColor: "#ff0000",
-    glow: false,
+    sparkColor: "#FF1A1A",
+    active: false,
   },
   {
     label: "Win Rate",
     value: "34%",
-    change: "+3 pts",
-    up: true,
-    sub: "vs Q1",
+    delta: "↑ +3 pts vs Q1",
+    trend: "positive",
+    icon: "✦",
     sparkPoints: "0,22 25,20 50,18 75,14 100,10",
-    sparkColor: "#fbbf24",
-    glow: false,
+    sparkColor: "#8A0000",
+    active: false,
   },
 ];
 
-/* ── Activity feed ───────────────────────────────────── */
+// ─── Activity feed ──────────────────────────────────────────────────────────
 const ACTIVITY = [
-  { icon: "✦", text: <><strong style={{ color: "var(--text-primary)" }}>NovaTech Inc</strong> — deal passé en <span style={{ color: "var(--accent-red)" }}>Closing</span></>, time: "Il y a 14 min" },
-  { icon: "◎", text: <>Contact <strong style={{ color: "var(--text-primary)" }}>Elena Park</strong> ajouté à Pulse AI</>, time: "Il y a 1h" },
-  { icon: "▲", text: <><strong style={{ color: "var(--text-primary)" }}>Fintech Corp</strong> ARR mis à jour — $120K</>, time: "Il y a 3h" },
-  { icon: "✦", text: <>Deal <strong style={{ color: "var(--text-primary)" }}>HealthStream</strong> marqué <strong style={{ color: "var(--accent-success)" }}>Won</strong></>, time: "Hier 16:42" },
+  {
+    glyph: "✦",
+    text: "NovaTech Inc",
+    detail: "Deal passé en Closing",
+    time: "Il y a 14 min",
+    badge: "Closing",
+    badgeStatus: "default" as const,
+  },
+  {
+    glyph: "◎",
+    text: "Elena Park",
+    detail: "Contact ajouté à Pulse AI",
+    time: "Il y a 1h",
+    badge: "Nouveau",
+    badgeStatus: "success" as const,
+  },
+  {
+    glyph: "▲",
+    text: "Fintech Corp",
+    detail: "ARR mis à jour — $120K",
+    time: "Il y a 3h",
+    badge: "Mis à jour",
+    badgeStatus: "warning" as const,
+  },
+  {
+    glyph: "✦",
+    text: "HealthStream",
+    detail: "Deal marqué Won",
+    time: "Hier 16:42",
+    badge: "Won",
+    badgeStatus: "success" as const,
+  },
 ];
 
-/* ── Chart bars ──────────────────────────────────────── */
+// ─── Chart bars ─────────────────────────────────────────────────────────────
 const BARS = [
   { label: "Nov", h: 55, accent: false },
   { label: "Déc", h: 42, accent: false },
   { label: "Jan", h: 68, accent: false },
   { label: "Fév", h: 72, accent: false },
   { label: "Mar", h: 85, accent: false },
-  { label: "Avr", h: 91, accent: true },
+  { label: "Avr", h: 100, accent: true },
 ];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Page
+// ═══════════════════════════════════════════════════════════════════════════
 
 export default function DashboardPage() {
   const today = new Date().toLocaleDateString("fr-FR", {
@@ -70,162 +107,251 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="flex h-full flex-col">
-      <main
-        className="flex-1 overflow-y-auto px-6 py-6 space-y-8"
-        style={{ background: "var(--bg-base)" }}
-      >
-        {/* Sub-header */}
-        <div className="flex items-center">
-          <p className="text-xs capitalize" style={{ color: "var(--text-muted)" }}>{today}</p>
+    <div className="flex h-full flex-col overflow-hidden">
+      <main className="flex-1 overflow-y-auto chat-scroll">
+
+        {/* ── Hero visuel — Salle du Conseil ─────────────────────────── */}
+        <div className="relative w-full overflow-hidden" style={{ height: 220 }}>
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: "url('/visuels/dashboard.png')",
+              backgroundSize: "cover",
+              backgroundPosition: "center 75%",
+              filter: "brightness(0.55) saturate(0.8)",
+            }}
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background: "linear-gradient(to bottom, rgba(5,5,5,0.1) 0%, rgba(5,5,5,0.5) 60%, rgba(5,5,5,1) 100%)",
+            }}
+          />
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: "linear-gradient(90deg, rgba(138,0,0,0.15) 0%, transparent 15%, transparent 85%, rgba(138,0,0,0.15) 100%)",
+            }}
+          />
+          <div className="absolute bottom-0 left-0 right-0 px-8 pb-6">
+            <p className="font-cinzel text-xs tracking-[0.3em] uppercase mb-1" style={{ color: "var(--red-doge)" }}>
+              Salle du Conseil
+            </p>
+            <h1
+              className="font-cinzel text-3xl font-bold"
+              style={{ color: "var(--white-spectral)", textShadow: "0 0 32px rgba(192,0,0,0.4)" }}
+            >
+              Dashboard
+            </h1>
+            <p className="text-xs mt-1 capitalize" style={{ color: "var(--gray-silver)", fontFamily: "var(--font-body)" }}>
+              {today}
+            </p>
+          </div>
         </div>
 
-        {/* ── KPI section ── */}
-        <section>
-          <div
-            className="mb-4 flex items-center gap-3 text-xs font-bold uppercase tracking-widest"
-            style={{ color: "var(--text-muted)" }}
-          >
-            Key Metrics
-            <span className="flex-1 h-px" style={{ background: "var(--border-subtle)" }} />
-          </div>
+        {/* ── Contenu principal ──────────────────────────────────────── */}
+        <div className="px-8 py-8 space-y-10">
 
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {KPI_DATA.map((kpi) => (
-              <div
-                key={kpi.label}
-                className="relative overflow-hidden rounded-xl p-5 flex flex-col gap-2"
-                style={{
-                  background: "var(--bg-surface)",
-                  border: "1px solid var(--border-default)",
-                  boxShadow: kpi.glow ? "var(--shadow-glow)" : "var(--shadow-card)",
-                }}
-              >
-                <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-                  {kpi.label}
-                </p>
-                <div className="flex items-end justify-between gap-2">
-                  <p
-                    className="font-orbitron text-2xl font-bold tracking-tight leading-none"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    {kpi.value}
-                  </p>
-                  <div
-                    className="flex items-center gap-1 text-xs font-semibold"
-                    style={{ color: kpi.up ? "var(--accent-success)" : "var(--accent-red)" }}
-                  >
-                    {kpi.up ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                    {kpi.change}
-                  </div>
-                </div>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>{kpi.sub}</p>
-                {/* Sparkline */}
-                <svg viewBox="0 0 100 36" preserveAspectRatio="none" className="h-7 w-full mt-1">
-                  <polyline
-                    points={kpi.sparkPoints}
-                    fill="none"
-                    stroke={kpi.sparkColor}
-                    strokeWidth="1.5"
-                    opacity="0.5"
-                  />
-                </svg>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ── Chart + Activity ── */}
-        <section className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-          {/* Bar chart */}
-          <div
-            className="rounded-xl p-6"
-            style={{ background: "var(--bg-surface)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-card)" }}
-          >
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Revenue mensuel</p>
-                <p
-                  className="font-orbitron text-2xl font-bold mt-1"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  $348K{" "}
-                  <span className="font-sans text-sm font-normal" style={{ color: "var(--text-muted)" }}>/ Avril</span>
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <span
-                  className="rounded px-2.5 py-1 text-xs font-medium"
-                  style={{ background: "var(--bg-elevated)", color: "var(--text-primary)", border: "1px solid var(--border-strong)" }}
-                >
-                  Monthly
-                </span>
-                <span
-                  className="rounded px-2.5 py-1 text-xs font-medium"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  Quarterly
-                </span>
-              </div>
+          {/* KPIs ──────────────────────────────────────────────────── */}
+          <section>
+            <div className="flex items-center gap-4 mb-5">
+              <span className="font-cinzel text-xs tracking-[0.25em] uppercase" style={{ color: "var(--red-doge)" }}>
+                ⚜ Indicateurs Clés
+              </span>
+              <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, var(--red-dark), transparent)" }} />
             </div>
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {KPI_DATA.map((kpi) => (
+                <div key={kpi.label} className={`tablette-marbre tablette-metrique${kpi.active ? " active" : ""}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-cinzel text-xs tracking-[0.12em] uppercase" style={{ color: "var(--gray-silver)" }}>
+                      {kpi.label}
+                    </span>
+                    <span
+                      style={{
+                        width: 28, height: 28, borderRadius: "50%",
+                        background: "radial-gradient(circle, #8A0000, #220000)",
+                        border: "1px solid var(--red-dark)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: "0.7rem", boxShadow: "var(--glow-red)", flexShrink: 0,
+                      }}
+                    >
+                      {kpi.icon}
+                    </span>
+                  </div>
+                  <div className="tm-value">{kpi.value}</div>
+                  <div className={`tm-delta ${kpi.trend}`} style={{ fontSize: "0.7rem", marginTop: 6 }}>
+                    {kpi.delta}
+                  </div>
+                  <svg viewBox="0 0 100 36" preserveAspectRatio="none" className="w-full mt-3" style={{ height: 28 }}>
+                    <polyline
+                      points={kpi.sparkPoints}
+                      fill="none"
+                      stroke={kpi.sparkColor}
+                      strokeWidth="1.5"
+                      opacity="0.7"
+                    />
+                  </svg>
+                </div>
+              ))}
+            </div>
+          </section>
 
-            {/* Bars */}
-            <div className="flex items-end gap-1.5 h-40 pb-6">
-              {BARS.map((bar) => (
-                <div key={bar.label} className="relative flex-1 flex flex-col items-center gap-1.5">
-                  <div
-                    className="w-full rounded-t transition-all duration-200"
-                    style={{
-                      height: `${bar.h}%`,
-                      background: bar.accent ? "var(--accent-red)" : "var(--bg-elevated)",
-                      border: bar.accent ? "none" : "1px solid var(--border-strong)",
-                      boxShadow: bar.accent ? "0 0 18px rgba(255,0,0,0.45)" : "none",
-                    }}
-                  />
-                  <span className="text-xs absolute -bottom-5" style={{ color: "var(--text-muted)" }}>
-                    {bar.label}
+          {/* Chart + Activité ──────────────────────────────────────── */}
+          <section className="grid gap-5 lg:grid-cols-[2fr_1fr]">
+
+            {/* Tablette Graphique */}
+            <div className="tablette-marbre tablette-graphique">
+              <TabletteHeader
+                icon={<BarChart2 size={14} color="var(--red-doge)" />}
+                title="Revenue mensuel"
+                subtitle="Salle du Conseil — Vue mensuelle"
+              />
+              <div className="flex items-end justify-between mb-5">
+                <div>
+                  <span
+                    className="text-2xl font-bold"
+                    style={{ color: "var(--white-spectral)", textShadow: "var(--glow-red)", fontFamily: "var(--font-mono)" }}
+                  >
+                    $348K
+                  </span>
+                  <span className="ml-2 text-xs" style={{ color: "var(--gray-silver)", fontFamily: "var(--font-body)" }}>
+                    / Avril
                   </span>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Activity feed */}
-          <div
-            className="rounded-xl overflow-hidden"
-            style={{ background: "var(--bg-surface)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-card)" }}
-          >
-            <div
-              className="px-5 pt-5 pb-0 flex items-center gap-3 text-xs font-bold uppercase tracking-widest"
-              style={{ color: "var(--text-muted)" }}
-            >
-              <Activity size={11} />
-              Activité récente
-            </div>
-            <div className="mt-3">
-              {ACTIVITY.map((item, i) => (
-                <div
-                  key={i}
-                  className="flex gap-3 px-5 py-4"
-                  style={{ borderTop: i > 0 ? "1px solid var(--border-subtle)" : "none" }}
-                >
-                  <div
-                    className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-xs mt-0.5"
-                    style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", color: "var(--text-muted)" }}
-                  >
-                    {item.icon}
+                <div className="flex gap-2">
+                  <TabletteBadge>Monthly</TabletteBadge>
+                  <span className="text-xs px-2" style={{ color: "var(--gray-silver)", fontFamily: "var(--font-body)" }}>
+                    Quarterly
+                  </span>
+                </div>
+              </div>
+              <TabletteDivider />
+              <div className="flex items-end gap-2 pt-4" style={{ height: 130 }}>
+                {BARS.map((bar) => (
+                  <div key={bar.label} className="relative flex-1 flex flex-col items-center gap-1">
+                    <div
+                      className="w-full rounded-t transition-all duration-300"
+                      style={{
+                        height: `${bar.h}%`,
+                        background: bar.accent
+                          ? "linear-gradient(to top, #8A0000, #C00000)"
+                          : "radial-gradient(circle at 50% 0%, #1A1A1A, #0A0A0A)",
+                        border: bar.accent ? "1px solid var(--red-doge)" : "1px solid rgba(138,0,0,0.2)",
+                        boxShadow: bar.accent ? "var(--glow-red-strong)" : "none",
+                      }}
+                    />
+                    <span
+                      className="absolute -bottom-5"
+                      style={{
+                        color: bar.accent ? "var(--red-doge)" : "var(--gray-silver)",
+                        fontFamily: "var(--font-body)", fontSize: "0.6rem", letterSpacing: "0.08em",
+                      }}
+                    >
+                      {bar.label}
+                    </span>
                   </div>
-                  <div>
-                    <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                      {item.text}
-                    </p>
-                    <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{item.time}</p>
+                ))}
+              </div>
+            </div>
+
+            {/* Tablette Activité */}
+            <div className="tablette-marbre">
+              <TabletteHeader
+                icon={<Activity size={14} color="var(--red-doge)" />}
+                title="Activité récente"
+                subtitle="Registre des événements"
+              />
+              <TabletteDivider />
+              <div className="space-y-0">
+                {ACTIVITY.map((item, i) => (
+                  <div
+                    key={i}
+                    className="flex gap-3 py-3"
+                    style={{ borderTop: i > 0 ? "1px solid rgba(138,0,0,0.12)" : "none" }}
+                  >
+                    <div
+                      style={{
+                        width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                        background: "radial-gradient(circle, #220000, #050505)",
+                        border: "1px solid var(--red-dark)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: "0.65rem", color: "var(--red-doge)",
+                      }}
+                    >
+                      {item.glyph}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-cinzel text-xs font-semibold truncate" style={{ color: "var(--white-spectral)" }}>
+                          {item.text}
+                        </span>
+                        <TabletteBadge status={item.badgeStatus}>{item.badge}</TabletteBadge>
+                      </div>
+                      <p className="text-xs" style={{ color: "var(--gray-silver)", fontFamily: "var(--font-body)" }}>
+                        {item.detail}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: "var(--red-dark)", fontFamily: "var(--font-mono)", fontSize: "0.6rem", letterSpacing: "0.05em" }}>
+                        {item.time}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <TabletteDivider />
+              <button
+                className="w-full font-cinzel text-xs tracking-[0.15em] uppercase py-2 transition-all duration-200"
+                style={{ color: "var(--red-doge)", background: "transparent", border: "none", cursor: "pointer" }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.color = "var(--red-glow)";
+                  (e.currentTarget as HTMLButtonElement).style.textShadow = "var(--glow-red)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.color = "var(--red-doge)";
+                  (e.currentTarget as HTMLButtonElement).style.textShadow = "none";
+                }}
+              >
+                Voir tout le registre →
+              </button>
+            </div>
+          </section>
+
+          {/* Deals en vedette ──────────────────────────────────────── */}
+          <section>
+            <div className="flex items-center gap-4 mb-5">
+              <span className="font-cinzel text-xs tracking-[0.25em] uppercase" style={{ color: "var(--red-doge)" }}>
+                ◈ Deals en Vedette
+              </span>
+              <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, var(--red-dark), transparent)" }} />
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              {[
+                { name: "NovaTech Inc", arr: "$240K", stage: "Closing", status: "default" as const, icon: "🏛" },
+                { name: "HealthStream", arr: "$120K", stage: "Won", status: "success" as const, icon: "⚕" },
+                { name: "Fintech Corp", arr: "$98K", stage: "Négociation", status: "warning" as const, icon: "◈" },
+              ].map((deal) => (
+                <div key={deal.name} className="tablette-marbre tablette-interactive" style={{ cursor: "pointer" }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <TabletteHeader
+                      icon={<span style={{ fontSize: "1rem" }}>{deal.icon}</span>}
+                      title={deal.name}
+                      subtitle={deal.arr + " ARR"}
+                    />
+                    <TabletteBadge status={deal.status}>{deal.stage}</TabletteBadge>
+                  </div>
+                  <div className="tm-divider" style={{ marginTop: 12, marginBottom: 10 }} />
+                  <div className="flex items-center gap-2">
+                    <Zap size={11} color="var(--red-dark)" />
+                    <span className="text-xs" style={{ color: "var(--gray-silver)", fontFamily: "var(--font-body)" }}>
+                      Prochaine action requise
+                    </span>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        </section>
+          </section>
+
+        </div>
       </main>
     </div>
   );

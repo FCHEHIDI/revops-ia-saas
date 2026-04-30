@@ -13,53 +13,53 @@ import type { CSSProperties } from "react";
  *   }
  */
 
-/** Brand accent colours */
+/** Brand accent colours — venetian gothic palette */
 export const C = {
-  /** Analytics data / neutral positive  → --mcp-analytics  */
-  blue:    "#50b4ff",
-  /** Billing / paid / growth            → --mcp-billing    */
-  green:   "#78ffa0",
-  /** Sequences / secondary series       → --mcp-sequences  */
-  purple:  "#c88cff",
-  /** CRM / danger / overdue             → --mcp-crm        */
-  red:     "#ff5050",
-  /** Alerte modérée                     → --accent-warning */
-  magenta: "#ff0066",
-  /** Très positif (expansion)           → --accent-success */
-  success: "#00ff88",
-  /** Text-muted                         → --text-muted     */
-  muted:   "#555555",
-  /** Text-secondary                     → --text-secondary */
-  secondary: "#999999",
-  /** Text-primary                       → --text-primary   */
-  primary: "#f5f5f5",
-  /** Bg elevated                        → --bg-elevated    */
-  elevated:"#1a1a1a",
-  /** Border default                     → --border-default */
-  border:  "#2a2a2a",
+  /** Ambre vénitien (alerte modérée / neutral)   */
+  blue:    "#C07000",
+  /** Or vénitien sombre (croissance / positif)   */
+  green:   "#A07800",
+  /** Améthyste profonde (séquences)              */
+  purple:  "#6B2080",
+  /** Rouge incandescent (danger / retard)        */
+  red:     "#FF1A1A",
+  /** Magenta alerte (goulot / warning)           */
+  magenta: "#FF0066",
+  /** Or vif (expansion / très positif)           */
+  success: "#D4A000",
+  /** Muted vénitien sombre                       */
+  muted:   "#5A3535",
+  /** Secondaire vénitien                         */
+  secondary: "#9A6B6B",
+  /** Blanc spectral (texte primaire)             */
+  primary: "#F2F2F2",
+  /** Noir marbre (bg élevé)                      */
+  elevated:"#0A0A0A",
+  /** Bordure vénitienne sombre                   */
+  border:  "#3D1A1A",
 } as const;
 
 /** Default Recharts element props */
 export const CHART = {
   font:           "'Space Grotesk', system-ui, sans-serif",
   fontSize:       11,
-  /** Axis tick colour */
-  tick:           "#555555",
-  /** Grid line colour */
-  grid:           "rgba(255,255,255,0.05)",
+  /** Axis tick colour — venetian dark red */
+  tick:           "#7A4040",
+  /** Grid line colour — red holographic */
+  grid:           "rgba(192,0,0,0.12)",
   /** Recharts default chart margin */
   margin:         { top: 6, right: 8, left: 0, bottom: 0 } as const,
 } as const;
 
 /** Inline style for custom tooltip containers */
 export const tooltipStyle: CSSProperties = {
-  background:    "#1a1a1a",
-  border:        "1px solid rgba(255,255,255,0.08)",
-  borderRadius:  8,
+  background:    "rgba(5,5,5,0.95)",
+  border:        "1px solid rgba(192,0,0,0.45)",
+  borderRadius:  6,
   padding:       "8px 12px",
   fontSize:      12,
   fontFamily:    CHART.font,
-  boxShadow:     "0 8px 32px rgba(0,0,0,0.8)",
+  boxShadow:     "0 8px 32px rgba(0,0,0,0.9), 0 0 16px rgba(192,0,0,0.2)",
   color:         C.primary,
 };
 
@@ -74,9 +74,9 @@ export function healthColor(
   goodThreshold: number,
   warnThreshold: number
 ): string {
-  if (value >= goodThreshold) return C.green;
-  if (value >= warnThreshold) return C.blue;
-  return C.magenta;
+  if (value >= goodThreshold) return "#D4A000"; // or vénitien — bon
+  if (value >= warnThreshold) return "#C00000"; // rouge vénitien — modéré
+  return "#FF1A1A";                             // rouge incandescent — critique
 }
 
 /** Format a euro amount: 28400 → "28k€", 900 → "900€" */

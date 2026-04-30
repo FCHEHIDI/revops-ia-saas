@@ -1,14 +1,37 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
+const INPUT_BASE: React.CSSProperties = {
+  background: "rgba(5,5,5,0.75)",
+  border: "1px solid var(--red-dark)",
+  borderRadius: "6px",
+  color: "var(--white-spectral)",
+  padding: "11px 14px",
+  width: "100%",
+  fontSize: "14px",
+  outline: "none",
+  transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+  fontFamily: "var(--font-body)",
+};
+
+function focusRed(e: React.FocusEvent<HTMLInputElement>) {
+  e.currentTarget.style.borderColor = "var(--red-glow)";
+  e.currentTarget.style.boxShadow = "var(--glow-red)";
+}
+function blurRed(e: React.FocusEvent<HTMLInputElement>) {
+  e.currentTarget.style.borderColor = "var(--red-dark)";
+  e.currentTarget.style.boxShadow = "none";
+}
+
 export default function LoginPage() {
   const { login } = useAuth();
-  const [email, setEmail]       = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError]       = useState("");
+  const [email, setEmail]         = useState("");
+  const [password, setPassword]   = useState("");
+  const [error, setError]         = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -25,77 +48,91 @@ export default function LoginPage() {
   };
 
   return (
-    <div
-      className="relative flex min-h-screen items-center justify-center px-4 overflow-hidden"
-      style={{ background: "var(--bg-void)" }}
-    >
-      {/* Background layers */}
+    <div className="relative flex min-h-screen items-center justify-center px-4 overflow-hidden bg-palazzo">
+
+      {/* ── Palazzo background overlay ── */}
+      <div className="pointer-events-none absolute inset-0 bg-palazzo-overlay" />
+
+      {/* ── Scan lines ── */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
-          background: `
-            radial-gradient(ellipse 70% 70% at 15% 50%, rgba(255,0,0,0.05) 0%, transparent 65%),
-            radial-gradient(ellipse 60% 60% at 85% 50%, rgba(63,79,255,0.04) 0%, transparent 65%)
-          `,
-        }}
-      />
-      {/* Scan line overlay */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background: "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px)",
+          background: "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.05) 3px, rgba(0,0,0,0.05) 4px)",
         }}
       />
 
-      {/* Login panel */}
+      {/* ── Red atmospheric halo (left — serveurs) ── */}
       <div
-        className="relative w-full max-w-sm animate-slide-up"
+        className="pointer-events-none absolute"
         style={{
-          background: "rgba(17,17,17,0.72)",
-          backdropFilter: "blur(28px)",
-          WebkitBackdropFilter: "blur(28px)",
-          border: "1px solid rgba(255,255,255,0.06)",
-          borderRadius: "var(--radius-lg)",
-          padding: "40px 36px",
-          boxShadow: "var(--shadow-deep)",
+          left: 0, top: "20%", width: "35%", height: "60%",
+          background: "radial-gradient(ellipse at left center, rgba(192,0,0,0.12) 0%, transparent 70%)",
+        }}
+      />
+
+      {/* ── Fumée dynamique au sol ── */}
+      <div className="fog-layer" />
+      <div className="smoke-layer-2" />
+      <div className="smoke-layer-3" />
+      <div className="smoke-wisp" />
+
+      {/* ══════════════════════════════════════
+          LOGIN PANEL
+      ══════════════════════════════════════ */}
+      <div
+        className="relative w-full max-w-sm z-10"
+        style={{
+          background: "rgba(5,5,5,0.82)",
+          backdropFilter: "blur(32px)",
+          WebkitBackdropFilter: "blur(32px)",
+          border: "1px solid var(--red-dark)",
+          borderRadius: "8px",
+          padding: "44px 36px",
+          boxShadow: "var(--inner-shadow-dark), 0 0 0 1px rgba(138,0,0,0.2), 0 24px 64px rgba(0,0,0,0.95)",
         }}
       >
-        {/* Logo + brand */}
-        <div className="mb-8 flex flex-col items-center gap-4">
+        {/* ── Logo + brand ── */}
+        <div className="mb-9 flex flex-col items-center gap-5">
+          {/* Medallion */}
           <div
-            className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl"
             style={{
-              background: "rgba(255,0,0,0.08)",
-              border: "1px solid rgba(255,0,0,0.2)",
-              boxShadow: "0 0 32px rgba(255,0,0,0.1)",
+              width: 90, height: 90,
+              borderRadius: "50%",
+              background: "radial-gradient(circle at 38% 38%, #C00000, #5a0000)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "var(--inner-shadow-red), var(--glow-red), 0 4px 20px rgba(0,0,0,0.9)",
+              border: "1px solid rgba(192,0,0,0.35)",
             }}
           >
-            <Image src="/favicon.png" alt="ROI" width={48} height={48} className="object-contain" priority />
+            <Image src="/icons/roi-logo-nb.png" alt="ROI" width={58} height={58} className="object-contain" priority />
           </div>
+
           <div className="text-center">
             <h1
-              className="font-orbitron text-xl font-black tracking-widest"
-              style={{ color: "var(--text-primary)" }}
+              className="font-cinzel text-2xl font-bold tracking-[0.2em] uppercase"
+              style={{
+                color: "var(--white-spectral)",
+                textShadow: "0 0 20px rgba(192,0,0,0.5)",
+              }}
             >
-              ROI
+              RevOps Intelligence
             </h1>
             <p
-              className="mt-1 text-xs font-semibold tracking-widest uppercase"
-              style={{ color: "var(--accent-blue)", textShadow: "0 0 20px rgba(63,79,255,0.5)" }}
+              className="mt-2 text-[11px] font-semibold tracking-[0.3em] uppercase candle-pulse"
+              style={{ color: "var(--red-doge)" }}
             >
-              REVOPS INTELLIGENCE — The Flow Begins
+              The Flow Begins
             </p>
           </div>
         </div>
 
-        {/* Form */}
+        {/* ── Form ── */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Email */}
           <div className="space-y-1.5">
             <label
               htmlFor="email"
-              className="block text-xs font-medium tracking-widest uppercase"
-              style={{ color: "var(--text-muted)" }}
+              className="block text-[10px] font-semibold tracking-[0.25em] uppercase"
+              style={{ color: "var(--gray-silver)" }}
             >
               Email
             </label>
@@ -107,31 +144,17 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
               required
-              className="w-full text-sm transition-all duration-200 outline-none"
-              style={{
-                background: "var(--bg-elevated)",
-                border: "1px solid var(--border-default)",
-                borderRadius: "var(--radius-input)",
-                color: "var(--text-primary)",
-                padding: "10px 14px",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.border = "1px solid rgba(63,79,255,0.5)";
-                e.currentTarget.style.boxShadow = "var(--shadow-blue)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.border = "1px solid var(--border-default)";
-                e.currentTarget.style.boxShadow = "none";
-              }}
+              style={INPUT_BASE}
+              onFocus={focusRed}
+              onBlur={blurRed}
             />
           </div>
 
-          {/* Password */}
           <div className="space-y-1.5">
             <label
               htmlFor="password"
-              className="block text-xs font-medium tracking-widest uppercase"
-              style={{ color: "var(--text-muted)" }}
+              className="block text-[10px] font-semibold tracking-[0.25em] uppercase"
+              style={{ color: "var(--gray-silver)" }}
             >
               Mot de passe
             </label>
@@ -143,32 +166,19 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
               required
-              className="w-full text-sm transition-all duration-200 outline-none"
-              style={{
-                background: "var(--bg-elevated)",
-                border: "1px solid var(--border-default)",
-                borderRadius: "var(--radius-input)",
-                color: "var(--text-primary)",
-                padding: "10px 14px",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.border = "1px solid rgba(63,79,255,0.5)";
-                e.currentTarget.style.boxShadow = "var(--shadow-blue)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.border = "1px solid var(--border-default)";
-                e.currentTarget.style.boxShadow = "none";
-              }}
+              style={INPUT_BASE}
+              onFocus={focusRed}
+              onBlur={blurRed}
             />
           </div>
 
           {error && (
             <div
-              className="rounded-lg px-3 py-2.5 text-sm"
+              className="rounded px-3 py-2.5 text-sm"
               style={{
-                border: "1px solid rgba(255,0,0,0.3)",
-                background: "rgba(255,0,0,0.06)",
-                color: "var(--accent-red)",
+                border: "1px solid rgba(192,0,0,0.4)",
+                background: "rgba(138,0,0,0.12)",
+                color: "#ff6666",
               }}
             >
               {error}
@@ -178,33 +188,59 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full text-sm font-semibold tracking-wider transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full text-sm font-semibold tracking-[0.15em] uppercase transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
-              background: isLoading ? "rgba(255,0,0,0.5)" : "var(--accent-red)",
+              background: isLoading
+                ? "rgba(192,0,0,0.5)"
+                : "linear-gradient(135deg, #C00000 0%, #8A0000 100%)",
               color: "#fff",
-              borderRadius: "var(--radius-btn)",
-              padding: "12px 20px",
-              border: "none",
-              marginTop: "8px",
-              boxShadow: "0 0 24px rgba(255,0,0,0.3)",
+              borderRadius: "6px",
+              padding: "13px 20px",
+              border: "1px solid rgba(192,0,0,0.4)",
+              marginTop: "10px",
+              boxShadow: "0 0 20px rgba(192,0,0,0.35), var(--inner-shadow-dark)",
               cursor: isLoading ? "not-allowed" : "pointer",
+              fontFamily: "var(--font-body)",
             }}
             onMouseEnter={(e) => {
-              if (!isLoading) (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 36px rgba(255,0,0,0.5)";
+              if (!isLoading) {
+                (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                  "0 0 36px rgba(255,0,0,0.6), var(--inner-shadow-dark)";
+              }
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 24px rgba(255,0,0,0.3)";
+              (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                "0 0 20px rgba(192,0,0,0.35), var(--inner-shadow-dark)";
             }}
           >
             {isLoading ? "Connexion…" : "Se connecter"}
           </button>
         </form>
 
+        {/* ── Footer ── */}
+        <div
+          className="mt-1 w-full"
+          style={{ height: "1px", background: "linear-gradient(90deg, transparent, var(--red-dark), transparent)" }}
+        />
+
         <p
-          className="mt-6 text-center text-xs"
+          className="mt-5 text-center text-[11px]"
           style={{ color: "var(--text-muted)" }}
         >
           En vous connectant, vous acceptez nos conditions d&apos;utilisation.
+        </p>
+        <p
+          className="mt-2 text-center text-[11px]"
+          style={{ color: "var(--gray-silver)" }}
+        >
+          Pas encore de compte ?{" "}
+          <Link
+            href="/register"
+            className="transition-colors duration-150 hover:opacity-80"
+            style={{ color: "var(--red-doge)", fontWeight: 600 }}
+          >
+            Créer un compte
+          </Link>
         </p>
       </div>
     </div>

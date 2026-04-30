@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useApiQuery } from "@/hooks/useApi";
 import { analyticsApi } from "@/lib/api";
@@ -28,7 +27,7 @@ interface BarProps { value: number; max: number; color: string }
 function HealthBar({ value, max, color }: BarProps) {
   const pct = Math.min((value / max) * 100, 100);
   return (
-    <div style={{ height: 4, borderRadius: 2, background: "var(--border-default)", overflow: "hidden" }}>
+    <div style={{ height: 4, borderRadius: 2, background: "rgba(138,0,0,0.25)", overflow: "hidden" }}>
       <div
         style={{
           height: "100%",
@@ -66,20 +65,22 @@ export function ChurnRateChart() {
 
   if (isLoading) {
     return (
-      <Card className="flex items-center justify-center" style={{ minHeight: 200 }}>
+      <div className="tablette-marbre flex items-center justify-center" style={{ minHeight: 200, background: "rgba(5,5,5,0.82)", border: "1px solid var(--red-dark)" }}>
         <Spinner size="lg" />
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card className="flex flex-col gap-5">
+    <div className="tablette-marbre flex flex-col gap-5"
+      style={{ background: "rgba(5,5,5,0.82)", border: "1px solid var(--red-dark)" }}
+    >
       {/* Section title */}
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide" style={{ color: C.secondary }}>
+        <p className="font-cinzel text-xs tracking-[0.2em] uppercase" style={{ color: "var(--red-doge)" }}>
           Rétention client
         </p>
-        <p className="text-xs mt-0.5" style={{ color: C.muted }}>
+        <p className="text-xs mt-0.5" style={{ color: "var(--gray-silver)" }}>
           NRR &gt; 100% = le revenu croît malgré le churn
         </p>
       </div>
@@ -87,7 +88,7 @@ export function ChurnRateChart() {
       {/* NRR */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs" style={{ color: C.muted }}>Net Revenue Retention (NRR)</span>
+          <span className="text-xs" style={{ color: "var(--gray-silver)" }}>Net Revenue Retention (NRR)</span>
           <span
             className="text-xs font-semibold rounded px-1.5 py-0.5"
             style={{ color: nrr_h.color, background: `${nrr_h.color}18`, border: `1px solid ${nrr_h.color}30` }}
@@ -99,16 +100,16 @@ export function ChurnRateChart() {
           {nrr.toFixed(1)}%
         </p>
         <HealthBar value={nrr} max={130} color={nrr_h.color} />
-        <p className="text-xs" style={{ color: C.muted }}>{nrr_h.hint}</p>
+        <p className="text-xs" style={{ color: "var(--gray-silver)" }}>{nrr_h.hint}</p>
       </div>
 
       {/* Divider */}
-      <div style={{ borderTop: "1px solid var(--border-subtle)" }} />
+      <div style={{ borderTop: "1px solid var(--red-dark)" }} />
 
       {/* Churn rate */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs" style={{ color: C.muted }}>Taux de churn mensuel</span>
+          <span className="text-xs" style={{ color: "var(--gray-silver)" }}>Taux de churn mensuel</span>
           <span
             className="text-xs font-semibold rounded px-1.5 py-0.5"
             style={{ color: churn_h.color, background: `${churn_h.color}18`, border: `1px solid ${churn_h.color}30` }}
@@ -121,11 +122,11 @@ export function ChurnRateChart() {
         </p>
         {/* 10% = danger ceiling, so full bar = 10% churn */}
         <HealthBar value={churnPct} max={10} color={churn_h.color} />
-        <p className="text-xs" style={{ color: C.muted }}>
+        <p className="text-xs" style={{ color: "var(--gray-silver)" }}>
           {churnedCount} client{churnedCount > 1 ? "s" : ""} perdu{churnedCount > 1 ? "s" : ""}
           {" "}sur {startingCount} en début de période
         </p>
       </div>
-    </Card>
+    </div>
   );
 }

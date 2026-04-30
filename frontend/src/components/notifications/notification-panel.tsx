@@ -1,9 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import {
-  Bell,
-  BellRing,
   CheckCheck,
   AlertTriangle,
   CheckCircle2,
@@ -31,16 +30,16 @@ function relativeTime(date: Date): string {
 }
 
 // ---------------------------------------------------------------------------
-// Type → icon & color map
+// Type → icon & color map — Venetian palette
 // ---------------------------------------------------------------------------
 
 type IconComponent = React.ComponentType<{ size?: number; color?: string; style?: React.CSSProperties }>;
 
-const TYPE_CONFIG: Record<NotificationType, { Icon: IconComponent; color: string }> = {
-  info:    { Icon: Info,          color: "#50b4ff" },
-  success: { Icon: CheckCircle2,  color: "#78ffa0" },
-  warning: { Icon: AlertTriangle, color: "#ffb850" },
-  error:   { Icon: XCircle,       color: "#ff5050" },
+const TYPE_CONFIG: Record<NotificationType, { Icon: IconComponent; color: string; glow: string }> = {
+  info:    { Icon: Info,          color: "#9B4FD4", glow: "rgba(155,79,212,0.45)" },
+  success: { Icon: CheckCircle2,  color: "#D4A000", glow: "rgba(212,160,0,0.45)"  },
+  warning: { Icon: AlertTriangle, color: "#C07000", glow: "rgba(192,112,0,0.45)"  },
+  error:   { Icon: XCircle,       color: "#FF1A1A", glow: "rgba(255,26,26,0.50)"  },
 };
 
 // ---------------------------------------------------------------------------
@@ -55,7 +54,7 @@ function NotificationItem({
   onRead: (id: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const { Icon, color } = TYPE_CONFIG[notification.type];
+  const { Icon, color, glow } = TYPE_CONFIG[notification.type];
 
   return (
     <div
@@ -67,33 +66,35 @@ function NotificationItem({
         gap: 10,
         padding: "10px 14px",
         cursor: "pointer",
-        borderRadius: 8,
-        margin: "0 4px",
+        margin: "0 6px 2px",
+        borderRadius: 6,
         background: hovered
-          ? "rgba(255,255,255,0.03)"
+          ? "rgba(192,0,0,0.08)"
           : notification.read
           ? "transparent"
-          : "rgba(80,180,255,0.03)",
+          : "rgba(192,0,0,0.04)",
         borderLeft: notification.read
-          ? "2px solid transparent"
+          ? "2px solid rgba(138,0,0,0.20)"
           : `2px solid ${color}`,
         transition: "background 0.15s",
       }}
     >
       <Icon
-        size={15}
+        size={14}
         color={color}
-        style={{ marginTop: 2, flexShrink: 0 }}
+        style={{ marginTop: 3, flexShrink: 0, filter: `drop-shadow(0 0 4px ${glow})` }}
       />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: notification.read ? 400 : 600,
-            color: "var(--text-primary, #f5f5f5)",
+            color: notification.read ? "var(--gray-silver, #b3b3b3)" : "var(--white-spectral, #f2f2f2)",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
+            fontFamily: "var(--font-body)",
+            letterSpacing: "0.02em",
           }}
         >
           {notification.title}
@@ -102,27 +103,38 @@ function NotificationItem({
           <div
             style={{
               fontSize: 11,
-              color: "var(--text-secondary, #999)",
+              color: "#666",
               marginTop: 2,
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
+              fontFamily: "var(--font-body)",
             }}
           >
             {notification.body}
           </div>
         )}
-        <div style={{ fontSize: 10, color: "#555", marginTop: 4 }}>
+        <div
+          style={{
+            fontSize: 9,
+            color: "#444",
+            marginTop: 4,
+            letterSpacing: "0.10em",
+            fontFamily: "var(--font-mono)",
+            textTransform: "uppercase",
+          }}
+        >
           {relativeTime(notification.timestamp)}
         </div>
       </div>
       {!notification.read && (
         <span
           style={{
-            width: 6,
-            height: 6,
+            width: 5,
+            height: 5,
             borderRadius: "50%",
             background: color,
+            boxShadow: `0 0 6px ${glow}`,
             flexShrink: 0,
             alignSelf: "center",
           }}
@@ -141,7 +153,6 @@ export function NotificationPanel() {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Close when clicking outside
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -161,47 +172,51 @@ export function NotificationPanel() {
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} non lues)` : ""}`}
         style={{
           position: "relative",
-          width: 36,
-          height: 36,
+          width: 44,
+          height: 44,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           borderRadius: 8,
-          background: open ? "rgba(255,255,255,0.06)" : "transparent",
-          border: `1px solid ${open ? "rgba(255,255,255,0.08)" : "transparent"}`,
+          background: "transparent",
+          border: "1px solid transparent",
           cursor: "pointer",
-          transition: "background 0.15s, border-color 0.15s",
+          padding: 0,
+          transition: "filter 0.2s",
         }}
         onMouseEnter={(e) => {
-          if (!open) {
-            e.currentTarget.style.background = "rgba(255,255,255,0.04)";
-            e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
-          }
+          e.currentTarget.style.filter = "drop-shadow(0 0 10px rgba(255,0,0,0.55))";
         }}
         onMouseLeave={(e) => {
-          if (!open) {
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.borderColor = "transparent";
-          }
+          e.currentTarget.style.filter = unreadCount > 0
+            ? "drop-shadow(0 0 6px rgba(255,0,0,0.35))"
+            : "none";
         }}
       >
-        {unreadCount > 0 ? (
-          <BellRing size={18} color="#f5f5f5" />
-        ) : (
-          <Bell size={18} color="#666" />
-        )}
-
-        {/* Unread badge */}
+        <Image
+          src="/icons/notification-bell.png"
+          alt="Notifications"
+          width={36}
+          height={36}
+          className="object-contain"
+          style={{
+            filter: unreadCount > 0
+              ? "drop-shadow(0 0 6px rgba(255,0,0,0.60))"
+              : "grayscale(0.3) opacity(0.7)",
+            transition: "filter 0.2s",
+            animation: unreadCount > 0 ? "bellRing 2.4s ease-in-out infinite" : "none",
+          }}
+        />
         {unreadCount > 0 && (
           <span
             style={{
               position: "absolute",
-              top: 4,
-              right: 4,
-              minWidth: 16,
-              height: 16,
-              borderRadius: 8,
-              background: "#ff5050",
+              top: 2,
+              right: 2,
+              minWidth: 17,
+              height: 17,
+              borderRadius: "50%",
+              background: "radial-gradient(circle, #ff0000 0%, #8a0000 80%)",
               color: "#fff",
               fontSize: 9,
               fontWeight: 700,
@@ -210,6 +225,8 @@ export function NotificationPanel() {
               justifyContent: "center",
               padding: "0 3px",
               lineHeight: 1,
+              boxShadow: "0 0 8px rgba(255,0,0,0.7), 0 0 16px rgba(255,0,0,0.35)",
+              animation: "badgePulse 1.8s ease-in-out infinite",
               pointerEvents: "none",
             }}
           >
@@ -223,51 +240,72 @@ export function NotificationPanel() {
         <div
           style={{
             position: "absolute",
-            top: "calc(100% + 8px)",
+            top: "calc(100% + 10px)",
             right: 0,
-            width: 320,
-            maxHeight: 440,
+            width: 340,
+            maxHeight: 460,
             display: "flex",
             flexDirection: "column",
-            background: "#111",
-            border: "1px solid rgba(255,255,255,0.09)",
-            borderRadius: 12,
-            boxShadow: "0 12px 40px rgba(0,0,0,0.7)",
+            background: "radial-gradient(circle at 30% 20%, #130000 0%, #080808 60%, #050505 100%)",
+            border: "1px solid var(--red-dark)",
+            borderRadius: 8,
+            boxShadow: "inset 0 0 24px #220000, 0 0 20px rgba(192,0,0,0.30), 0 16px 48px rgba(0,0,0,0.90)",
             zIndex: 200,
             overflow: "hidden",
+            animation: "pulseMarbre 2.4s ease-in-out infinite",
           }}
         >
-          {/* Header */}
+          {/* Veinure décorative */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "linear-gradient(127deg, transparent 35%, rgba(138,0,0,0.04) 36%, rgba(138,0,0,0.04) 37%, transparent 38%), linear-gradient(220deg, transparent 42%, rgba(34,0,0,0.06) 43%, rgba(34,0,0,0.06) 44%, transparent 45%)",
+              pointerEvents: "none",
+              borderRadius: "inherit",
+            }}
+          />
+
+          {/* ── Header ── */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              padding: "12px 14px 10px",
-              borderBottom: "1px solid rgba(255,255,255,0.06)",
+              padding: "14px 16px 12px",
+              borderBottom: "1px solid rgba(138,0,0,0.30)",
+              background: "linear-gradient(90deg, transparent, rgba(138,0,0,0.06), transparent)",
               flexShrink: 0,
+              position: "relative",
             }}
           >
             <span
               style={{
-                fontSize: 13,
+                fontSize: 10,
                 fontWeight: 600,
-                color: "#f5f5f5",
+                color: "var(--white-spectral, #f2f2f2)",
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
+                fontFamily: "var(--font-title)",
+                letterSpacing: "0.20em",
+                textTransform: "uppercase",
+                textShadow: "0 0 12px rgba(192,0,0,0.40)",
               }}
             >
-              Notifications
+              ✦ Alertes du Palais
               {unreadCount > 0 && (
                 <span
                   style={{
                     padding: "1px 7px",
                     borderRadius: 10,
-                    background: "rgba(255,80,80,0.12)",
-                    color: "#ff5050",
-                    fontSize: 11,
+                    background: "rgba(192,0,0,0.15)",
+                    border: "1px solid rgba(192,0,0,0.40)",
+                    color: "#FF1A1A",
+                    fontSize: 9,
                     fontWeight: 700,
+                    fontFamily: "var(--font-mono)",
+                    letterSpacing: "0.05em",
                   }}
                 >
                   {unreadCount}
@@ -279,35 +317,53 @@ export function NotificationPanel() {
               <button
                 onClick={markAllRead}
                 style={{
-                  fontSize: 11,
-                  color: "#50b4ff",
-                  background: "none",
-                  border: "none",
+                  fontSize: 9,
+                  color: "var(--gray-silver, #b3b3b3)",
+                  background: "rgba(138,0,0,0.10)",
+                  border: "1px solid rgba(138,0,0,0.25)",
+                  borderRadius: 4,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   gap: 4,
-                  padding: 0,
+                  padding: "4px 8px",
+                  fontFamily: "var(--font-mono)",
+                  letterSpacing: "0.10em",
+                  textTransform: "uppercase",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = "#FF1A1A";
+                  e.currentTarget.style.borderColor = "rgba(192,0,0,0.50)";
+                  e.currentTarget.style.background = "rgba(192,0,0,0.18)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "var(--gray-silver, #b3b3b3)";
+                  e.currentTarget.style.borderColor = "rgba(138,0,0,0.25)";
+                  e.currentTarget.style.background = "rgba(138,0,0,0.10)";
                 }}
               >
-                <CheckCheck size={12} />
+                <CheckCheck size={10} />
                 Tout lire
               </button>
             )}
           </div>
 
-          {/* List */}
-          <div style={{ overflowY: "auto", flex: 1, padding: "6px 0 8px" }}>
+          {/* ── List ── */}
+          <div style={{ overflowY: "auto", flex: 1, padding: "8px 0 10px" }}>
             {notifications.length === 0 ? (
               <div
                 style={{
-                  padding: 28,
+                  padding: "32px 20px",
                   textAlign: "center",
                   color: "#444",
-                  fontSize: 13,
+                  fontSize: 10,
+                  fontFamily: "var(--font-title)",
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
                 }}
               >
-                Aucune notification
+                — Silence du Palais —
               </div>
             ) : (
               notifications.map((n) => (
@@ -315,8 +371,21 @@ export function NotificationPanel() {
               ))
             )}
           </div>
+
+          {/* Ligne décorative bas */}
+          <div
+            style={{
+              height: 1,
+              background: "linear-gradient(90deg, transparent, var(--red-dark), var(--red-doge, #C00000), var(--red-dark), transparent)",
+              opacity: 0.5,
+              flexShrink: 0,
+            }}
+          />
         </div>
       )}
     </div>
   );
 }
+
+
+

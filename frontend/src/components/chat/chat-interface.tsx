@@ -32,6 +32,11 @@ export function ChatInterface() {
       className="flex h-full flex-col relative"
       style={{
         background: "radial-gradient(ellipse 80% 60% at 50% 0%, #1a0000 0%, #0a0a0a 55%, #000 100%)",
+        border: "1px solid var(--red-dark)",
+        borderRadius: "8px",
+        overflow: "hidden",
+        boxShadow: "inset 0 0 20px #220000, 0 0 12px rgba(255,0,0,0.4)",
+        animation: "pulseMarbre 2.4s ease-in-out infinite",
       }}
     >
       {/* Toolbar */}

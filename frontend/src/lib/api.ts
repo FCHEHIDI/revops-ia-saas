@@ -92,10 +92,11 @@ export const api = new ApiClient(BACKEND_URL);
 // Auth endpoints
 // ---------------------------------------------------------------------------
 
-import type { User, LoginRequest } from "@/types";
+import type { User, LoginRequest, RegisterRequest } from "@/types";
 
 export const authApi = {
   login: (data: LoginRequest) => api.post<User>("/auth/login", data),
+  register: (data: RegisterRequest) => api.post<User>("/auth/register", data),
   me: () => api.get<User>("/auth/me"),
   logout: () => api.post<{ message: string }>("/auth/logout"),
   refresh: () => api.post<{ message: string }>("/auth/refresh"),

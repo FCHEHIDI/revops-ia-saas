@@ -1,7 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useRef, useState, useEffect, useCallback } from "react";
-import { User, Camera, Briefcase, Copy, Check } from "lucide-react";
+import { Camera, Briefcase, Copy, Check } from "lucide-react";
 import { api } from "@/lib/api";
 import type { User as UserType } from "@/types";
 
@@ -72,17 +73,17 @@ export function ProfileCard({ user }: ProfileCardProps) {
   }, [user.email]);
 
   return (
-    <div className="flex items-center gap-3 shrink-0">
+    <div className="flex items-center shrink-0">
       {/* ── Avatar + bouton upload ── */}
-      <div className="relative shrink-0">
+      <div className="relative shrink-0" style={{ width: 150, height: 150 }}>
+        {/* Zone avatar circulaire */}
         <div
           style={{
-            width: 72,
-            height: 72,
+            width: 150,
+            height: 150,
             borderRadius: "50%",
             overflow: "hidden",
-            border: "2px solid rgba(255,0,0,0.3)",
-            background: "rgba(255,0,0,0.08)",
+            background: "rgba(10,0,0,0.85)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -96,18 +97,37 @@ export function ProfileCard({ user }: ProfileCardProps) {
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
           ) : (
-            <User size={32} style={{ color: "rgba(255,0,0,0.45)" }} />
+            /* Placeholder — silhouette estompée dans le fond noir du cadre */
+            <div style={{ width: "52%", height: "52%", borderRadius: "50%", background: "rgba(138,0,0,0.12)" }} />
           )}
         </div>
+
+        {/* Cadre "THE DOGE" — superposé, non cliquable */}
+        <Image
+          src="/icons/profile-frame.png"
+          alt=""
+          width={150}
+          height={150}
+          className="object-contain"
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            filter: "drop-shadow(0 0 10px rgba(192,0,0,0.60))",
+          }}
+          aria-hidden
+        />
+
+        {/* Bouton upload */}
         <button
           onClick={() => fileRef.current?.click()}
           title="Changer la photo"
           style={{
             position: "absolute",
-            bottom: 1,
-            right: 1,
-            width: 22,
-            height: 22,
+            bottom: 6,
+            right: 6,
+            width: 26,
+            height: 26,
             borderRadius: "50%",
             background: "#ff0000",
             border: "2px solid #0a0012",
@@ -115,6 +135,7 @@ export function ProfileCard({ user }: ProfileCardProps) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            zIndex: 2,
           }}
         >
           <Camera size={10} color="#fff" />
@@ -128,8 +149,8 @@ export function ProfileCard({ user }: ProfileCardProps) {
         />
       </div>
 
-      {/* ── Infos statiques ── */}
-      <div className="flex flex-col gap-0.5 min-w-0">
+      {/* ── Infos statiques — cachées dans la nav ── */}
+      <div style={{ display: "none" }}>
         {/* Nom */}
         <p className="text-xs font-semibold truncate" style={{ color: "var(--text-primary)" }}>
           {user.full_name || "—"}

@@ -6,6 +6,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useApiQuery } from "@/hooks/useApi";
 import { crmApi } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
+import { ContactDetailPanel } from "./contact-detail-panel";
 import type { Contact, ContactStatus } from "@/types";
 
 /* ── Status config ─────────────────────────────────────── */
@@ -57,6 +58,7 @@ function StatusBadge({ status }: { status: ContactStatus }) {
 /* ── Main component ────────────────────────────────────── */
 export function ContactsTable() {
   const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<Contact | null>(null);
 
   const { data, isLoading, error } = useApiQuery(
     ["contacts"],
@@ -93,6 +95,8 @@ export function ContactsTable() {
     : allContacts;
 
   return (
+    <>
+    <ContactDetailPanel contact={selected} onClose={() => setSelected(null)} />
     <div
       className="overflow-hidden rounded-xl"
       style={{ border: "1px solid var(--border-default)" }}
@@ -151,7 +155,8 @@ export function ContactsTable() {
                 <tr
                   key={contact.id}
                   className="group transition-colors"
-                  style={{ borderBottom: "1px solid var(--border-subtle)", background: "var(--bg-surface)" }}
+                  style={{ borderBottom: "1px solid var(--border-subtle)", background: "var(--bg-surface)", cursor: "pointer" }}
+                  onClick={() => setSelected(contact)}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "var(--bg-surface)")}
                 >
@@ -188,5 +193,6 @@ export function ContactsTable() {
         </table>
       )}
     </div>
+    </>
   );
 }

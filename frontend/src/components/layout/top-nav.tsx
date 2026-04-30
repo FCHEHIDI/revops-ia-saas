@@ -4,10 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LogOut } from "lucide-react";
+import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { ProfileCard } from "@/components/layout/profile-card";
+import { NotificationPanel } from "@/components/notifications/notification-panel";
 
 const navItems = [
   { href: "/chat",      label: "Xenito",      section: "IA",  customIcon: "/icons/xenito-icon.png"     },
@@ -161,8 +162,56 @@ export function TopNav() {
         })}
       </nav>
 
-      {/* ── Profile card ── */}
-      {user && <ProfileCard user={user} />}
+      {/* ── Search button + Notification bell + Profile card ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+        {/* Cmd+K search trigger */}
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("cmdpalette:open"))}
+          aria-label="Recherche globale (Ctrl+K)"
+          title="Ctrl+K"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            height: 32,
+            padding: "0 10px",
+            borderRadius: 7,
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.07)",
+            cursor: "pointer",
+            transition: "background 0.15s, border-color 0.15s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
+          }}
+        >
+          <Search size={13} color="#666" />
+          <span style={{ fontSize: 12, color: "#555", whiteSpace: "nowrap" }}>
+            Rechercher…
+          </span>
+          <kbd
+            style={{
+              fontSize: 9,
+              color: "#444",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              borderRadius: 3,
+              padding: "1px 4px",
+              marginLeft: 4,
+            }}
+          >
+            Ctrl K
+          </kbd>
+        </button>
+
+        <NotificationPanel />
+        {user && <ProfileCard user={user} />}
+      </div>
     </header>
   );
 }

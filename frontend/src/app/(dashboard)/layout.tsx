@@ -1,4 +1,6 @@
 import { TopNav } from "@/components/layout/top-nav";
+import { NotificationProvider } from "@/components/notifications/notification-provider";
+import { CommandPalette } from "@/components/search/command-palette";
 
 export default function DashboardLayout({
   children,
@@ -6,17 +8,20 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className="flex flex-col h-screen overflow-hidden"
-      style={{ background: "var(--bg-base)" }}
-    >
-      <TopNav />
+    <NotificationProvider>
       <div
-        className="flex flex-1 flex-col overflow-hidden"
+        className="flex flex-col h-screen overflow-hidden"
         style={{ background: "var(--bg-base)" }}
       >
-        {children}
+        <TopNav />
+        <div
+          className="flex flex-1 flex-col overflow-hidden"
+          style={{ background: "var(--bg-base)" }}
+        >
+          {children}
+        </div>
       </div>
-    </div>
+      <CommandPalette />
+    </NotificationProvider>
   );
 }

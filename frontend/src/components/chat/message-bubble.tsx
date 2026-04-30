@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { User } from "lucide-react";
+import { User, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ToolCallDisplay } from "./tool-call-display";
 import type { ChatMessage } from "@/types";
@@ -83,13 +83,30 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           {message.content}
 
           {/* Typing dots when streaming but no content yet */}
-          {message.isStreaming && !message.content && (
+          {message.isStreaming && !message.content && message.toolCalls?.length === 0 && (
             <span className="inline-flex gap-1.5 items-center">
               {[0, 150, 300].map((delay) => (
                 <span
                   key={delay}
                   className="h-1.5 w-1.5 rounded-full animate-bounce"
                   style={{ background: "rgba(255,80,80,0.6)", animationDelay: `${delay}ms` }}
+                />
+              ))}
+            </span>
+          )}
+
+          {/* Tool call in-progress indicator */}
+          {message.isStreaming && !message.content && (message.toolCalls?.length ?? 0) > 0 && (
+            <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: "rgba(255,80,80,0.6)" }}>
+              <Zap size={10} className="animate-pulse" />
+              <span className="font-mono-geist" style={{ fontSize: "10px", letterSpacing: "0.05em" }}>
+                Appel outil…
+              </span>
+              {[0, 120, 240].map((delay) => (
+                <span
+                  key={delay}
+                  className="h-1 w-1 rounded-full animate-bounce"
+                  style={{ background: "rgba(255,80,80,0.5)", animationDelay: `${delay}ms` }}
                 />
               ))}
             </span>

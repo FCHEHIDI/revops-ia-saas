@@ -1,17 +1,22 @@
 use rmcp::{
     model::{
-        CallToolRequest, CallToolResult, Content, ListToolsResult, ServerCapabilities,
-        ServerInfo, Tool,
+        CallToolRequestParam, CallToolResult, Content, ListToolsResult, PaginatedRequestParam,
+        ServerCapabilities, ServerInfo, Tool,
     },
-    server::ServerHandler,
-    service::RequestContext,
+    service::{RequestContext, RoleServer},
     Error as McpError,
+    ServerHandler,
 };
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use sqlx::PgPool;
 use std::borrow::Cow;
 use std::sync::Arc;
 use tracing::{error, info, instrument};
+
+/// Convert a `serde_json::Value::Object` into `Arc<Map<String, Value>>` for Tool::input_schema.
+fn s(v: Value) -> Arc<Map<String, Value>> {
+    Arc::new(v.as_object().cloned().unwrap_or_default())
+}
 
 use crate::errors::BillingError;
 use crate::tools::{
@@ -83,19 +88,17 @@ impl BillingServer {
 // ServerHandler implementation
 // ---------------------------------------------------------------------------
 
-#[rmcp::async_trait]
 impl ServerHandler for BillingServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
-            name: Cow::Borrowed("mcp-billing"),
-            version: Cow::Borrowed(env!("CARGO_PKG_VERSION")),
-            ..Default::default()
-        }
-    }
-
-    fn get_capabilities(&self) -> ServerCapabilities {
-        ServerCapabilities {
-            tools: Some(rmcp::model::ToolsCapability { list_changed: None }),
+            capabilities: ServerCapabilities {
+                tools: Some(rmcp::model::ToolsCapability { list_changed: None }),
+                ..Default::default()
+            },
+            server_info: rmcp::model::Implementation {
+                name: "mcp-billing".to_string(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+            },
             ..Default::default()
         }
     }
@@ -103,8 +106,8 @@ impl ServerHandler for BillingServer {
     #[instrument(skip(self, _ctx), name = "list_tools")]
     async fn list_tools(
         &self,
-        _cursor: Option<String>,
-        _ctx: RequestContext,
+        _request: PaginatedRequestParam,
+        _ctx: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, McpError> {
         let tools = vec![
             // ----------------------------------------------------------------
@@ -112,10 +115,10 @@ impl ServerHandler for BillingServer {
             // ----------------------------------------------------------------
             Tool {
                 name: Cow::Borrowed("get_invoice"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Retrieves a single invoice by ID with all line items for the given tenant.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "invoice_id"],
                     "properties": {
@@ -123,14 +126,14 @@ impl ServerHandler for BillingServer {
                         "user_id":    { "type": "string", "format": "uuid" },
                         "invoice_id": { "type": "string", "format": "uuid" }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("list_invoices"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Lists invoices for the tenant with optional status/date filters. Returns summaries with total count and total amount.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id"],
                     "properties": {
@@ -145,14 +148,14 @@ impl ServerHandler for BillingServer {
                         "limit":  { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 },
                         "offset": { "type": "integer", "minimum": 0, "default": 0 }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("list_overdue_payments"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Lists overdue invoices with optional filter on number of overdue days. Returns total overdue amount and contact email.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id"],
                     "properties": {
@@ -162,17 +165,17 @@ impl ServerHandler for BillingServer {
                         "overdue_days_max": { "type": "integer", "minimum": 0, "description": "Only return invoices overdue by at most this many days" },
                         "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
                     }
-                }),
+                })),
             },
             // ----------------------------------------------------------------
             // Subscriptions
             // ----------------------------------------------------------------
             Tool {
                 name: Cow::Borrowed("get_subscription"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Retrieves subscription details. If subscription_id is omitted, returns the most recent subscription for the tenant.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id"],
                     "properties": {
@@ -180,28 +183,28 @@ impl ServerHandler for BillingServer {
                         "user_id":         { "type": "string", "format": "uuid" },
                         "subscription_id": { "type": "string", "format": "uuid", "description": "Optional — omit to get the active subscription" }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("check_subscription_status"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Returns the current subscription status, plan name, trial info, seat usage and enabled features. Returns NO_ACTIVE_SUBSCRIPTION if no active/trial/past_due subscription exists.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id"],
                     "properties": {
                         "tenant_id": { "type": "string", "format": "uuid" },
                         "user_id":   { "type": "string", "format": "uuid" }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("update_subscription_status"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Updates the status of a subscription. Requires billing:subscriptions:write permission. Only valid transitions are allowed: Active→PastDue, Active→Suspended, Suspended→Active, PastDue→Active, PastDue→Canceled.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "subscription_id", "new_status", "reason"],
                     "properties": {
@@ -214,31 +217,31 @@ impl ServerHandler for BillingServer {
                         },
                         "reason": { "type": "string", "minLength": 1, "description": "Required justification for the status change" }
                     }
-                }),
+                })),
             },
             // ----------------------------------------------------------------
             // Summary / Analytics
             // ----------------------------------------------------------------
             Tool {
                 name: Cow::Borrowed("get_customer_billing_summary"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Returns a high-level billing summary: MRR, ARR, pending invoices, lifetime value, next renewal date and payment method info.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id"],
                     "properties": {
                         "tenant_id": { "type": "string", "format": "uuid" },
                         "user_id":   { "type": "string", "format": "uuid" }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("get_mrr"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Returns monthly MRR data points for a date range, including new MRR, expansion MRR, churned MRR. Also returns current MRR and growth rate over the period.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "from_date", "to_date"],
                     "properties": {
@@ -247,7 +250,7 @@ impl ServerHandler for BillingServer {
                         "from_date": { "type": "string", "format": "date", "description": "Start of period (YYYY-MM-DD)" },
                         "to_date":   { "type": "string", "format": "date", "description": "End of period (YYYY-MM-DD)" }
                     }
-                }),
+                })),
             },
         ];
 
@@ -257,14 +260,14 @@ impl ServerHandler for BillingServer {
         })
     }
 
-    #[instrument(skip(self, _ctx), name = "call_tool", fields(tool = %request.params.name))]
+    #[instrument(skip(self, _ctx), name = "call_tool", fields(tool = %request.name))]
     async fn call_tool(
         &self,
-        request: CallToolRequest,
-        _ctx: RequestContext,
+        request: CallToolRequestParam,
+        _ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
-        let name = request.params.name.as_ref();
-        let args = request.params.arguments.clone();
+        let name = request.name.as_ref();
+        let args = request.arguments.map(Value::Object);
         let pool = self.pool.as_ref();
 
         info!("Dispatching tool: {}", name);
@@ -337,8 +340,9 @@ impl ServerHandler for BillingServer {
             }
             unknown => {
                 error!("Unknown tool requested: {}", unknown);
-                Err(McpError::method_not_found(
+                Err(McpError::internal_error(
                     format!("Unknown tool: {unknown}"),
+                    None,
                 ))
             }
         }

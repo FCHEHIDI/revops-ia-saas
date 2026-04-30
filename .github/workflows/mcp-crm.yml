@@ -1,0 +1,207 @@
+name: CI — MCP CRM (Python)
+# ═══════════════════════════════════════════════════════════════════════════════
+# PÉRIMÈTRE : CI Python pour mcp-crm (Phase 2)
+# Tests respx mockant le backend FastAPI — pas de Postgres requis
+# ADR-008 : mcp-crm n'a pas d'accès DB direct, appelle /internal/v1/crm/*
+# ═══════════════════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mcp/mcp-crm/**"
+      - ".github/workflows/mcp-crm.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "mcp/mcp-crm/**"
+      - ".github/workflows/mcp-crm.yml"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: mcp/mcp-crm
+
+permissions:
+  contents: read
+  security-events: write
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Lint & Format
+  # ────────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            mcp/mcp-crm/requirements.txt
+            mcp/mcp-crm/requirements-dev.txt
+
+      - name: Install lint dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run ruff (linter)
+        run: ruff check src/ tests/
+
+      - name: Run black (format check)
+        run: black --check src/ tests/
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Tests unitaires avec coverage
+  # ────────────────────────────────────────────────────────────────────────────
+  test:
+    name: Tests & Coverage
+    runs-on: ubuntu-22.04
+    needs: lint
+
+    # NOTE (ADR-008) : mcp-crm n'a pas de connexion Postgres directe.
+    # Les tests utilisent respx pour mocker les appels HTTP vers le backend.
+    # Aucun service Postgres n'est requis pour ce workflow.
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            mcp/mcp-crm/requirements.txt
+            mcp/mcp-crm/requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run pytest with coverage
+        run: |
+          pytest tests/ \
+            --cov=src \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing \
+            -v
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4.3.3
+        if: always()
+        with:
+          name: mcp-crm-coverage
+          path: mcp/mcp-crm/coverage.xml
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 3 — Security (SAST + dépendances)
+  # ────────────────────────────────────────────────────────────────────────────
+  security:
+    name: Security Scan (SAST + Dependencies)
+    runs-on: ubuntu-22.04
+    needs: lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: mcp/mcp-crm/requirements.txt
+
+      - name: Install security tools
+        run: pip install bandit==1.7.8 safety==3.2.0
+
+      - name: Run bandit (SAST)
+        run: bandit -r src/ -ll -ii --format json -o bandit-report.json
+        continue-on-error: true
+
+      - name: Run safety (dependency vulnerabilities)
+        run: safety check -r requirements.txt --output json > safety-report.json
+        continue-on-error: true
+
+      - name: Upload bandit report
+        uses: actions/upload-artifact@v4.3.3
+        if: always()
+        with:
+          name: mcp-crm-bandit
+          path: mcp/mcp-crm/bandit-report.json
+          retention-days: 30
+
+      - name: Upload safety report
+        uses: actions/upload-artifact@v4.3.3
+        if: always()
+        with:
+          name: mcp-crm-safety
+          path: mcp/mcp-crm/safety-report.json
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 4 — Build Docker image
+  # ────────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-22.04
+    needs: [test, security]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5.5.1
+        with:
+          images: revops-mcp-crm
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+
+      - name: Build Docker image (no push on PR)
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: mcp/mcp-crm
+          file: mcp/mcp-crm/Dockerfile
+          push: false
+          load: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract short SHA for Trivy
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@0.21.0
+        with:
+          image-ref: "revops-mcp-crm:sha-${{ env.SHORT_SHA }}"
+          format: sarif
+          output: trivy-mcp-crm.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3.25.5
+        if: always()
+        with:
+          sarif_file: trivy-mcp-crm.sarif

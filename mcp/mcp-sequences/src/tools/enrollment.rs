@@ -49,7 +49,8 @@ pub async fn enroll_contact(
     )
     .fetch_optional(pool)
     .await
-    .map_err(SequencesError::DatabaseError)?;
+    .map_err(SequencesError::DatabaseError)?
+    .flatten();
 
     match seq_status.as_deref() {
         Some("active") => {}
@@ -62,9 +63,9 @@ pub async fn enroll_contact(
         }
     }
 
-    // 2. Verify contact exists
+    // 2. Verify contact exists (contacts table uses org_id as tenant identifier)
     let contact_exists: bool = sqlx::query_scalar!(
-        "SELECT EXISTS(SELECT 1 FROM contacts WHERE id = $1 AND tenant_id = $2)",
+        "SELECT EXISTS(SELECT 1 FROM contacts WHERE id = $1 AND org_id = $2)",
         input.contact_id,
         input.tenant_id,
     )

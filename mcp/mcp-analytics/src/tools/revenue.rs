@@ -323,7 +323,7 @@ pub async fn get_mrr_trend(
             COALESCE(SUM(mrr) FILTER (WHERE status = 'active'), 0)           AS "mrr!: Decimal",
             COALESCE(SUM(mrr) FILTER (WHERE status = 'active'
                 AND started_at >= DATE_TRUNC('month', started_at)), 0)        AS "new_mrr!: Decimal",
-            COALESCE(SUM(mrr) FILTER (WHERE status = 'churned'
+            COALESCE(SUM(mrr) FILTER (WHERE status = 'canceled'
                 AND churned_at >= DATE_TRUNC('month', churned_at)), 0)        AS "churned_mrr!: Decimal"
         FROM subscriptions
         WHERE tenant_id = $1

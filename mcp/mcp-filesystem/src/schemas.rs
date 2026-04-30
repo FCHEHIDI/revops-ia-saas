@@ -6,7 +6,7 @@ use uuid::Uuid;
 // DocumentType
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "document_type", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum DocumentType {
@@ -39,7 +39,7 @@ impl DocumentType {
 // PlaybookCategory
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "playbook_category", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum PlaybookCategory {

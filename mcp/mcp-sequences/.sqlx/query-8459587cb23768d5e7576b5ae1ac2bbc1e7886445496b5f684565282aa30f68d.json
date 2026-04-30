@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE sequences\n        SET status = 'active', updated_at = NOW()\n        WHERE id = $1 AND tenant_id = $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8459587cb23768d5e7576b5ae1ac2bbc1e7886445496b5f684565282aa30f68d"
+}

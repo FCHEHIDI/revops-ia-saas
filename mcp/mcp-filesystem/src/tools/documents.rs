@@ -62,7 +62,7 @@ pub async fn read_document(
         DocumentRow,
         r#"
         SELECT id, tenant_id, filename, mime_type, storage_path, page_count
-        FROM documents
+        FROM fs_documents
         WHERE id = $1 AND tenant_id = $2
         "#,
         input.document_id,
@@ -178,7 +178,7 @@ pub async fn list_documents(
             uploaded_by,
             created_at,
             updated_at
-        FROM documents
+        FROM fs_documents
         WHERE tenant_id = $1
           AND ($2::document_type IS NULL OR document_type = $2)
           AND ($3::text IS NULL OR filename ILIKE $3)
@@ -202,7 +202,7 @@ pub async fn list_documents(
     let total: i64 = sqlx::query_scalar!(
         r#"
         SELECT COUNT(*)
-        FROM documents
+        FROM fs_documents
         WHERE tenant_id = $1
           AND ($2::document_type IS NULL OR document_type = $2)
           AND ($3::text IS NULL OR filename ILIKE $3)
@@ -294,7 +294,7 @@ pub async fn get_document_metadata(
             uploaded_by,
             created_at,
             updated_at
-        FROM documents
+        FROM fs_documents
         WHERE id = $1 AND tenant_id = $2
         "#,
         input.document_id,
@@ -376,7 +376,7 @@ pub async fn delete_document(
         DeleteDocumentRow,
         r#"
         SELECT storage_path, size_bytes
-        FROM documents
+        FROM fs_documents
         WHERE id = $1 AND tenant_id = $2
         "#,
         input.document_id,
@@ -389,7 +389,7 @@ pub async fn delete_document(
 
     // Delete from DB first
     sqlx::query!(
-        "DELETE FROM documents WHERE id = $1 AND tenant_id = $2",
+        "DELETE FROM fs_documents WHERE id = $1 AND tenant_id = $2",
         input.document_id,
         input.tenant_id,
     )

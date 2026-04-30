@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            DATE_TRUNC('month', started_at)::date                            AS \"month!: NaiveDate\",\n            COALESCE(SUM(mrr) FILTER (WHERE status = 'active'), 0)           AS \"mrr!: Decimal\",\n            COALESCE(SUM(mrr) FILTER (WHERE status = 'active'\n                AND started_at >= DATE_TRUNC('month', started_at)), 0)        AS \"new_mrr!: Decimal\",\n            COALESCE(SUM(mrr) FILTER (WHERE status = 'canceled'\n                AND churned_at >= DATE_TRUNC('month', churned_at)), 0)        AS \"churned_mrr!: Decimal\"\n        FROM subscriptions\n        WHERE tenant_id = $1\n          AND started_at::date >= $2\n        GROUP BY DATE_TRUNC('month', started_at)\n        ORDER BY DATE_TRUNC('month', started_at)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "month!: NaiveDate",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 1,
+        "name": "mrr!: Decimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "new_mrr!: Decimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "churned_mrr!: Decimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "1c800b9c94c10f7a013763008a890085e698caf8360633ad0ac2dc1a0bb78496"
+}

@@ -106,8 +106,7 @@ pub async fn get_customer_billing_summary(
     )
     .fetch_optional(pool)
     .await
-    .map_err(BillingError::DatabaseError)?
-    .flatten();
+    .map_err(BillingError::DatabaseError)?;
 
     let duration_ms = start.elapsed().as_millis() as i64;
     let audit_entry = AuditEntry::new(

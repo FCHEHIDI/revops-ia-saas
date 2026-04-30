@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, status::text AS status\n        FROM enrollments\n        WHERE sequence_id = $1 AND contact_id = $2 AND tenant_id = $3\n          AND status IN ('active', 'pending', 'paused')\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "status",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "348715ec49e8bbaff069707eec29dfed35187f3349048fae24249558537ea9df"
+}

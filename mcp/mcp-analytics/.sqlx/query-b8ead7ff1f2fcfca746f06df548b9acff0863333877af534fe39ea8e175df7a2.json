@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            stage::text                                                           AS \"stage!: String\",\n            COUNT(*)                                                              AS \"entered!: i64\",\n            COUNT(*) FILTER (WHERE stage != 'closed_lost')                       AS \"converted!: i64\",\n            COALESCE(\n                AVG(EXTRACT(EPOCH FROM (\n                    COALESCE(closed_at, NOW()) - created_at\n                )) / 86400.0),\n                0\n            )                                                                     AS \"avg_time_days!: f64\"\n        FROM deals\n        WHERE tenant_id = $1\n          AND created_at::date >= $2\n          AND created_at::date <= $3\n        GROUP BY stage\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "stage!: String",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "entered!: i64",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "converted!: i64",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "avg_time_days!: f64",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "b8ead7ff1f2fcfca746f06df548b9acff0863333877af534fe39ea8e175df7a2"
+}

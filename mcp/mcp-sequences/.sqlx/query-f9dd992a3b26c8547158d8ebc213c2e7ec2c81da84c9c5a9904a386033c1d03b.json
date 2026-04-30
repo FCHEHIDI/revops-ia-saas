@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE sequences\n        SET\n            name        = COALESCE($3, name),\n            description = COALESCE($4, description),\n            tags        = COALESCE($5, tags),\n            updated_at  = $6\n        WHERE id = $1 AND tenant_id = $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Varchar",
+        "Text",
+        "TextArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f9dd992a3b26c8547158d8ebc213c2e7ec2c81da84c9c5a9904a386033c1d03b"
+}

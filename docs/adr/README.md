@@ -16,6 +16,9 @@ Chaque ADR documente une décision technique majeure : son contexte, la décisio
 | [ADR-004](./ADR-004-rag-memoire-documentaire.md) | RAG pour la mémoire documentaire long-terme | ✅ Accepté | 2026-03-05 |
 | [ADR-005](./ADR-005-backend-multitenant.md) | Isolation multi-tenant stricte dans le Backend | ✅ Accepté | 2026-03-05 |
 | [ADR-006](./ADR-006-stack-technologique.md) | Stack technologique globale du projet | ✅ Accepté | 2026-03-05 |
+| [ADR-007](./ADR-007-monorepo-structure.md) | Structure Monorepo du projet | ✅ Accepté | 2026-03-06 |
+| [ADR-008](./ADR-008-mcp-crm-architecture.md) | Architecture MCP CRM — Phase 2 (MCP via backend HTTP, Python) | ✅ Accepté | 2026-03-17 |
+| [ADR-009](./ADR-009-llm-mock-e2e-testing.md) | Mode LLM Mock pour les tests E2E sans clé API | ✅ Accepté | 2026-04-30 |
 
 ---
 

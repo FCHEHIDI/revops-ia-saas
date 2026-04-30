@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            id, contact_id,\n            status AS \"status: EnrollmentStatus\",\n            current_step, enrolled_at, next_step_at\n        FROM enrollments\n        WHERE sequence_id = $1 AND tenant_id = $2\n          AND ($3::text IS NULL OR status = $3::enrollment_status)\n        ORDER BY enrolled_at DESC\n        LIMIT $4 OFFSET $5\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "contact_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "status: EnrollmentStatus",
+        "type_info": {
+          "Custom": {
+            "name": "enrollment_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "active",
+                "paused",
+                "completed",
+                "unenrolled",
+                "failed"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "current_step",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "enrolled_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "next_step_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "a024a5b55598a6a01d65494a2ee27645124366e7b304eb63d76ace7dc8da0ece"
+}

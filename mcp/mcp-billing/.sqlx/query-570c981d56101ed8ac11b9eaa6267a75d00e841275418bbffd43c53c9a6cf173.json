@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT description, quantity, unit_price, amount\n        FROM invoice_line_items\n        WHERE invoice_id = $1\n        ORDER BY id ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "quantity",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "unit_price",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "amount",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "570c981d56101ed8ac11b9eaa6267a75d00e841275418bbffd43c53c9a6cf173"
+}

@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            stage::text                                                          AS \"stage!: String\",\n            COUNT(*)                                                             AS \"deal_count!: i64\",\n            COALESCE(SUM(value), 0)                                             AS \"total_value!: Decimal\",\n            COALESCE(\n                AVG(EXTRACT(EPOCH FROM (\n                    COALESCE(closed_at, NOW()) - created_at\n                )) / 86400.0),\n                0\n            )                                                                    AS \"avg_time_in_stage_days!: f64\"\n        FROM deals\n        WHERE tenant_id = $1\n          AND created_at::date >= $2\n          AND created_at::date <= $3\n          AND ($4::uuid IS NULL OR assigned_to = $4)\n        GROUP BY stage\n        ORDER BY\n            CASE stage::text\n                WHEN 'prospecting'   THEN 1\n                WHEN 'qualification' THEN 2\n                WHEN 'proposal'      THEN 3\n                WHEN 'negotiation'   THEN 4\n                WHEN 'closed_won'    THEN 5\n                WHEN 'closed_lost'   THEN 6\n                ELSE 99\n            END\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "stage!: String",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "deal_count!: i64",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "total_value!: Decimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "avg_time_in_stage_days!: f64",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Date",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "0ac0c880378a19c7402e59c8dfef1ddd934881f9130646e37ee0702fc147a8b2"
+}

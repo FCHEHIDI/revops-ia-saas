@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    stage::text                                                            AS \"dimension!: String\",\n                    COUNT(*) FILTER (WHERE stage = 'closed_won')                          AS \"deals_won!: i64\",\n                    COALESCE(AVG(value) FILTER (WHERE stage = 'closed_won'), 0)           AS \"avg_deal_value!: Decimal\",\n                    COALESCE(\n                        AVG(EXTRACT(EPOCH FROM (closed_at - created_at)) / 86400.0)\n                        FILTER (WHERE stage = 'closed_won' AND closed_at IS NOT NULL),\n                        1\n                    )                                                                     AS \"avg_cycle_days!: f64\"\n                FROM deals\n                WHERE tenant_id = $1\n                  AND created_at::date >= $2\n                  AND created_at::date <= $3\n                GROUP BY stage\n                ORDER BY\n                    CASE stage::text\n                        WHEN 'prospecting'   THEN 1\n                        WHEN 'qualification' THEN 2\n                        WHEN 'proposal'      THEN 3\n                        WHEN 'negotiation'   THEN 4\n                        ELSE 5\n                    END\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "dimension!: String",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "deals_won!: i64",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "avg_deal_value!: Decimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "avg_cycle_days!: f64",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "fae563fdc44563b1e330f0ee66a8a92ec40fdfad2b88935288b34b5a83accd7c"
+}

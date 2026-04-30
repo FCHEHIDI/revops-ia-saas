@@ -26,12 +26,46 @@ Ce serveur expose 8 tools MCP couvrant les domaines **factures**, **abonnements*
 
 ## Variables d'environnement
 
-| Variable        | Requis | Défaut      | Description                        |
-|-----------------|--------|-------------|------------------------------------|
-| `DATABASE_URL`  | ✅     | —           | URL PostgreSQL (ex: `postgres://user:pass@host/db`) |
-| `MCP_TRANSPORT` | ❌     | `stdio`     | Transport : `stdio` ou `sse`       |
-| `LOG_LEVEL`     | ❌     | `info`      | Niveau de log (`debug`, `info`, `warn`, `error`) |
-| `SSE_BIND_ADDR` | ❌     | `0.0.0.0:3002` | Adresse d'écoute si SSE           |
+| Variable               | Requis | Défaut           | Description                                                        |
+|------------------------|--------|------------------|--------------------------------------------------------------------|
+| `DATABASE_URL`         | ✅     | —                | URL PostgreSQL (ex: `postgres://user:pass@host/db`)                |
+| `MCP_TRANSPORT`        | ❌     | `stdio`          | Transport : `stdio` ou `http`                                      |
+| `HTTP_BIND`            | ❌     | `0.0.0.0:19002`  | Adresse d'écoute en mode HTTP                                      |
+| `INTER_SERVICE_SECRET` | ✅*    | —                | Secret partagé avec l'orchestrator (header `X-Internal-API-Key`)   |
+| `LOG_LEVEL`            | ❌     | `info`           | Niveau de log (`debug`, `info`, `warn`, `error`)                   |
+
+> *Requis en mode HTTP. Créer un fichier `.env` à la racine du service (voir section Démarrage).
+
+### Démarrage en mode HTTP (dev)
+
+```bash
+# Fichier .env (gitignored)
+DATABASE_URL=postgresql://revops:revops@localhost:5433/revops
+MCP_TRANSPORT=http
+HTTP_BIND=0.0.0.0:19002
+INTER_SERVICE_SECRET=dev-internal-key-change-me
+LOG_LEVEL=info
+
+# Build
+SQLX_OFFLINE=true cargo build --release
+
+# Run
+./target/release/mcp-billing
+
+# Health check
+curl http://localhost:19002/health
+# → {"service":"mcp-billing","status":"ok"}
+
+# Liste des tools
+curl http://localhost:19002/tools
+# → ["get_invoice","list_invoices","list_overdue_payments",...]
+
+# Appel d'outil
+curl -X POST http://localhost:19002/mcp/call \
+  -H "Content-Type: application/json" \
+  -H "X-Internal-API-Key: dev-internal-key-change-me" \
+  -d '{"tool":"list_invoices","tenant_id":"<uuid>","params":{"tenant_id":"<uuid>","limit":10}}'
+```
 
 ---
 

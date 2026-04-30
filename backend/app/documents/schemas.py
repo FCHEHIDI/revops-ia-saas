@@ -2,6 +2,7 @@ from pydantic import BaseModel, ConfigDict
 from uuid import UUID
 from datetime import datetime
 
+
 class DocumentResponse(BaseModel):
     id: UUID
     org_id: UUID

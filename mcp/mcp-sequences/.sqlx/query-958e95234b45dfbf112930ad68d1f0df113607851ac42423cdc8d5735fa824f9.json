@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) FROM enrollments\n        WHERE sequence_id = $1 AND tenant_id = $2 AND status IN ('active', 'pending')\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "958e95234b45dfbf112930ad68d1f0df113607851ac42423cdc8d5735fa824f9"
+}

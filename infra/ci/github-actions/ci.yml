@@ -1,0 +1,197 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ── Backend FastAPI ─────────────────────────────────────────────────────────
+  lint-backend:
+    name: Lint & Test Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: backend-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: backend-pip-
+
+      - run: pip install -r requirements.txt
+      - run: ruff check .
+      - run: pytest tests/ -v --asyncio-mode=auto
+
+  # ── RAG Service ─────────────────────────────────────────────────────────────
+  lint-rag:
+    name: Lint & Test RAG
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rag
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: rag-pip-${{ hashFiles('rag/requirements.txt') }}
+          restore-keys: rag-pip-
+
+      - run: pip install -r requirements.txt
+      - run: ruff check .
+      - run: pytest tests/ -v --asyncio-mode=auto
+
+  # ── Orchestrateur Rust ──────────────────────────────────────────────────────
+  lint-orchestrator:
+    name: Lint & Test Orchestrateur
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache cargo (orchestrator)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            orchestrator/target
+          key: orchestrator-cargo-${{ hashFiles('orchestrator/Cargo.toml') }}
+          restore-keys: orchestrator-cargo-
+
+      - run: cargo fmt --check
+        working-directory: orchestrator
+
+      - run: cargo clippy -- -D warnings
+        working-directory: orchestrator
+
+      - run: cargo test
+        working-directory: orchestrator
+
+  # ── MCP Servers Rust (matrix) ──────────────────────────────────────────────
+  lint-mcp:
+    name: Lint & Test MCP (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - mcp-crm
+          - mcp-billing
+          - mcp-analytics
+          - mcp-sequences
+          - mcp-filesystem
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache cargo (${{ matrix.service }})
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            mcp/${{ matrix.service }}/target
+          key: ${{ matrix.service }}-cargo-${{ hashFiles(format('mcp/{0}/Cargo.toml', matrix.service)) }}
+          restore-keys: ${{ matrix.service }}-cargo-
+
+      - run: cargo fmt --check
+        working-directory: mcp/${{ matrix.service }}
+
+      - run: cargo clippy -- -D warnings
+        working-directory: mcp/${{ matrix.service }}
+
+      - run: cargo test
+        working-directory: mcp/${{ matrix.service }}
+
+  # ── Frontend Next.js ────────────────────────────────────────────────────────
+  lint-frontend:
+    name: Lint & Type-check Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run type-check
+      - run: npm run build
+
+  # ── Docker Build Validation ─────────────────────────────────────────────────
+  build-docker:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs:
+      - lint-backend
+      - lint-rag
+      - lint-orchestrator
+      - lint-mcp
+      - lint-frontend
+    if: github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: backend
+            context: backend
+          - service: orchestrator
+            context: orchestrator
+          - service: rag
+            context: rag
+          - service: frontend
+            context: frontend
+          - service: mcp-crm
+            context: mcp/mcp-crm
+          - service: mcp-billing
+            context: mcp/mcp-billing
+          - service: mcp-analytics
+            context: mcp/mcp-analytics
+          - service: mcp-sequences
+            context: mcp/mcp-sequences
+          - service: mcp-filesystem
+            context: mcp/mcp-filesystem
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          tags: revops/${{ matrix.service }}:ci
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,scope=${{ matrix.service }},mode=max

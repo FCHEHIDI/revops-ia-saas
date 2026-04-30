@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    DATE_TRUNC('month', closed_at)::date                  AS \"month!: NaiveDate\",\n                    COALESCE(SUM(value), 0)                               AS \"total_revenue!: Decimal\"\n                FROM deals\n                WHERE tenant_id = $1\n                  AND stage = 'closed_won'\n                  AND closed_at IS NOT NULL\n                  AND closed_at::date >= $2\n                  AND closed_at::date < $3\n                GROUP BY DATE_TRUNC('month', closed_at)\n                ORDER BY DATE_TRUNC('month', closed_at)\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "month!: NaiveDate",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 1,
+        "name": "total_revenue!: Decimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "fa8e04349b698b6a4f10a0be9301f5a4800e164d48146129ad51798124cbc3af"
+}

@@ -1,0 +1,66 @@
+AXES suivants
+AXE G — mcp-analytics opérationnel
+Prérequis : code source complet, transport HTTP prêt, port 19003
+Travail :
+
+Créer .env (même pattern que billing)
+SQLX_OFFLINE=true cargo build --release
+Seed données analytics dans Postgres (tables utilisées par les tools : pipeline stages, activity events, MRR snapshots)
+Lancer sur 0.0.0.0:19003
+Tester les 10 tools : get_activity_metrics, compute_churn_rate, get_at_risk_accounts, get_rep_performance, get_team_leaderboard, get_pipeline_metrics, get_deal_velocity, get_funnel_analysis, forecast_revenue, get_mrr_trend
+Mettre à jour README
+AXE H — mcp-sequences : migration HTTP + opérationnel
+Prérequis : source complet (11 tools), mais config.rs = Stdio/SSE uniquement
+L'orchestrateur attend MCP_SEQUENCES_URL en HTTP — incompatible en l'état.
+Travail :
+
+Migrer config.rs : ajouter McpTransport::Http, http_bind, inter_service_secret
+Ajouter http.rs avec handler Axum (même pattern que mcp-analytics/src/http.rs)
+Migrer main.rs pour brancher le transport HTTP
+Compile + .env + seed sequences en DB + launch port 19004
+Tester les tools : list_sequences, create_sequence, enroll_contact, list_enrollments, get_sequence_performance, pause_sequence, resume_sequence
+AXE I — mcp-filesystem : migration HTTP + opérationnel
+Prérequis : source complet (9 tools), Stdio/SSE uniquement, dépend du service RAG
+Travail :
+
+Même migration HTTP que AXE H (config + http.rs + main.rs)
+Port 19005
+Configurer RAG_SERVICE_URL → RAG service (port à confirmer)
+Seed documents test + tester : read_document, list_documents, search_documents, list_playbooks, get_playbook, list_reports
+AXE J — Backend proxy routes (dashboard frontend)
+Prérequis : frontend appelle /billing/invoices, /analytics/metrics, /sequences via le backend — ces routes n'existent pas → fallback demo data uniquement
+Travail :
+
+Ajouter modules backend/app/billing/, backend/app/analytics/, backend/app/sequences/
+Routes FastAPI /api/v1/billing/*, /api/v1/analytics/*, /api/v1/sequences/* qui proxifient vers les MCPs
+Les pages dashboard Billing / Analytics / Sequences affichent des données réelles
+AXE K — MockProvider multiservices
+Prérequis : mock.rs appelle uniquement mcp_crm__search_contacts
+Travail :
+
+Étendre le mock pour un scénario en 3 tours : turn 1 → mcp_billing__list_overdue_payments, turn 2 → mcp_analytics__get_mrr_trend, turn 3 → réponse finale
+Valide le pipeline E2E billing + analytics dans le chat sans vraie API LLM
+AXE L — RAG service
+Prérequis : app existe (routers, embeddings, vector_store...) — état d'implémentation inconnu
+Travail :
+
+Audit complet de app : routes opérationnelles ?
+Lancer le service RAG
+Brancher mcp-filesystem sur RAG_SERVICE_URL
+Test d'ingestion document → recherche vectorielle → résultat dans le chat
+AXE M — Tests & couverture
+Travail :
+
+Exécuter les tests backend existants (pytest backend/tests/) — état actuel inconnu
+Ajouter tests d'intégration pour les nouvelles routes billing/analytics/sequences
+Tests E2E orchestrateur avec mocks multiservices
+AXE N — PR & documentation finale
+Travail :
+
+ADR-010 : architecture multi-MCP complète
+Mettre à jour ARCHITECTURE.md avec le schéma de tous les services
+Ouvrir PR feat/mcp-billing-analytics → main
+Ordre recommandé : G → H → J → K → I → L → M → N
+
+AXE G est le plus rapide (même pattern que F). AXE H est le plus critique avant J. AXE I et L sont couplés (RAG).
+

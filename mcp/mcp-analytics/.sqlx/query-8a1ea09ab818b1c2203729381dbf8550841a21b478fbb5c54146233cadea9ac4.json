@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            occurred_at::date           AS \"date!: NaiveDate\",\n            COUNT(*)                    AS \"count!: i64\"\n        FROM activities\n        WHERE tenant_id          = $1\n          AND occurred_at::date >= $2\n          AND occurred_at::date <= $3\n          AND ($4::uuid IS NULL OR performed_by = $4)\n          AND ($5::text IS NULL OR activity_type::text = $5)\n        GROUP BY occurred_at::date\n        ORDER BY occurred_at::date\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "date!: NaiveDate",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 1,
+        "name": "count!: i64",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Date",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "8a1ea09ab818b1c2203729381dbf8550841a21b478fbb5c54146233cadea9ac4"
+}

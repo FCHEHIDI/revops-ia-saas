@@ -61,7 +61,7 @@ pub async fn list_playbooks(
             description,
             tags,
             version
-        FROM playbooks
+        FROM fs_playbooks
         WHERE tenant_id = $1
           AND is_active = true
           AND ($2::playbook_category IS NULL OR category = $2)
@@ -82,7 +82,7 @@ pub async fn list_playbooks(
     let total: i64 = sqlx::query_scalar!(
         r#"
         SELECT COUNT(*)
-        FROM playbooks
+        FROM fs_playbooks
         WHERE tenant_id = $1
           AND is_active = true
           AND ($2::playbook_category IS NULL OR category = $2)
@@ -180,7 +180,7 @@ pub async fn get_playbook(
             created_by,
             created_at,
             updated_at
-        FROM playbooks
+        FROM fs_playbooks
         WHERE id = $1 AND tenant_id = $2 AND is_active = true
         "#,
         input.playbook_id,

@@ -1,22 +1,73 @@
+import os
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
 from app.middleware.tenant import TenantMiddleware
 from app.auth import router as auth_router
 from app.users import router as users_router
 from app.sessions import router as sessions_router
 from app.orchestrator import router as orchestrator_router
+from app.crm import router as crm_router
+from app.crm.public_router import router as crm_public_router
 from app.documents import router as documents_router
 from app.audit import router as audit_router
+from app.proxy import router as proxy_router
 
 app = FastAPI(title="RevOps IA SaaS API", version="1.0.0")
 
+# ---------------------------------------------------------------------------
+# CORS — required for the Next.js frontend to call the API from the browser.
+# In dev the frontend may run on any localhost port (3000, 3001, 13000...),
+# so we accept the entire localhost regex when ENVIRONMENT=development.
+# In production, set CORS_ALLOWED_ORIGINS to the explicit list of trusted
+# origins (comma-separated) and remove the regex.
+# ---------------------------------------------------------------------------
+_env = os.getenv("ENVIRONMENT", "development").lower()
+_explicit_origins = [
+    o.strip()
+    for o in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+    if o.strip()
+]
+
+cors_kwargs: dict = {
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+}
+if _env == "development":
+    cors_kwargs["allow_origin_regex"] = (
+        r"^http://(localhost|127\.0\.0\.1)(:\d+)?$"
+    )
+    cors_kwargs["allow_origins"] = _explicit_origins or []
+else:
+    cors_kwargs["allow_origins"] = _explicit_origins
+
+# Starlette stacks middlewares in LIFO order: the LAST `add_middleware`
+# call wraps the previous ones, so CORSMiddleware MUST be added AFTER
+# TenantMiddleware to intercept preflight OPTIONS first and short-circuit
+# the tenant/JWT enforcement.
 app.add_middleware(TenantMiddleware)
+app.add_middleware(CORSMiddleware, **cors_kwargs)
 
 app.include_router(auth_router.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(users_router.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(sessions_router.router, prefix="/api/v1/sessions", tags=["sessions"])
-app.include_router(orchestrator_router.router, prefix="/internal", tags=["orchestrator"])
-app.include_router(documents_router.router, prefix="/api/v1/documents", tags=["documents"])
+app.include_router(
+    orchestrator_router.router, prefix="/internal", tags=["orchestrator"]
+)
+app.include_router(
+    crm_router.router, prefix="/internal/v1/crm", tags=["crm-internal"]
+)
+app.include_router(
+    crm_public_router, prefix="/api/v1/crm", tags=["crm"]
+)
+app.include_router(
+    documents_router.router, prefix="/api/v1/documents", tags=["documents"]
+)
 app.include_router(audit_router.router, prefix="/api/v1/audit", tags=["audit"])
+app.include_router(proxy_router.router, prefix="/api/v1", tags=["proxy"])
+
 
 @app.get("/health")
 def health():

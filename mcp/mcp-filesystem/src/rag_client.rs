@@ -15,16 +15,17 @@ use crate::schemas::DocumentChunk;
 pub struct RagClient {
     pub base_url: String,
     pub client: Client,
+    api_key: String,
 }
 
 impl RagClient {
-    pub fn new(base_url: String) -> Self {
+    pub fn new(base_url: String, api_key: String) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(5))
             .build()
             .expect("Failed to build reqwest client");
 
-        RagClient { base_url, client }
+        RagClient { base_url, client, api_key }
     }
 }
 
@@ -91,6 +92,7 @@ impl RagClient {
         let response = self
             .client
             .post(&url)
+            .header("X-Internal-Api-Key", &self.api_key)
             .json(&body)
             .send()
             .await
@@ -169,6 +171,7 @@ impl RagClient {
         let response = self
             .client
             .post(&url)
+            .header("X-Internal-Api-Key", &self.api_key)
             .json(&body)
             .send()
             .await

@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT mrr, currency, current_period_end\n        FROM subscriptions\n        WHERE tenant_id = $1\n            AND status IN ('active', 'trialing', 'past_due')\n        ORDER BY created_at DESC\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mrr",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 1,
+        "name": "currency",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "current_period_end",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d75f91389ef3372be957091ca1455e6a91a945bdb3f06420689d5f1292beaf20"
+}

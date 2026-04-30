@@ -1,13 +1,18 @@
 use rmcp::{
     model::{
-        CallToolRequest, CallToolResult, Content, ListToolsResult, ServerCapabilities,
-        ServerInfo, Tool,
+        CallToolRequestParam, CallToolResult, Content, ListToolsResult, PaginatedRequestParam,
+        ServerCapabilities, ServerInfo, Tool,
     },
-    server::ServerHandler,
-    service::RequestContext,
+    service::{RequestContext, RoleServer},
     Error as McpError,
+    ServerHandler,
 };
+use serde_json::Map;
 use serde_json::{json, Value};
+
+fn s(v: Value) -> std::sync::Arc<Map<String, Value>> {
+    std::sync::Arc::new(v.as_object().cloned().unwrap_or_default())
+}
 use sqlx::PgPool;
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -82,19 +87,17 @@ impl SequencesServer {
 // ServerHandler implementation
 // ---------------------------------------------------------------------------
 
-#[rmcp::async_trait]
 impl ServerHandler for SequencesServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
-            name: Cow::Borrowed("mcp-sequences"),
-            version: Cow::Borrowed(env!("CARGO_PKG_VERSION")),
-            ..Default::default()
-        }
-    }
-
-    fn get_capabilities(&self) -> ServerCapabilities {
-        ServerCapabilities {
-            tools: Some(rmcp::model::ToolsCapability { list_changed: None }),
+            capabilities: ServerCapabilities {
+                tools: Some(rmcp::model::ToolsCapability { list_changed: None }),
+                ..Default::default()
+            },
+            server_info: rmcp::model::Implementation {
+                name: "mcp-sequences".to_string(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+            },
             ..Default::default()
         }
     }
@@ -102,8 +105,8 @@ impl ServerHandler for SequencesServer {
     #[instrument(skip(self, _ctx), name = "list_tools")]
     async fn list_tools(
         &self,
-        _cursor: Option<String>,
-        _ctx: RequestContext,
+        _request: PaginatedRequestParam,
+        _ctx: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, McpError> {
         let tools = vec![
             // ----------------------------------------------------------------
@@ -111,10 +114,10 @@ impl ServerHandler for SequencesServer {
             // ----------------------------------------------------------------
             Tool {
                 name: Cow::Borrowed("create_sequence"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Creates a new outreach sequence with steps and exit conditions. Permission: sequences:write.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id", "name", "steps"],
                     "properties": {
@@ -151,14 +154,14 @@ impl ServerHandler for SequencesServer {
                         },
                         "tags": { "type": "array", "items": { "type": "string" } }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("update_sequence"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Updates sequence metadata. Blocked by active enrollments unless force=true. Permission: sequences:write.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id", "sequence_id"],
                     "properties": {
@@ -170,14 +173,14 @@ impl ServerHandler for SequencesServer {
                         "tags":        { "type": "array", "items": { "type": "string" } },
                         "force":       { "type": "boolean", "default": false }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("delete_sequence"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Deletes a sequence. With force=true, unenrolls active contacts first. Permission: sequences:delete.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id", "sequence_id"],
                     "properties": {
@@ -186,14 +189,14 @@ impl ServerHandler for SequencesServer {
                         "sequence_id": { "type": "string", "format": "uuid" },
                         "force":       { "type": "boolean", "default": false }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("get_sequence"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Retrieves a sequence by ID with all its steps. Permission: sequences:read.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "sequence_id"],
                     "properties": {
@@ -201,14 +204,14 @@ impl ServerHandler for SequencesServer {
                         "user_id":     { "type": "string", "format": "uuid" },
                         "sequence_id": { "type": "string", "format": "uuid" }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("list_sequences"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Lists sequences with optional status and tag filters. Permission: sequences:read.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id"],
                     "properties": {
@@ -219,17 +222,17 @@ impl ServerHandler for SequencesServer {
                         "limit":     { "type": "integer", "minimum": 1, "maximum": 200 },
                         "offset":    { "type": "integer", "minimum": 0 }
                     }
-                }),
+                })),
             },
             // ----------------------------------------------------------------
             // Enrollment
             // ----------------------------------------------------------------
             Tool {
                 name: Cow::Borrowed("enroll_contact"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Enrolls a contact into an active sequence. Permission: sequences:write.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id", "sequence_id", "contact_id"],
                     "properties": {
@@ -241,14 +244,14 @@ impl ServerHandler for SequencesServer {
                         "custom_variables":    { "type": "object" },
                         "override_if_enrolled":{ "type": "boolean", "default": false }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("unenroll_contact"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Unenrolls a contact from a sequence by enrollment ID. Permission: sequences:write.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id", "enrollment_id", "reason"],
                     "properties": {
@@ -257,14 +260,14 @@ impl ServerHandler for SequencesServer {
                         "enrollment_id": { "type": "string", "format": "uuid" },
                         "reason":        { "type": "string", "enum": ["replied","converted","manual","bounced"] }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("list_enrollments"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Lists enrollments for a sequence with optional status filter. Permission: sequences:read.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "sequence_id"],
                     "properties": {
@@ -275,17 +278,17 @@ impl ServerHandler for SequencesServer {
                         "limit":       { "type": "integer", "minimum": 1, "maximum": 200 },
                         "offset":      { "type": "integer", "minimum": 0 }
                     }
-                }),
+                })),
             },
             // ----------------------------------------------------------------
             // Execution
             // ----------------------------------------------------------------
             Tool {
                 name: Cow::Borrowed("pause_sequence"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Pauses a sequence and all its active enrollments. Permission: sequences:write.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id", "sequence_id"],
                     "properties": {
@@ -294,14 +297,14 @@ impl ServerHandler for SequencesServer {
                         "sequence_id": { "type": "string", "format": "uuid" },
                         "reason":      { "type": "string" }
                     }
-                }),
+                })),
             },
             Tool {
                 name: Cow::Borrowed("resume_sequence"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Resumes a paused sequence and reactivates paused enrollments. Permission: sequences:write.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "user_id", "sequence_id"],
                     "properties": {
@@ -309,17 +312,17 @@ impl ServerHandler for SequencesServer {
                         "user_id":     { "type": "string", "format": "uuid" },
                         "sequence_id": { "type": "string", "format": "uuid" }
                     }
-                }),
+                })),
             },
             // ----------------------------------------------------------------
             // Analytics
             // ----------------------------------------------------------------
             Tool {
                 name: Cow::Borrowed("get_sequence_performance"),
-                description: Some(Cow::Borrowed(
+                description: Cow::Borrowed(
                     "Returns performance metrics for a sequence: enrollment stats, email rates per step. Permission: sequences:read.",
-                )),
-                input_schema: json!({
+                ),
+                input_schema: s(json!({
                     "type": "object",
                     "required": ["tenant_id", "sequence_id"],
                     "properties": {
@@ -329,7 +332,7 @@ impl ServerHandler for SequencesServer {
                         "period_start": { "type": "string", "format": "date" },
                         "period_end":   { "type": "string", "format": "date" }
                     }
-                }),
+                })),
             },
         ];
 
@@ -339,14 +342,14 @@ impl ServerHandler for SequencesServer {
         })
     }
 
-    #[instrument(skip(self, _ctx), name = "call_tool", fields(tool = %request.params.name))]
+    #[instrument(skip(self, _ctx), name = "call_tool", fields(tool = %request.name))]
     async fn call_tool(
         &self,
-        request: CallToolRequest,
-        _ctx: RequestContext,
+        request: CallToolRequestParam,
+        _ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
-        let name = request.params.name.as_ref();
-        let args = request.params.arguments.clone();
+        let name = request.name.as_ref();
+        let args = request.arguments.map(Value::Object);
         let pool = self.pool.as_ref();
 
         info!("Dispatching tool: {}", name);
@@ -431,9 +434,7 @@ impl ServerHandler for SequencesServer {
             }
             unknown => {
                 error!("Unknown tool requested: {}", unknown);
-                Err(McpError::method_not_found(format!(
-                    "Unknown tool: {unknown}"
-                )))
+                Err(McpError::internal_error(format!("Unknown tool: {unknown}"), None))
             }
         }
     }

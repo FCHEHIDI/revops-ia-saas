@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO enrollments (\n            id, tenant_id, sequence_id, contact_id, status,\n            current_step, custom_variables, enrolled_at, next_step_at\n        )\n        VALUES ($1, $2, $3, $4, 'pending', 0, $5, $6, $7)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Jsonb",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a08e0d9154f3479b621da63b5871570559929d69232dcc9ebd5daee70426cfbb"
+}

@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    COALESCE(u.name, assigned_to::text)                                   AS \"dimension!: String\",\n                    COUNT(*) FILTER (WHERE d.stage = 'closed_won')                        AS \"deals_won!: i64\",\n                    COALESCE(AVG(d.value) FILTER (WHERE d.stage = 'closed_won'), 0)       AS \"avg_deal_value!: Decimal\",\n                    COALESCE(\n                        AVG(EXTRACT(EPOCH FROM (d.closed_at - d.created_at)) / 86400.0)\n                        FILTER (WHERE d.stage = 'closed_won' AND d.closed_at IS NOT NULL),\n                        1\n                    )                                                                     AS \"avg_cycle_days!: f64\"\n                FROM deals d\n                LEFT JOIN users u ON u.id = d.assigned_to AND u.tenant_id = d.tenant_id\n                WHERE d.tenant_id = $1\n                  AND d.created_at::date >= $2\n                  AND d.created_at::date <= $3\n                  AND d.assigned_to IS NOT NULL\n                GROUP BY d.assigned_to, u.name\n                ORDER BY COUNT(*) FILTER (WHERE d.stage = 'closed_won') DESC\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "dimension!: String",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "deals_won!: i64",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "avg_deal_value!: Decimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "avg_cycle_days!: f64",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "e28c8d6680e4bb44e48c6664cf27d82d99853c999f48438fac8e63800a9afd10"
+}

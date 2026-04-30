@@ -1,0 +1,375 @@
+name: CI — Orchestrateur LLM (Rust)
+# ═══════════════════════════════════════════════════════════════════════════════
+# PÉRIMÈTRE : CI (Versioning & CI/CD) — jobs lint, test, security, build
+# CD (DevOps) : jobs deploy-staging et deploy-production
+# Frontière : build produit les artefacts, deploy les consomme.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "orchestrator/**"
+      - ".github/workflows/orchestrateur.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "orchestrator/**"
+      - ".github/workflows/orchestrateur.yml"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: orchestrator
+
+permissions:
+  contents: read
+  security-events: write
+
+env:
+  RUST_VERSION: "1.78.0"
+  CARGO_TERM_COLOR: always
+  IMAGE_NAME: revops-orchestrator
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Lint & Format
+  # ────────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Install Rust ${{ env.RUST_VERSION }} with clippy and rustfmt
+        uses: dtolnay/rust-toolchain@21dc36fb71dd22e3317045c0c31a3f4249868b17
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: clippy, rustfmt
+
+      - name: Cache Cargo registry and build artifacts
+        uses: Swatinem/rust-cache@v2.7.3
+        with:
+          workspaces: orchestrator
+          cache-on-failure: true
+          key: orchestrator-lint
+
+      - name: Run cargo fmt (format check)
+        run: cargo fmt --all -- --check
+
+      - name: Run cargo clippy (linter — deny warnings)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Tests unitaires
+  # ────────────────────────────────────────────────────────────────────────────
+  test-unit:
+    name: Unit Tests
+    runs-on: ubuntu-22.04
+    needs: lint
+
+    env:
+      RUST_LOG: debug
+      ENVIRONMENT: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@21dc36fb71dd22e3317045c0c31a3f4249868b17
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Cache Cargo registry and build artifacts
+        uses: Swatinem/rust-cache@v2.7.3
+        with:
+          workspaces: orchestrator
+          cache-on-failure: true
+          key: orchestrator-test-unit
+
+      - name: Run unit tests
+        run: cargo test --lib --all-features -- --nocapture
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 3 — Tests d'intégration avec mock LLM et Redis
+  # ────────────────────────────────────────────────────────────────────────────
+  test-integration:
+    name: Integration Tests (mock LLM + Redis)
+    runs-on: ubuntu-22.04
+    needs: lint
+
+    services:
+      redis:
+        image: redis:7.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: revops_test
+          POSTGRES_PASSWORD: revops_test
+          POSTGRES_DB: revops_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      REDIS_URL: redis://localhost:6379
+      DATABASE_URL: postgresql://revops_test:revops_test@localhost:5432/revops_test
+      LLM_BASE_URL: http://localhost:11434
+      RAG_SERVICE_URL: http://localhost:8001
+      MCP_TRANSPORT: stdio
+      RUST_LOG: info
+      ENVIRONMENT: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@21dc36fb71dd22e3317045c0c31a3f4249868b17
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Cache Cargo registry and build artifacts
+        uses: Swatinem/rust-cache@v2.7.3
+        with:
+          workspaces: orchestrator
+          cache-on-failure: true
+          key: orchestrator-test-integration
+
+      - name: Run integration tests
+        run: cargo test --test '*' --all-features -- --nocapture
+        env:
+          MOCK_LLM_ENABLED: "true"
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 4 — Security (cargo audit)
+  # ────────────────────────────────────────────────────────────────────────────
+  security:
+    name: Security Audit (cargo audit)
+    runs-on: ubuntu-22.04
+    needs: lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@21dc36fb71dd22e3317045c0c31a3f4249868b17
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Cache Cargo registry
+        uses: Swatinem/rust-cache@v2.7.3
+        with:
+          workspaces: orchestrator
+          key: orchestrator-audit
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --version 0.20.0 --locked
+
+      - name: Run cargo audit
+        run: cargo audit --json > cargo-audit-orchestrator.json
+        continue-on-error: true
+
+      - name: Upload cargo audit report
+        uses: actions/upload-artifact@v4.3.3
+        if: always()
+        with:
+          name: cargo-audit-orchestrator
+          path: orchestrator/cargo-audit-orchestrator.json
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 5 — Build release binary
+  # ────────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build Release Binary
+    runs-on: ubuntu-22.04
+    needs: [test-unit, test-integration, security]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@21dc36fb71dd22e3317045c0c31a3f4249868b17
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Cache Cargo registry and build artifacts
+        uses: Swatinem/rust-cache@v2.7.3
+        with:
+          workspaces: orchestrator
+          cache-on-failure: true
+          key: orchestrator-build-release
+
+      - name: Build release binary (with LTO)
+        run: cargo build --release
+
+      - name: Upload release binary as artifact
+        uses: actions/upload-artifact@v4.3.3
+        with:
+          name: orchestrator-binary
+          path: orchestrator/target/release/orchestrator
+          retention-days: 7
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 6 — Build Docker image & Trivy scan
+  # ────────────────────────────────────────────────────────────────────────────
+  docker:
+    name: Docker Build & Trivy Scan
+    runs-on: ubuntu-22.04
+    needs: build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5.5.1
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+
+      - name: Build Docker image (no push on PR)
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: orchestrator
+          file: orchestrator/Dockerfile
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: true
+
+      - name: Run Trivy vulnerability scan on Docker image
+        uses: aquasecurity/trivy-action@0.21.0
+        with:
+          image-ref: "${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
+          format: sarif
+          output: trivy-orchestrator-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3.25.5
+        if: always()
+        with:
+          sarif_file: trivy-orchestrator-results.sarif
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 7 — Deploy to staging (merge main only)
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-22.04
+    needs: docker
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: staging
+
+    steps:
+      # SECRETS STRATEGY:
+      # - CI/CD secrets (REGISTRY_*, KUBECONFIG_*) : GitHub Secrets (CI natif)
+      # - Runtime secrets (DB, API keys) : HashiCorp Vault injecté via Vault Agent
+      # Ces deux périmètres sont distincts et ne se chevauchent pas.
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3.2.0
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push image to registry
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: orchestrator
+          file: orchestrator/Dockerfile
+          push: true
+          tags: ${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:staging,${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to staging via kubectl
+        run: |
+          echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl set image deployment/orchestrator orchestrator=${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }} -n revops-staging
+          kubectl rollout status deployment/orchestrator -n revops-staging --timeout=5m
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 8 — Deploy to production (tag vX.Y.Z only)
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-22.04
+    needs: docker
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+
+    steps:
+      # SECRETS STRATEGY:
+      # - CI/CD secrets (REGISTRY_*, KUBECONFIG_*) : GitHub Secrets (CI natif)
+      # - Runtime secrets (DB, API keys) : HashiCorp Vault injecté via Vault Agent
+      # Ces deux périmètres sont distincts et ne se chevauchent pas.
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.3.0
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3.2.0
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push image with release tag
+        uses: docker/build-push-action@v5.3.0
+        with:
+          context: orchestrator
+          file: orchestrator/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+            ${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to production via kubectl
+        run: |
+          echo "${{ secrets.KUBECONFIG_PRODUCTION }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl set image deployment/orchestrator orchestrator=${{ secrets.REGISTRY_URL }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }} -n revops-prod
+          kubectl rollout status deployment/orchestrator -n revops-prod --timeout=10m

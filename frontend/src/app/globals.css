@@ -33,6 +33,37 @@
     --accent-white:    #ffffff;
     --accent-glow:     rgba(255, 0, 0, 0.18);
 
+    /* ── Chat tokens ── */
+    --chat-tool-border:    rgba(255, 80, 80, 0.2);
+    --chat-tool-bg:        rgba(255, 0, 0, 0.04);
+    --chat-tool-bg-hover:  rgba(255, 0, 0, 0.07);
+    --chat-tool-text:      rgba(255, 80, 80, 0.8);
+    --chat-tool-divider:   rgba(255, 0, 0, 0.12);
+    --chat-tool-json-bg:   rgba(0, 0, 0, 0.25);
+    --chat-dot:            rgba(255, 80, 80, 0.6);
+    --chat-cursor:         rgba(255, 0, 0, 0.7);
+    --chat-user-bg:        rgba(80, 0, 0, 0.6);
+    --chat-user-border:    rgba(255, 0, 0, 0.25);
+    --chat-empty-border:   rgba(255, 0, 0, 0.3);
+    --chat-empty-bg:       rgba(255, 0, 0, 0.04);
+
+    /* ── MCP service accent colours ── */
+    --mcp-crm:             rgba(255, 80, 80, 0.8);
+    --mcp-crm-border:      rgba(255, 80, 80, 0.2);
+    --mcp-crm-bg:          rgba(255, 80, 80, 0.04);
+    --mcp-analytics:       rgba(80, 180, 255, 0.8);
+    --mcp-analytics-border:rgba(80, 180, 255, 0.2);
+    --mcp-analytics-bg:    rgba(80, 180, 255, 0.04);
+    --mcp-billing:         rgba(120, 255, 160, 0.8);
+    --mcp-billing-border:  rgba(120, 255, 160, 0.2);
+    --mcp-billing-bg:      rgba(120, 255, 160, 0.04);
+    --mcp-sequences:       rgba(200, 140, 255, 0.8);
+    --mcp-sequences-border:rgba(200, 140, 255, 0.2);
+    --mcp-sequences-bg:    rgba(200, 140, 255, 0.04);
+    --mcp-default:         rgba(200, 200, 200, 0.7);
+    --mcp-default-border:  rgba(200, 200, 200, 0.2);
+    --mcp-default-bg:      rgba(200, 200, 200, 0.04);
+
     /* ── Shadows ── */
     --shadow-card:  0 1px 3px rgba(0,0,0,0.9), 0 4px 16px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.025);
     --shadow-glow:  0 0 0 1px rgba(255,0,0,0.35), 0 4px 28px rgba(255,0,0,0.2);

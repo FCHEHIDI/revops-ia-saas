@@ -35,6 +35,16 @@ const config: Config = {
         "border-subtle":  "#1f1f1f",
         "border-default": "#2a2a2a",
         "border-strong":  "#3a3a3a",
+        /* Chat tokens (CSS var references) */
+        "chat-tool":       "var(--chat-tool-text)",
+        "chat-dot":        "var(--chat-dot)",
+        "chat-cursor":     "var(--chat-cursor)",
+        /* MCP service tokens */
+        "mcp-crm":        "var(--mcp-crm)",
+        "mcp-analytics":  "var(--mcp-analytics)",
+        "mcp-billing":    "var(--mcp-billing)",
+        "mcp-sequences":  "var(--mcp-sequences)",
+        "mcp-default":    "var(--mcp-default)",
       },
       fontFamily: {
         sans:     ["Space Grotesk", "system-ui", "sans-serif"],

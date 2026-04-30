@@ -37,7 +37,7 @@ export function ChatInterface() {
       {/* Toolbar */}
       <div
         className="relative flex items-center justify-between px-5 py-3 flex-shrink-0"
-        style={{ borderBottom: "1px solid rgba(255,0,0,0.12)", background: "rgba(0,0,0,0.5)", backdropFilter: "blur(12px)" }}
+        style={{ borderBottom: "1px solid var(--chat-tool-divider)", background: "rgba(0,0,0,0.5)", backdropFilter: "blur(12px)" }}
       >
         <div className="flex items-center gap-3">
           {/* Xenito identity */}
@@ -46,8 +46,8 @@ export function ChatInterface() {
               className="relative flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden"
               style={{
                 background: "rgba(0,0,0,0.8)",
-                border: "1px solid rgba(255,0,0,0.3)",
-                boxShadow: isStreaming ? "0 0 12px rgba(255,0,0,0.4)" : "0 0 6px rgba(255,0,0,0.15)",
+                border: "1px solid var(--chat-empty-border)",
+                boxShadow: isStreaming ? "0 0 12px rgba(255,0,0,0.4)" : "0 0 6px var(--accent-glow)",
                 transition: "box-shadow 0.4s ease",
               }}
             >
@@ -55,7 +55,7 @@ export function ChatInterface() {
             </div>
             <span
               className="font-mono-geist font-medium tracking-widest uppercase"
-              style={{ color: "rgba(255,80,80,0.85)", fontSize: "11px", letterSpacing: "0.2em" }}
+              style={{ color: "var(--mcp-crm)", fontSize: "11px", letterSpacing: "0.2em" }}
             >
               XENITO
             </span>
@@ -66,13 +66,13 @@ export function ChatInterface() {
               className="h-1.5 w-1.5 rounded-full"
               style={{
                 background: isStreaming ? "#ff0000" : "#333",
-                boxShadow: isStreaming ? "0 0 8px #ff0000, 0 0 20px rgba(255,0,0,0.4)" : "none",
+                boxShadow: isStreaming ? "0 0 8px var(--accent-red), 0 0 20px rgba(255,0,0,0.4)" : "none",
                 transition: "all 0.3s",
               }}
             />
             <span
               className="font-mono-geist text-xs tracking-widest uppercase"
-              style={{ color: isStreaming ? "rgba(255,80,80,0.9)" : "var(--text-muted)", fontSize: "10px" }}
+              style={{ color: isStreaming ? "var(--mcp-crm)" : "var(--text-muted)", fontSize: "10px" }}
             >
               {isStreaming ? "PROCESSING…" : "READY"}
             </span>
@@ -88,8 +88,8 @@ export function ChatInterface() {
           style={{ color: "var(--text-muted)", border: "1px solid transparent" }}
           onMouseEnter={(e) => {
             e.currentTarget.style.color = "#ff4444";
-            e.currentTarget.style.border = "1px solid rgba(255,0,0,0.25)";
-            e.currentTarget.style.background = "rgba(255,0,0,0.06)";
+            e.currentTarget.style.border = "1px solid var(--chat-tool-border)";
+            e.currentTarget.style.background = "var(--chat-tool-bg-hover)";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.color = "var(--text-muted)";
@@ -114,8 +114,8 @@ export function ChatInterface() {
               className="relative flex h-20 w-20 items-center justify-center rounded-2xl overflow-hidden"
               style={{
                 background: "rgba(0,0,0,0.8)",
-                border: "1px solid rgba(255,0,0,0.25)",
-                boxShadow: "0 0 40px rgba(255,0,0,0.15), 0 0 80px rgba(255,0,0,0.06), inset 0 0 20px rgba(255,0,0,0.05)",
+                border: "1px solid var(--chat-tool-border)",
+                boxShadow: "0 0 40px var(--accent-glow), 0 0 80px rgba(255,0,0,0.06), inset 0 0 20px rgba(255,0,0,0.05)",
               }}
             >
               <Image
@@ -124,14 +124,14 @@ export function ChatInterface() {
                 width={72}
                 height={72}
                 className="object-contain scale-105"
-                style={{ filter: "drop-shadow(0 0 12px rgba(255,0,0,0.6))" }}
+                style={{ filter: "drop-shadow(0 0 12px var(--accent-glow))" }}
               />
             </div>
 
             <div>
               <p
                 className="font-mono-geist font-semibold tracking-widest uppercase text-center"
-                style={{ color: "rgba(255,80,80,0.9)", fontSize: "13px", letterSpacing: "0.25em" }}
+                style={{ color: "var(--mcp-crm)", fontSize: "13px", letterSpacing: "0.25em" }}
               >
                 XENITO
               </p>
@@ -155,8 +155,8 @@ export function ChatInterface() {
                   style={{ color: "var(--text-muted)", border: "1px solid var(--border-default)", background: "rgba(255,255,255,0.02)" }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.color = "var(--text-secondary)";
-                    e.currentTarget.style.border = "1px solid rgba(255,0,0,0.3)";
-                    e.currentTarget.style.background = "rgba(255,0,0,0.04)";
+                    e.currentTarget.style.border = "1px solid var(--chat-empty-border)";
+                    e.currentTarget.style.background = "var(--chat-empty-bg)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.color = "var(--text-muted)";
@@ -183,7 +183,7 @@ export function ChatInterface() {
       {/* Input zone */}
       <div
         className="flex-shrink-0 p-4"
-        style={{ borderTop: "1px solid rgba(255,0,0,0.1)", background: "rgba(0,0,0,0.6)", backdropFilter: "blur(16px)" }}
+        style={{ borderTop: "1px solid var(--chat-tool-divider)", background: "rgba(0,0,0,0.6)", backdropFilter: "blur(16px)" }}
       >
         <MessageInput onSend={sendMessage} isStreaming={isStreaming} />
         <p

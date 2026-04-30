@@ -164,8 +164,36 @@ export const billingApi = {
 
 import type { Metric } from "@/types";
 
+// MCP proxy call shape
+export interface McpCallResponse<T = unknown> {
+  result: T;
+}
+
 export const analyticsApi = {
   getMetrics: () => api.get<Metric[]>("/analytics/metrics"),
+
+  // MCP proxy calls
+  getMrrTrend: (months = 12) =>
+    api.post<McpCallResponse<{
+      data_points: Array<{ month: string; mrr: string; new_mrr: string; churned_mrr: string; net_new_mrr: string }>;
+      current_mrr: string;
+      mom_growth_rate: number;
+    }>>("/analytics/call", { tool: "get_mrr_trend", params: { months } }),
+
+  getFunnelAnalysis: () =>
+    api.post<McpCallResponse<{
+      stages: Array<{ stage: string; entered: number; exited: number; converted: number; conversion_rate: number; avg_time_days: number }>;
+      overall_conversion: number;
+      bottleneck_stage: string | null;
+    }>>("/analytics/call", { tool: "get_funnel_analysis", params: {} }),
+
+  getChurnRate: () =>
+    api.post<McpCallResponse<{
+      churn_rate: number;
+      churned_count: number;
+      starting_count: number;
+      net_revenue_retention: number;
+    }>>("/analytics/call", { tool: "compute_churn_rate", params: {} }),
 };
 
 // ---------------------------------------------------------------------------

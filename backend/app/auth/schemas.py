@@ -14,6 +14,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     full_name: str
+    company_name: Optional[str] = None
     tenant_id: Optional[UUID] = None
 
 

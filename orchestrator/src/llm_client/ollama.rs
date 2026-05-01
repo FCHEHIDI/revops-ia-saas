@@ -22,7 +22,11 @@ pub struct OllamaProvider {
 
 impl OllamaProvider {
     pub fn new(client: reqwest::Client, base_url: String, model: String) -> Self {
-        Self { client, base_url, model }
+        Self {
+            client,
+            base_url,
+            model,
+        }
     }
 }
 

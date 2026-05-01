@@ -2,6 +2,7 @@ import Image from "next/image";
 import { User, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ToolCallDisplay } from "./tool-call-display";
+import { MarkdownContent } from "./markdown-content";
 import type { ChatMessage } from "@/types";
 
 interface MessageBubbleProps {
@@ -83,7 +84,11 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 }
           }
         >
-          {message.content}
+          {isUser ? (
+            message.content
+          ) : (
+            <MarkdownContent content={message.content} />
+          )}
 
           {/* Typing dots — streaming, no content, no tool calls yet */}
           {message.isStreaming && !message.content && message.toolCalls?.length === 0 && (

@@ -92,13 +92,16 @@ async def register(
             )
         tenant_id = data.tenant_id
     else:
+        import re
         tenant_id = uuid4()
-        org_slug = f"org-{tenant_id.hex[:8]}"
-        org_name = data.full_name or data.email.split("@")[0]
+        org_name = data.company_name or f"{data.full_name or data.email.split('@')[0]}'s workspace"
+        # Generate URL-safe slug: lowercase, collapse non-alphanumeric to hyphens
+        _base_slug = re.sub(r"[^a-z0-9]+", "-", org_name.lower()).strip("-")
+        org_slug = f"{_base_slug[:48]}-{tenant_id.hex[:8]}"
         db.add(
             Organization(
                 id=tenant_id,
-                name=f"{org_name}'s workspace",
+                name=org_name,
                 slug=org_slug,
                 plan="free",
             )

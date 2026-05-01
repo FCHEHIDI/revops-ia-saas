@@ -41,7 +41,9 @@ pub fn create_llm_provider(
 ) -> Result<Arc<dyn LlmProvider>, AppError> {
     // Short-circuit: mock mode for E2E tests without a real API key
     if config.llm_mock {
-        tracing::warn!("LLM_MOCK=true — using deterministic MockProvider, no API call will be made");
+        tracing::warn!(
+            "LLM_MOCK=true — using deterministic MockProvider, no API call will be made"
+        );
         return Ok(Arc::new(mock::MockProvider));
     }
 

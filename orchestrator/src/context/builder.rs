@@ -162,7 +162,11 @@ pub fn build_system_prompt(chunks: &[RagChunk]) -> String {
             say so clearly: \"I cannot access [service] right now.\" Do NOT make up names, emails, or numbers.\n\
          2. If a tool returns an error, acknowledge the failure and suggest the user try again later.\n\
          3. Only call tools when the user's request requires real data. For greetings or general questions, respond directly without calling tools.\n\
-         4. Be concise, accurate, and actionable. Respond in the same language as the user.\n",
+         4. Be concise, accurate, and actionable. Respond in the same language as the user.\n\
+         5. NEVER use emojis. Your responses must be emoji-free at all times.\n\
+         6. Format responses in clean Markdown: use **bold** for key terms and important values, \
+            bullet lists for enumerations, and tables for structured data. \
+            Keep a professional and direct tone.\n",
     );
 
     let (crm_chunks, doc_chunks): (Vec<&RagChunk>, Vec<&RagChunk>) = chunks
@@ -249,8 +253,18 @@ pub fn default_tool_definitions() -> Vec<Tool> {
             "mcp_crm__search_contacts",
             "Search or list CRM contacts. Use query='' to list all. Supports status filter.",
             &[
-                ("query", "string", "Search query string — use empty string '' to list all contacts", false),
-                ("status", "string", "Filter by contact status: 'active', 'inactive', 'lead', 'customer', 'churned'", false),
+                (
+                    "query",
+                    "string",
+                    "Search query string — use empty string '' to list all contacts",
+                    false,
+                ),
+                (
+                    "status",
+                    "string",
+                    "Filter by contact status: 'active', 'inactive', 'lead', 'customer', 'churned'",
+                    false,
+                ),
                 (
                     "limit",
                     "integer",
@@ -545,7 +559,12 @@ pub fn default_tool_definitions() -> Vec<Tool> {
             "mcp_analytics__forecast_revenue",
             "Forecast future revenue based on current pipeline and historical close rates",
             &[
-                ("period", "string", "Forecast horizon (e.g. 'next_quarter')", true),
+                (
+                    "period",
+                    "string",
+                    "Forecast horizon (e.g. 'next_quarter')",
+                    true,
+                ),
                 (
                     "confidence_level",
                     "string",
@@ -557,7 +576,12 @@ pub fn default_tool_definitions() -> Vec<Tool> {
         make_tool(
             "mcp_analytics__get_mrr_trend",
             "Get the monthly MRR trend over a given period",
-            &[("period", "string", "Time range (e.g. 'last_12_months')", true)],
+            &[(
+                "period",
+                "string",
+                "Time range (e.g. 'last_12_months')",
+                true,
+            )],
         ),
         make_tool(
             "mcp_analytics__get_at_risk_accounts",
@@ -580,7 +604,12 @@ pub fn default_tool_definitions() -> Vec<Tool> {
         make_tool(
             "mcp_analytics__get_team_leaderboard",
             "Get ranked leaderboard of all sales reps by quota attainment for the period",
-            &[("period", "string", "Time period to rank (e.g. 'current_quarter')", true)],
+            &[(
+                "period",
+                "string",
+                "Time period to rank (e.g. 'current_quarter')",
+                true,
+            )],
         ),
         make_tool(
             "mcp_analytics__get_activity_metrics",

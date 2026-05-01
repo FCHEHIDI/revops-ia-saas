@@ -1,0 +1,97 @@
+version: 2
+
+updates:
+  # ── Python — Backend ────────────────────────────────────────────────────────
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, backend]
+    groups:
+      fastapi-ecosystem:
+        patterns: ["fastapi*", "uvicorn*", "pydantic*", "starlette*"]
+      sqlalchemy-ecosystem:
+        patterns: ["sqlalchemy*", "alembic*", "asyncpg*"]
+
+  # ── Python — MCP CRM ────────────────────────────────────────────────────────
+  - package-ecosystem: pip
+    directory: /mcp/mcp-crm
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, mcp-crm]
+
+  # ── Python — RAG ────────────────────────────────────────────────────────────
+  - package-ecosystem: pip
+    directory: /rag
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, rag]
+
+  # ── Node.js — Frontend ──────────────────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, frontend]
+    groups:
+      next-ecosystem:
+        patterns: ["next*", "react", "react-dom"]
+      type-defs:
+        patterns: ["@types/*"]
+
+  # ── Rust — Orchestrator ─────────────────────────────────────────────────────
+  - package-ecosystem: cargo
+    directory: /orchestrator
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, orchestrator]
+
+  # ── Rust — MCP Analytics ────────────────────────────────────────────────────
+  - package-ecosystem: cargo
+    directory: /mcp/mcp-analytics
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    labels: [dependencies, mcp-rust]
+
+  # ── Rust — MCP Billing ──────────────────────────────────────────────────────
+  - package-ecosystem: cargo
+    directory: /mcp/mcp-billing
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    labels: [dependencies, mcp-rust]
+
+  # ── Rust — MCP Filesystem ───────────────────────────────────────────────────
+  - package-ecosystem: cargo
+    directory: /mcp/mcp-filesystem
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    labels: [dependencies, mcp-rust]
+
+  # ── Rust — MCP Sequences ────────────────────────────────────────────────────
+  - package-ecosystem: cargo
+    directory: /mcp/mcp-sequences
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    labels: [dependencies, mcp-rust]
+
+  # ── GitHub Actions ──────────────────────────────────────────────────────────
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    labels: [dependencies, github-actions]

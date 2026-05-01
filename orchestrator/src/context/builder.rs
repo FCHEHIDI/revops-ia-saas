@@ -695,3 +695,158 @@ fn make_tool(name: &str, description: &str, params: &[(&str, &str, &str, bool)])
         },
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Contract tests: validate default_tool_definitions() against mcp-crm schemas.
+//
+// These tests are the Rust side of the schema contract.  The Python side lives
+// in mcp/mcp-crm/tests/test_contracts.py.
+//
+// Naming convention: every test function starts with `tool_schema_` so it can
+// be run selectively with: cargo test tool_schema -- --nocapture
+//
+// REGRESSION GUARD for commit bc46965:
+//   update_deal_stage param 'stage' → 'new_stage' mismatch caused every
+//   deal-move tool call to fail silently with VALIDATION_ERROR.
+// ─────────────────────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod tool_schema_tests {
+    use super::*;
+
+    fn get_tool<'a>(tools: &'a [Tool], name: &str) -> &'a Tool {
+        tools
+            .iter()
+            .find(|t| t.function.name == name)
+            .unwrap_or_else(|| panic!("Tool '{name}' missing from default_tool_definitions()"))
+    }
+
+    fn required_params(tool: &Tool) -> Vec<String> {
+        tool.function.parameters["required"]
+            .as_array()
+            .unwrap_or(&vec![])
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect()
+    }
+
+    fn property_names(tool: &Tool) -> Vec<String> {
+        tool.function.parameters["properties"]
+            .as_object()
+            .map(|o| o.keys().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    /// All 12 mcp-crm tools must be present in default_tool_definitions().
+    #[test]
+    fn tool_schema_all_mcp_crm_tools_present() {
+        let tools = default_tool_definitions();
+        let names: Vec<&str> = tools.iter().map(|t| t.function.name.as_str()).collect();
+
+        for expected in &[
+            "mcp_crm__get_contact",
+            "mcp_crm__search_contacts",
+            "mcp_crm__create_contact",
+            "mcp_crm__update_contact",
+            "mcp_crm__get_account",
+            "mcp_crm__search_accounts",
+            "mcp_crm__create_account",
+            "mcp_crm__update_account",
+            "mcp_crm__get_deal",
+            "mcp_crm__list_deals",
+            "mcp_crm__create_deal",
+            "mcp_crm__update_deal_stage",
+        ] {
+            assert!(
+                names.contains(expected),
+                "Tool '{expected}' missing from default_tool_definitions()"
+            );
+        }
+    }
+
+    /// REGRESSION bc46965: update_deal_stage must use 'new_stage', not 'stage'.
+    /// mcp-crm handler: validate_enum_field(params, "new_stage", DEAL_STAGE_VALUES, required=True)
+    #[test]
+    fn tool_schema_update_deal_stage_uses_new_stage() {
+        let tools = default_tool_definitions();
+        let tool = get_tool(&tools, "mcp_crm__update_deal_stage");
+        let required = required_params(tool);
+
+        assert!(
+            required.contains(&"new_stage".to_string()),
+            "update_deal_stage must require 'new_stage' (mcp-crm uses new_stage). Got: {required:?}"
+        );
+        assert!(
+            !required.contains(&"stage".to_string()),
+            "update_deal_stage must NOT use 'stage' as required param — use 'new_stage'. Got: {required:?}"
+        );
+    }
+
+    /// search_contacts must expose page_size, not limit (mcp-crm ignores 'limit').
+    #[test]
+    fn tool_schema_search_contacts_uses_page_size() {
+        let tools = default_tool_definitions();
+        let tool = get_tool(&tools, "mcp_crm__search_contacts");
+        let props = property_names(tool);
+
+        assert!(
+            props.contains(&"page_size".to_string()),
+            "search_contacts must expose 'page_size'. Got: {props:?}"
+        );
+        assert!(
+            !props.contains(&"limit".to_string()),
+            "search_contacts must NOT use 'limit' — use 'page_size'. Got: {props:?}"
+        );
+    }
+
+    /// list_deals and search_accounts must use page_size, not limit.
+    #[test]
+    fn tool_schema_pagination_uses_page_size() {
+        let tools = default_tool_definitions();
+        for name in &["mcp_crm__list_deals", "mcp_crm__search_accounts"] {
+            let tool = get_tool(&tools, name);
+            let props = property_names(tool);
+            assert!(
+                !props.contains(&"limit".to_string()),
+                "'{name}' must NOT use 'limit' — use 'page_size'. Got: {props:?}"
+            );
+        }
+    }
+
+    /// create_contact must require 'created_by' (mcp-crm calls validate_uuid_field(params, "created_by")).
+    #[test]
+    fn tool_schema_create_contact_requires_created_by() {
+        let tools = default_tool_definitions();
+        let tool = get_tool(&tools, "mcp_crm__create_contact");
+        let required = required_params(tool);
+
+        assert!(
+            required.contains(&"created_by".to_string()),
+            "create_contact must require 'created_by'. Got: {required:?}"
+        );
+        // 'company' and 'notes' are not fields in the mcp-crm create_contact handler
+        assert!(
+            !required.contains(&"company".to_string()),
+            "create_contact must NOT require 'company' (not a mcp-crm field). Got: {required:?}"
+        );
+    }
+
+    /// search_contacts status enum must list 'prospect', not 'lead'.
+    #[test]
+    fn tool_schema_contact_status_uses_prospect_not_lead() {
+        let tools = default_tool_definitions();
+        let tool = get_tool(&tools, "mcp_crm__search_contacts");
+        let props = &tool.function.parameters["properties"];
+
+        if let Some(status) = props.get("status") {
+            let desc = status["description"].as_str().unwrap_or("");
+            assert!(
+                desc.contains("prospect"),
+                "search_contacts status description must mention 'prospect'. Got: {desc:?}"
+            );
+            assert!(
+                !desc.contains("lead"),
+                "search_contacts status must NOT mention 'lead' (valid value is 'prospect'). Got: {desc:?}"
+            );
+        }
+    }
+}

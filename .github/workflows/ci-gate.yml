@@ -1,0 +1,177 @@
+name: CI Gate — Cross-Component Contracts
+# ═══════════════════════════════════════════════════════════════════════════════
+# PÉRIMÈTRE : Validation croisée orchestrateur ↔ mcp-crm
+#
+# Problème résolu : les workflows par composant (orchestrateur.yml, mcp-crm.yml)
+# testent chaque service en isolation.  Ils ne détectent PAS les déphasages
+# de noms de paramètres entre orchestrator/src/context/builder.rs et
+# mcp/mcp-crm/src/schemas.py.
+#
+# RÉGRESSION guardée : commit bc46965 — update_deal_stage « stage » vs « new_stage »
+#
+# Ce workflow se déclenche dès qu'un fichier de l'un ou l'autre côté du
+# contrat change, et valide les deux côtés en même temps.
+#
+# JOB « gate » = seul check requis pour la branch protection sur main.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - "orchestrator/src/context/builder.rs"
+      - "mcp/mcp-crm/src/schemas.py"
+      - "mcp/mcp-crm/src/tools/**"
+      - "mcp/mcp-crm/src/errors.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  RUST_VERSION: "1.78.0"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Détection des chemins modifiés
+  # ────────────────────────────────────────────────────────────────────────────
+  detect-changes:
+    name: Detect Changed Paths
+    runs-on: ubuntu-22.04
+    outputs:
+      contracts: ${{ steps.filter.outputs.contracts }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Detect contract-relevant changes
+        uses: dorny/paths-filter@v3.0.2
+        id: filter
+        with:
+          filters: |
+            contracts:
+              - 'orchestrator/src/context/builder.rs'
+              - 'mcp/mcp-crm/src/schemas.py'
+              - 'mcp/mcp-crm/src/tools/**'
+              - 'mcp/mcp-crm/src/errors.py'
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Contract tests : côté Python (TOOL_SCHEMAS ↔ contrat)
+  # Déclenché quand l'un ou l'autre côté du contrat change.
+  # ────────────────────────────────────────────────────────────────────────────
+  contract-tests-python:
+    name: Contract Tests — Python (TOOL_SCHEMAS)
+    runs-on: ubuntu-22.04
+    needs: detect-changes
+    if: >-
+      needs.detect-changes.outputs.contracts == 'true' ||
+      github.event_name == 'workflow_dispatch'
+
+    defaults:
+      run:
+        working-directory: mcp/mcp-crm
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            mcp/mcp-crm/requirements.txt
+            mcp/mcp-crm/requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run Python contract tests
+        run: pytest tests/test_contracts.py -v --tb=short
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 3 — Contract tests : côté Rust (default_tool_definitions ↔ contrat)
+  # ────────────────────────────────────────────────────────────────────────────
+  contract-tests-rust:
+    name: Contract Tests — Rust (default_tool_definitions)
+    runs-on: ubuntu-22.04
+    needs: detect-changes
+    if: >-
+      needs.detect-changes.outputs.contracts == 'true' ||
+      github.event_name == 'workflow_dispatch'
+
+    defaults:
+      run:
+        working-directory: orchestrator
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.1
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@21dc36fb71dd22e3317045c0c31a3f4249868b17
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Cache Cargo registry and build artifacts
+        uses: Swatinem/rust-cache@v2.7.3
+        with:
+          workspaces: orchestrator
+          cache-on-failure: true
+          key: ci-gate-contracts
+
+      - name: Run Rust contract tests
+        # Matches all test functions starting with tool_schema_
+        run: cargo test tool_schema -- --nocapture
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 4 — Gate : unique check requis pour la branch protection
+  #
+  # Toujours exécuté (if: always()).  Échoue si l'un des jobs de contrat
+  # a échoué.  En cas de skip (aucun fichier de contrat modifié), passe
+  # silencieusement pour ne pas bloquer les PRs sans impact.
+  #
+  # Branch protection : ajouter « CI Gate — CI Gate » comme required check.
+  # ────────────────────────────────────────────────────────────────────────────
+  gate:
+    name: CI Gate
+    runs-on: ubuntu-22.04
+    needs: [detect-changes, contract-tests-python, contract-tests-rust]
+    if: always()
+
+    steps:
+      - name: Evaluate contract test results
+        run: |
+          PYTHON_RESULT="${{ needs.contract-tests-python.result }}"
+          RUST_RESULT="${{ needs.contract-tests-rust.result }}"
+
+          echo "contract-tests-python : $PYTHON_RESULT"
+          echo "contract-tests-rust   : $RUST_RESULT"
+
+          # 'skipped' is acceptable (no contract-relevant files changed)
+          for RESULT in "$PYTHON_RESULT" "$RUST_RESULT"; do
+            if [[ "$RESULT" == "failure" || "$RESULT" == "cancelled" ]]; then
+              echo ""
+              echo "❌ Contract test failed."
+              echo "A parameter name mismatch was detected between:"
+              echo "  orchestrator/src/context/builder.rs  (default_tool_definitions)"
+              echo "  mcp/mcp-crm/src/schemas.py           (TOOL_SCHEMAS)"
+              echo ""
+              echo "Fix guide — update ALL four locations:"
+              echo "  1. contracts/mcp-crm-tools section in mcp/mcp-crm/tests/test_contracts.py"
+              echo "  2. mcp/mcp-crm/src/schemas.py  (TOOL_SCHEMAS)"
+              echo "  3. mcp/mcp-crm/src/tools/*.py  (handler validation)"
+              echo "  4. orchestrator/src/context/builder.rs  (default_tool_definitions)"
+              exit 1
+            fi
+          done
+
+          echo "✅ CI gate passed"

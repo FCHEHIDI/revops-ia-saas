@@ -370,7 +370,7 @@ jobs:
 
       - name: Extract metadata for Docker
         id: meta
-        uses: docker/metadata-action@v5.5.1
+        uses: docker/metadata-action@v6.0.0
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |

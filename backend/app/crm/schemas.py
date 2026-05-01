@@ -4,7 +4,8 @@ from uuid import UUID
 from datetime import datetime, date
 
 DealStage = Literal[
-    "prospecting", "qualification", "proposal", "negotiation", "closing", "won", "lost"
+    "prospecting", "qualification", "proposal", "negotiation", "closing", "won", "lost",
+    "closed_won", "closed_lost"
 ]
 
 class AccountBase(BaseModel):

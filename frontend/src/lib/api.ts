@@ -123,6 +123,7 @@ export const crmApi = {
   getContact: (id: string) => api.get<Contact>(`/crm/contacts/${id}`),
   createContact: (data: ContactCreate) => api.post<Contact>("/crm/contacts", data),
   updateContact: (id: string, data: ContactUpdate) => api.put<Contact>(`/crm/contacts/${id}`, data),
+  deleteContact: (id: string) => api.delete<void>(`/crm/contacts/${id}`),
 
   // Accounts
   listAccounts: (params?: { query?: string; industry?: string; page?: number; limit?: number }) => {

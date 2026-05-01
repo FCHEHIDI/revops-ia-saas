@@ -11,7 +11,7 @@ from .schemas import (
 )
 from .service import (
     get_account_by_id, search_accounts_service, create_account_service, update_account_service,
-    get_contact_by_id, search_contacts_service, create_contact_service, update_contact_service,
+    get_contact_by_id, search_contacts_service, create_contact_service, update_contact_service, delete_contact_service,
     get_deal_by_id, list_deals_service, create_deal_service, update_deal_service
 )
 
@@ -74,6 +74,13 @@ async def update_contact_route(id: UUID, data: ContactUpdate,
         user_id: UUID = Depends(extract_user_id),
         db: AsyncSession = Depends(get_db)):
     return await update_contact_service(db, id, data.model_dump(exclude_unset=True), tenant_id, user_id)
+
+@router.delete("/contacts/{id}", status_code=204, dependencies=[Depends(require_permission("crm:contacts:write"))])
+async def delete_contact_route(id: UUID,
+        tenant_id: UUID = Depends(extract_tenant),
+        user_id: UUID = Depends(extract_user_id),
+        db: AsyncSession = Depends(get_db)):
+    await delete_contact_service(db, id, tenant_id, user_id)
 
 # --- Deals ---
 @router.get("/deals/{id}", response_model=DealRead)

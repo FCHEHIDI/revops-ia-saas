@@ -52,7 +52,8 @@ async def search_contacts(db: AsyncSession, query: Optional[str], account_id: Op
     if account_id:
         q = q.where(Contact.account_id == account_id)
     total = await db.scalar(select(func.count()).select_from(q.subquery()))
-    rows = await db.execute(q.offset((page - 1) * limit).limit(limit))
+    ordered = q.order_by(Contact.created_at.desc()).offset((page - 1) * limit).limit(limit)
+    rows = await db.execute(ordered)
     return rows.scalars().all(), total
 
 async def create_contact(db: AsyncSession, data: ContactCreate, created_by: UUID, tenant_id: UUID) -> Contact:
@@ -71,6 +72,15 @@ async def update_contact(db: AsyncSession, contact_id: UUID, fields: dict) -> Op
     await db.execute(q)
     await db.commit()
     return await get_contact(db, contact_id)
+
+async def delete_contact(db: AsyncSession, contact_id: UUID) -> bool:
+    """Delete a contact by ID. Returns True if deleted, False if not found."""
+    contact = await get_contact(db, contact_id)
+    if not contact:
+        return False
+    await db.delete(contact)
+    await db.commit()
+    return True
 
 # -- DEALS --
 async def get_deal(db: AsyncSession, deal_id: UUID) -> Optional[Deal]:

@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from .repository import (
     get_account, search_accounts, create_account, update_account,
-    get_contact, search_contacts, create_contact, update_contact,
+    get_contact, search_contacts, create_contact, update_contact, delete_contact,
     get_deal, list_deals, create_deal, update_deal_stage, update_deal,
 )
 from .schemas import (
@@ -74,6 +74,12 @@ async def update_contact_service(db: AsyncSession, contact_id: UUID, fields: dic
         return ContactRead.model_validate(c)
     except IntegrityError:
         raise HTTPException(status_code=409, detail="Contact update conflict")
+
+async def delete_contact_service(db: AsyncSession, contact_id: UUID, tenant_id: UUID, user_id: UUID) -> None:
+    deleted = await delete_contact(db, contact_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    await log_action(db, tenant_id, user_id, "crm:contacts:delete", "contacts", {"id": str(contact_id)})
 
 # --- DEAL ---
 async def get_deal_by_id(db: AsyncSession, deal_id: UUID, tenant_id: UUID, user_id: UUID | None) -> DealRead:

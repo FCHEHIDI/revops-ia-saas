@@ -1,0 +1,105 @@
+name: revops-monitoring
+
+# Monitoring stack for RevOps:
+#   otel-collector  → receives OTLP from the Rust orchestrator
+#   tempo           → stores traces (OTLP backend)
+#   grafana         → visualise traces (Explore → Tempo datasource)
+#
+# Usage:
+#   docker compose -f infra/docker/docker-compose.dev.yml \
+#                  -f infra/docker/docker-compose.monitoring.yml up -d
+#
+# Or standalone (shares host network with the dev stack):
+#   docker compose -f infra/docker/docker-compose.monitoring.yml up -d
+
+networks:
+  revops_dev:
+    external: true          # shared with docker-compose.dev.yml
+  revops_monitoring:
+    driver: bridge
+
+volumes:
+  tempo_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+services:
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # OpenTelemetry Collector
+  # Receives OTLP gRPC :4317 / HTTP :4318 from the Rust orchestrator (localhost)
+  # and forwards traces to Tempo.
+  # ─────────────────────────────────────────────────────────────────────────────
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.103.0
+    container_name: revops-otel-collector
+    restart: unless-stopped
+    networks:
+      - revops_monitoring
+    ports:
+      - "4317:4317"     # OTLP gRPC  (orchestrator → collector)
+      - "4318:4318"     # OTLP HTTP
+      - "8889:8889"     # Prometheus metrics scrape endpoint
+    volumes:
+      - ../monitoring/otel-collector/otel-collector-config.yml:/etc/otel/config.yml:ro
+    command: ["--config", "/etc/otel/config.yml"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:13133/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Grafana Tempo — distributed tracing backend
+  # Receives OTLP from otel-collector on port 4317 (intra-network)
+  # Exposes query API on :3200 for Grafana
+  # ─────────────────────────────────────────────────────────────────────────────
+  tempo:
+    image: grafana/tempo:2.4.2
+    container_name: revops-tempo
+    restart: unless-stopped
+    networks:
+      - revops_monitoring
+    ports:
+      - "3200:3200"     # Tempo query API (Grafana datasource)
+    command: ["-config.file=/etc/tempo/tempo.yml"]
+    volumes:
+      - ../monitoring/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo_data:/var/tempo
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3200/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Grafana — dashboards + Explore (Tempo + Prometheus + Loki)
+  # ─────────────────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: revops-grafana
+    restart: unless-stopped
+    networks:
+      - revops_monitoring
+    ports:
+      - "3030:3000"     # :3000 taken by Next.js, :3001 taken → use :3030
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - tempo
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s

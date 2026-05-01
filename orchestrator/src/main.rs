@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use opentelemetry::trace::TracerProvider as OtelTracerProvider;
+use opentelemetry_otlp::WithExportConfig;
+// In SDK 0.26 the concrete struct is `TracerProvider` (no `Sdk` prefix)
+use opentelemetry_sdk::trace::TracerProvider as SdkTracerProvider;
 use orchestrator::{
     api,
     config::Config,
@@ -8,7 +12,38 @@ use orchestrator::{
     AppState,
 };
 use tracing::info;
+use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+
+/// Initialise the OTLP tracer and return the provider so it can be shut down
+/// gracefully. Called only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+fn init_tracer(endpoint: &str) -> Result<SdkTracerProvider> {
+    let exporter = opentelemetry_otlp::new_exporter()
+        .tonic()
+        .with_endpoint(endpoint)
+        .build_span_exporter()
+        .context("Failed to build OTLP span exporter")?;
+
+    let provider = SdkTracerProvider::builder()
+        .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
+        .with_config(
+            opentelemetry_sdk::trace::Config::default().with_resource(
+                opentelemetry_sdk::Resource::new(vec![
+                    opentelemetry::KeyValue::new(
+                        opentelemetry_semantic_conventions::resource::SERVICE_NAME,
+                        "revops-orchestrator",
+                    ),
+                    opentelemetry::KeyValue::new(
+                        opentelemetry_semantic_conventions::resource::SERVICE_VERSION,
+                        env!("CARGO_PKG_VERSION"),
+                    ),
+                ]),
+            ),
+        )
+        .build();
+
+    Ok(provider)
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -17,13 +52,43 @@ async fn main() -> Result<()> {
 
     let config = Config::from_env()?;
 
-    // Structured JSON logging — parseable by Grafana Loki
-    tracing_subscriber::registry()
-        .with(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&config.rust_log)),
-        )
-        .with(tracing_subscriber::fmt::layer().json())
-        .init();
+    // ── Observability: tracing-subscriber + optional OTEL layer ──────────────
+    //
+    // When OTEL_EXPORTER_OTLP_ENDPOINT is set we add a tracing-opentelemetry
+    // layer that bridges `#[instrument]` spans to the OTLP collector.
+    // Without it we fall back to JSON stdout only (no-op for tests / local dev).
+    let tracer_provider: Option<SdkTracerProvider> = match &config.otel_exporter_otlp_endpoint {
+        Some(endpoint) => match init_tracer(endpoint) {
+            Ok(provider) => {
+                eprintln!(
+                    "[otel] OTLP traces enabled → {}",
+                    endpoint
+                );
+                Some(provider)
+            }
+            Err(e) => {
+                eprintln!("[otel] Failed to init tracer, falling back to logs only: {e}");
+                None
+            }
+        },
+        None => None,
+    };
+
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&config.rust_log));
+
+    let registry = tracing_subscriber::registry()
+        .with(env_filter)
+        .with(tracing_subscriber::fmt::layer().json());
+
+    if let Some(ref provider) = tracer_provider {
+        // UFCS removes ambiguity between trait method and any direct impl method
+        let tracer = OtelTracerProvider::tracer(provider, "revops-orchestrator");
+        let otel_layer = OpenTelemetryLayer::new(tracer);
+        registry.with(otel_layer).init();
+    } else {
+        registry.init();
+    }
 
     info!(
         host = %config.server_host,
@@ -103,6 +168,13 @@ async fn main() -> Result<()> {
     info!(addr = %addr, "Orchestrator ready");
 
     axum::serve(listener, app).await?;
+
+    // Flush and shutdown OTEL tracer so in-flight spans are exported before exit
+    if let Some(provider) = tracer_provider {
+        if let Err(e) = provider.shutdown() {
+            eprintln!("[otel] tracer shutdown error: {e}");
+        }
+    }
 
     Ok(())
 }

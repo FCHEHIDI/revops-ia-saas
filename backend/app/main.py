@@ -13,6 +13,8 @@ from app.crm.public_router import router as crm_public_router
 from app.documents import router as documents_router
 from app.audit import router as audit_router
 from app.proxy import router as proxy_router
+from app.onboarding import router as onboarding_router
+from app.notifications import router as notifications_router
 
 app = FastAPI(title="RevOps IA SaaS API", version="1.0.0")
 
@@ -67,6 +69,10 @@ app.include_router(
 )
 app.include_router(audit_router.router, prefix="/api/v1/audit", tags=["audit"])
 app.include_router(proxy_router.router, prefix="/api/v1", tags=["proxy"])
+app.include_router(
+    onboarding_router.router, prefix="/api/v1", tags=["onboarding"]
+)
+app.include_router(notifications_router.router, tags=["notifications"])
 
 
 @app.get("/health")

@@ -7,6 +7,7 @@ use axum::{
     response::sse::{Event, KeepAlive, Sse},
 };
 use futures::future::join_all;
+use opentelemetry_semantic_conventions::trace as semconv;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{error, info, instrument, warn};
@@ -36,6 +37,9 @@ use crate::{
     fields(
         tenant_id = tracing::field::Empty,
         conversation_id = tracing::field::Empty,
+        // OTEL semantic conventions for HTTP server spans
+        { semconv::HTTP_REQUEST_METHOD } = "POST",
+        { semconv::URL_PATH } = "/process",
     )
 )]
 pub async fn process_handler(
@@ -124,6 +128,12 @@ async fn send_event(tx: &mpsc::Sender<Result<Event, Infallible>>, payload: &SseE
         priority = tracing::field::Empty,
         model    = tracing::field::Empty,
         iterations = tracing::field::Empty,
+        // OTEL GenAI semantic conventions
+        { semconv::GEN_AI_OPERATION_NAME } = "chat",
+        { semconv::GEN_AI_SYSTEM } = tracing::field::Empty,
+        gen_ai.request.model = tracing::field::Empty,
+        gen_ai.usage.input_tokens = tracing::field::Empty,
+        gen_ai.usage.output_tokens = tracing::field::Empty,
     )
 )]
 async fn orchestrate(
@@ -192,6 +202,20 @@ async fn orchestrate(
     let model = model_router.select_model(&req);
     tracing::Span::current().record("model", model.as_str());
 
+    // Record GenAI semantic convention attributes for this span
+    let gen_ai_system = if model.starts_with("claude-") {
+        "anthropic"
+    } else if model.starts_with("gpt-") || model.starts_with("o1") || model.starts_with("o3") {
+        "openai"
+    } else if model.starts_with("groq:") || model.starts_with("groq/") {
+        "groq"
+    } else {
+        "ollama"
+    };
+    tracing::Span::current()
+        .record(semconv::GEN_AI_SYSTEM, gen_ai_system)
+        .record("gen_ai.request.model", model.as_str());
+
     let llm = create_llm_provider(&model, &state.config)?;
 
     // Build initial context
@@ -230,6 +254,9 @@ async fn orchestrate(
         if llm_response.tool_calls.is_empty() {
             // Final response — emit done event and exit loop
             tracing::Span::current().record("iterations", iteration + 1);
+            tracing::Span::current()
+                .record("gen_ai.usage.input_tokens", llm_response.usage.prompt_tokens)
+                .record("gen_ai.usage.output_tokens", llm_response.usage.completion_tokens);
             send_event(
                 &tx,
                 &SseEventPayload::Done {

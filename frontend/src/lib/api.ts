@@ -108,6 +108,8 @@ export const authApi = {
 
 import type { Contact, Account, Deal, PaginatedResponse } from "@/types";
 
+import type { ContactCreate, ContactUpdate, DealCreate } from "@/types";
+
 export const crmApi = {
   // Contacts
   listContacts: (params?: { query?: string; account_id?: string; page?: number; limit?: number }) => {
@@ -119,6 +121,8 @@ export const crmApi = {
     return api.get<PaginatedResponse<Contact>>(`/crm/contacts?${p}`);
   },
   getContact: (id: string) => api.get<Contact>(`/crm/contacts/${id}`),
+  createContact: (data: ContactCreate) => api.post<Contact>("/crm/contacts", data),
+  updateContact: (id: string, data: ContactUpdate) => api.put<Contact>(`/crm/contacts/${id}`, data),
 
   // Accounts
   listAccounts: (params?: { query?: string; industry?: string; page?: number; limit?: number }) => {
@@ -141,6 +145,7 @@ export const crmApi = {
     return api.get<PaginatedResponse<Deal>>(`/crm/deals?${p}`);
   },
   getDeal: (id: string) => api.get<Deal>(`/crm/deals/${id}`),
+  createDeal: (data: DealCreate) => api.post<Deal>("/crm/deals", data),
 
   /** @deprecated Utiliser listAccounts */
   listCompanies: (page = 1, pageSize = 20) =>

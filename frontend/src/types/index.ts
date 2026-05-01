@@ -79,6 +79,20 @@ export interface ProcessRequest {
 
 export type ContactStatus = "active" | "inactive" | "lead" | "customer" | "churned";
 
+/** Miroir de ContactCreate (backend app/crm/schemas.py). */
+export interface ContactCreate {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  job_title?: string;
+  status?: ContactStatus;
+  account_id?: string;
+}
+
+/** Miroir de ContactUpdate (backend app/crm/schemas.py). */
+export type ContactUpdate = Partial<ContactCreate>;
+
 /** Miroir de ContactRead (backend app/crm/schemas.py). */
 export interface Contact {
   id: string;
@@ -118,6 +132,19 @@ export type DealStage =
   | "closing"
   | "won"
   | "lost";
+
+/** Miroir de DealCreate (backend app/crm/schemas.py). */
+export interface DealCreate {
+  account_id: string;
+  contact_id?: string;
+  title: string;
+  stage: DealStage;
+  amount?: number;
+  currency?: string;
+  close_date?: string;
+  probability?: number;
+  notes?: string;
+}
 
 /** Miroir de DealRead (backend app/crm/schemas.py). */
 export interface Deal {

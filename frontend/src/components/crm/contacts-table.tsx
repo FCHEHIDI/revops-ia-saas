@@ -1,12 +1,13 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Search, Plus, Pencil } from "lucide-react";
 import { useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { useApiQuery } from "@/hooks/useApi";
 import { crmApi } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { ContactDetailPanel } from "./contact-detail-panel";
+import { ContactFormModal } from "./contact-form-modal";
 import type { Contact, ContactStatus } from "@/types";
 
 /* ── Status config — Venetian palette ─────────────────── */
@@ -139,6 +140,8 @@ export function ContactsTable() {
   const [selected, setSelected] = useState<Contact | null>(null);
   const [focusSearch, setFocusSearch] = useState(false);
   const [page, setPage] = useState(1);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editContact, setEditContact] = useState<Contact | null>(null);
 
   const { data, isLoading, error } = useApiQuery(
     ["contacts"],
@@ -184,7 +187,24 @@ export function ContactsTable() {
 
   return (
     <>
-      <ContactDetailPanel contact={selected} onClose={() => setSelected(null)} />
+      <ContactDetailPanel
+        contact={selected}
+        onClose={() => setSelected(null)}
+        onEdit={(c) => { setSelected(null); setEditContact(c); }}
+      />
+
+      {/* Modals CRUD */}
+      {showCreateModal && (
+        <ContactFormModal
+          onClose={() => setShowCreateModal(false)}
+        />
+      )}
+      {editContact && (
+        <ContactFormModal
+          contact={editContact}
+          onClose={() => setEditContact(null)}
+        />
+      )}
 
       <div className="space-y-5">
 
@@ -239,6 +259,27 @@ export function ContactsTable() {
             >
               {contacts.length} contact{contacts.length !== 1 ? "s" : ""}
             </span>
+            {/* Bouton Nouveau contact */}
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="font-cinzel flex items-center gap-1.5 rounded transition-all duration-150"
+              style={{
+                background: "rgba(138,0,0,0.25)",
+                border: "1px solid var(--red-dark)",
+                padding: "5px 14px",
+                color: "var(--white-spectral)",
+                cursor: "pointer",
+                fontSize: "0.65rem",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                boxShadow: "var(--glow-red)",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(138,0,0,0.45)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(138,0,0,0.25)"; }}
+            >
+              <Plus size={11} />
+              Nouveau contact
+            </button>
           </div>
 
           {/* Empty state */}
@@ -255,9 +296,9 @@ export function ContactsTable() {
             <table className="w-full">
               <thead style={{ borderBottom: "1px solid rgba(138,0,0,0.2)" }}>
                 <tr>
-                  {["Contact", "Email", "Poste", "Statut", "Créé le"].map((h) => (
+                  {["Contact", "Email", "Poste", "Statut", "Créé le", ""].map((h, i) => (
                     <th
-                      key={h}
+                      key={i}
                       className="px-5 py-3 text-left font-cinzel text-xs tracking-[0.15em] uppercase"
                       style={{ color: "var(--red-doge)" }}
                     >
@@ -342,6 +383,39 @@ export function ContactsTable() {
                         }}
                       >
                         {formatDate(contact.created_at)}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-3 py-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditContact(contact);
+                          }}
+                          title="Modifier"
+                          style={{
+                            background: "transparent",
+                            border: "1px solid rgba(138,0,0,0.25)",
+                            borderRadius: 4,
+                            padding: "4px 6px",
+                            cursor: "pointer",
+                            color: "var(--gray-silver)",
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                          onMouseEnter={(e) => {
+                            const btn = e.currentTarget as HTMLButtonElement;
+                            btn.style.color = "var(--red-doge)";
+                            btn.style.borderColor = "var(--red-doge)";
+                          }}
+                          onMouseLeave={(e) => {
+                            const btn = e.currentTarget as HTMLButtonElement;
+                            btn.style.color = "var(--gray-silver)";
+                            btn.style.borderColor = "rgba(138,0,0,0.25)";
+                          }}
+                        >
+                          <Pencil size={11} />
+                        </button>
                       </td>
                     </tr>
                   );

@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import {
   X, Mail, Phone, Building2, Briefcase,
-  Calendar, DollarSign, TrendingUp,
+  Calendar, DollarSign, TrendingUp, Pencil,
 } from "lucide-react";
 import { useApiQuery } from "@/hooks/useApi";
 import { crmApi } from "@/lib/api";
@@ -140,9 +140,10 @@ function Timeline({ contact }: { contact: Contact }) {
 interface Props {
   contact: Contact | null;
   onClose: () => void;
+  onEdit?: (contact: Contact) => void;
 }
 
-export function ContactDetailPanel({ contact, onClose }: Props) {
+export function ContactDetailPanel({ contact, onClose, onEdit }: Props) {
   // Close on Escape
   useEffect(() => {
     if (!contact) return;
@@ -271,6 +272,19 @@ export function ContactDetailPanel({ contact, onClose }: Props) {
                   >
                     <Phone size={12} /> Appel
                   </a>
+                )}
+                {onEdit && (
+                  <button
+                    onClick={() => onEdit(contact)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "6px 12px", borderRadius: 6, fontSize: 12, fontWeight: 500,
+                      background: "rgba(138,0,0,0.12)", color: "var(--red-doge)",
+                      border: "1px solid rgba(138,0,0,0.3)", cursor: "pointer",
+                    }}
+                  >
+                    <Pencil size={12} /> Modifier
+                  </button>
                 )}
               </div>
             </div>

@@ -151,7 +151,14 @@ function NotificationItem({
 export function NotificationPanel() {
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // Defer unread-dependent rendering to avoid SSR/client hydration mismatch.
+  // On first render (SSR + client initial), mounted=false so we use 0.
+  useEffect(() => { setMounted(true); }, []);
+
+  const displayCount = mounted ? unreadCount : 0;
 
   useEffect(() => {
     if (!open) return;
@@ -169,7 +176,7 @@ export function NotificationPanel() {
       {/* ── Bell button ── */}
       <button
         onClick={() => setOpen((o) => !o)}
-        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} non lues)` : ""}`}
+        aria-label={`Notifications${displayCount > 0 ? ` (${displayCount} non lues)` : ""}`}
         style={{
           position: "relative",
           width: 44,
@@ -188,7 +195,7 @@ export function NotificationPanel() {
           e.currentTarget.style.filter = "drop-shadow(0 0 10px rgba(255,0,0,0.55))";
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.filter = unreadCount > 0
+          e.currentTarget.style.filter = displayCount > 0
             ? "drop-shadow(0 0 6px rgba(255,0,0,0.35))"
             : "none";
         }}
@@ -200,14 +207,14 @@ export function NotificationPanel() {
           height={36}
           className="object-contain"
           style={{
-            filter: unreadCount > 0
+            filter: displayCount > 0
               ? "drop-shadow(0 0 6px rgba(255,0,0,0.60))"
               : "grayscale(0.3) opacity(0.7)",
             transition: "filter 0.2s",
-            animation: unreadCount > 0 ? "bellRing 2.4s ease-in-out infinite" : "none",
+            animation: displayCount > 0 ? "bellRing 2.4s ease-in-out infinite" : "none",
           }}
         />
-        {unreadCount > 0 && (
+        {displayCount > 0 && (
           <span
             style={{
               position: "absolute",
@@ -230,7 +237,7 @@ export function NotificationPanel() {
               pointerEvents: "none",
             }}
           >
-            {unreadCount > 9 ? "9+" : unreadCount}
+            {displayCount > 9 ? "9+" : displayCount}
           </span>
         )}
       </button>

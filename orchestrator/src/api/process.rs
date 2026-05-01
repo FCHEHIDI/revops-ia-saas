@@ -380,15 +380,14 @@ async fn dispatch_tool_calls(
 
         let (result_value, result_content) = match result {
             Ok(v) => {
-                let s = serde_json::to_string(&v).unwrap_or_else(|e| {
-                    warn!(tool = %tool_name, error = %e, "Failed to serialize MCP result");
-                    String::new()
-                });
+                // Truncate large list results to avoid Groq TPM rate limits.
+                let s = truncate_mcp_result(v.clone());
                 info!(
                     tool = %tool_name,
                     server = %server_prefix,
                     crm_entity_type = %crm_entity,
                     duration_ms,
+                    result_chars = s.len(),
                     success = true,
                     "MCP tool call completed"
                 );
@@ -436,18 +435,103 @@ fn needs_tools(message: &str) -> bool {
     // Data-oriented keywords that require tool calls
     const DATA_KEYWORDS: &[&str] = &[
         // CRM entities
-        "contact", "client", "account", "deal", "lead", "prospect", "opportunit",
-        "pipeline", "société", "societe", "entreprise", "company",
+        "contact",
+        "client",
+        "account",
+        "deal",
+        "lead",
+        "prospect",
+        "opportunit",
+        "pipeline",
+        "société",
+        "societe",
+        "entreprise",
+        "company",
         // Billing / revenue
-        "facture", "invoice", "billing", "paiement", "payment", "revenue", "chiffre",
-        "mrr", "arr", "montant", "amount", "abonnement", "subscription",
+        "facture",
+        "invoice",
+        "billing",
+        "paiement",
+        "payment",
+        "revenue",
+        "chiffre",
+        "mrr",
+        "arr",
+        "montant",
+        "amount",
+        "abonnement",
+        "subscription",
         // Actions that imply data retrieval
-        "liste", "montre", "affiche", "recherche", "trouve", "show", "list", "find",
-        "search", "get", "fetch", "donne-moi", "donne moi", "combien", "quel",
+        "liste",
+        "montre",
+        "affiche",
+        "recherche",
+        "trouve",
+        "show",
+        "list",
+        "find",
+        "search",
+        "get",
+        "fetch",
+        "donne-moi",
+        "donne moi",
+        "combien",
+        "quel",
         // Sequences / analytics
-        "séquence", "sequence", "campagne", "campaign", "metric", "dashboard",
-        "report", "rapport", "analyse", "analytics", "statistique",
+        "séquence",
+        "sequence",
+        "campagne",
+        "campaign",
+        "metric",
+        "dashboard",
+        "report",
+        "rapport",
+        "analyse",
+        "analytics",
+        "statistique",
     ];
 
     DATA_KEYWORDS.iter().any(|kw| msg.contains(kw))
+}
+
+/// Truncates a large MCP result to stay within Groq's TPM limits.
+///
+/// - If the result is an object with an `items` array, keeps the first
+///   `MAX_ITEMS` elements and appends a `_truncated` note so the LLM
+///   knows the list was shortened.
+/// - Otherwise, truncates the JSON string to `MAX_CHARS` characters.
+///
+/// This prevents 429 rate-limit errors while still giving the LLM
+/// enough representative data to answer.
+fn truncate_mcp_result(value: serde_json::Value) -> String {
+    const MAX_ITEMS: usize = 5;
+    const MAX_CHARS: usize = 3000;
+
+    if let serde_json::Value::Object(ref map) = value {
+        if let Some(serde_json::Value::Array(items)) = map.get("items") {
+            if items.len() > MAX_ITEMS {
+                let mut truncated = map.clone();
+                truncated.insert(
+                    "items".to_string(),
+                    serde_json::Value::Array(items[..MAX_ITEMS].to_vec()),
+                );
+                truncated.insert(
+                    "_truncated".to_string(),
+                    serde_json::json!(format!(
+                        "Showing {}/{} items (list truncated for context size)",
+                        MAX_ITEMS,
+                        items.len()
+                    )),
+                );
+                return serde_json::to_string(&truncated).unwrap_or_default();
+            }
+        }
+    }
+
+    let s = serde_json::to_string(&value).unwrap_or_default();
+    if s.len() > MAX_CHARS {
+        format!("{}… [truncated at {} chars]", &s[..MAX_CHARS], MAX_CHARS)
+    } else {
+        s
+    }
 }

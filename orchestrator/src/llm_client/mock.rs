@@ -2,7 +2,9 @@ use anyhow::Result;
 use async_trait::async_trait;
 use uuid::Uuid;
 
-use crate::models::{FinishReason, FunctionCall, LlmResponse, Message, Role, Tool, ToolCall, UsageStats};
+use crate::models::{
+    FinishReason, FunctionCall, LlmResponse, Message, Role, Tool, ToolCall, UsageStats,
+};
 
 use super::LlmProvider;
 
@@ -25,31 +27,51 @@ fn classify_intents(text: &str) -> Vec<&'static str> {
     let t = text.to_lowercase();
     let mut intents: Vec<&'static str> = Vec::new();
 
-    if t.contains("contact") || t.contains(" crm") || t.contains("deal")
-        || t.contains("pipeline") || t.contains("prospect") || t.contains("lead")
+    if t.contains("contact")
+        || t.contains(" crm")
+        || t.contains("deal")
+        || t.contains("pipeline")
+        || t.contains("prospect")
+        || t.contains("lead")
         || t.contains("compte client")
     {
         intents.push("crm");
     }
 
-    if t.contains("factur") || t.contains("paiement") || t.contains("billing")
-        || t.contains("impay") || t.contains("retard") || t.contains("invoice")
-        || t.contains("subscription") || t.contains("abonnement")
+    if t.contains("factur")
+        || t.contains("paiement")
+        || t.contains("billing")
+        || t.contains("impay")
+        || t.contains("retard")
+        || t.contains("invoice")
+        || t.contains("subscription")
+        || t.contains("abonnement")
     {
         intents.push("billing");
     }
 
-    if t.contains("mrr") || t.contains("analyti") || t.contains("tendance")
-        || t.contains("croissance") || t.contains("conversion") || t.contains("churn")
-        || t.contains("funnel") || t.contains("entonnoir") || t.contains("taux")
-        || t.contains("kpi") || t.contains("métrique")
+    if t.contains("mrr")
+        || t.contains("analyti")
+        || t.contains("tendance")
+        || t.contains("croissance")
+        || t.contains("conversion")
+        || t.contains("churn")
+        || t.contains("funnel")
+        || t.contains("entonnoir")
+        || t.contains("taux")
+        || t.contains("kpi")
+        || t.contains("métrique")
     {
         intents.push("analytics");
     }
 
-    if t.contains("séquence") || t.contains("sequence") || t.contains("relance")
-        || t.contains("outreach") || t.contains("campagne automatis")
-        || t.contains("automatisation") || t.contains("automation")
+    if t.contains("séquence")
+        || t.contains("sequence")
+        || t.contains("relance")
+        || t.contains("outreach")
+        || t.contains("campagne automatis")
+        || t.contains("automatisation")
+        || t.contains("automation")
     {
         intents.push("sequences");
     }
@@ -70,7 +92,10 @@ fn tool_call_for_intent(intent: &str, tenant_id: &str) -> ToolCall {
     let (name, arguments) = match intent {
         "crm" => (
             "mcp_crm__list_contacts",
-            format!(r#"{{"tenant_id": "{}", "page": 1, "limit": 10}}"#, tenant_id),
+            format!(
+                r#"{{"tenant_id": "{}", "page": 1, "limit": 10}}"#,
+                tenant_id
+            ),
         ),
         "analytics" => (
             "mcp_analytics__get_mrr_trend",
@@ -78,7 +103,10 @@ fn tool_call_for_intent(intent: &str, tenant_id: &str) -> ToolCall {
         ),
         "sequences" => (
             "mcp_sequences__list_sequences",
-            format!(r#"{{"tenant_id": "{}", "page": 1, "limit": 10}}"#, tenant_id),
+            format!(
+                r#"{{"tenant_id": "{}", "page": 1, "limit": 10}}"#,
+                tenant_id
+            ),
         ),
         // billing (default)
         _ => (
@@ -151,10 +179,7 @@ fn synthesis_for_intents(intents: &[&str]) -> String {
 impl LlmProvider for MockProvider {
     async fn complete(&self, messages: &[Message], _tools: &[Tool]) -> Result<LlmResponse> {
         // Count tool results already accumulated in the conversation
-        let tool_result_count = messages
-            .iter()
-            .filter(|m| m.tool_call_id.is_some())
-            .count();
+        let tool_result_count = messages.iter().filter(|m| m.tool_call_id.is_some()).count();
 
         // Extract tenant_id from the system message (first UUID-shaped token on a "tenant" line)
         let tenant_id = messages
@@ -177,7 +202,7 @@ impl LlmProvider for MockProvider {
         let last_user_text = messages
             .iter()
             .filter(|m| m.role == Role::User)
-            .last()
+            .next_back()
             .and_then(|m| m.content.as_deref())
             .unwrap_or("");
 
@@ -190,7 +215,11 @@ impl LlmProvider for MockProvider {
                     content: None,
                     tool_calls: vec![tool_call_for_intent(intents[0], &tenant_id)],
                     finish_reason: FinishReason::ToolCalls,
-                    usage: UsageStats { prompt_tokens: 80, completion_tokens: 20, total_tokens: 100 },
+                    usage: UsageStats {
+                        prompt_tokens: 80,
+                        completion_tokens: 20,
+                        total_tokens: 100,
+                    },
                 })
             }
             1 if intents.len() >= 2 => {
@@ -199,7 +228,11 @@ impl LlmProvider for MockProvider {
                     content: None,
                     tool_calls: vec![tool_call_for_intent(intents[1], &tenant_id)],
                     finish_reason: FinishReason::ToolCalls,
-                    usage: UsageStats { prompt_tokens: 120, completion_tokens: 22, total_tokens: 142 },
+                    usage: UsageStats {
+                        prompt_tokens: 120,
+                        completion_tokens: 22,
+                        total_tokens: 142,
+                    },
                 })
             }
             _ => {
@@ -208,7 +241,11 @@ impl LlmProvider for MockProvider {
                     content: Some(synthesis_for_intents(&intents)),
                     tool_calls: vec![],
                     finish_reason: FinishReason::Stop,
-                    usage: UsageStats { prompt_tokens: 200, completion_tokens: 48, total_tokens: 248 },
+                    usage: UsageStats {
+                        prompt_tokens: 200,
+                        completion_tokens: 48,
+                        total_tokens: 248,
+                    },
                 })
             }
         }

@@ -24,9 +24,13 @@ fn test_config() -> Config {
         redis_url: "redis://localhost:6379".to_string(),
         openai_api_key: Some("test-key".to_string()),
         anthropic_api_key: None,
+        groq_api_key: None,
+        ollama_base_url: None,
         default_model: "gpt-4o".to_string(),
         otel_exporter_otlp_endpoint: None,
         rust_log: "error".to_string(),
+        backend_secret: "test-backend-secret".to_string(),
+        llm_mock: true,
     }
 }
 

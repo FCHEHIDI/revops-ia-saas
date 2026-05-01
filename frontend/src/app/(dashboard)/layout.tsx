@@ -1,5 +1,6 @@
 import { TopNav } from "@/components/layout/top-nav";
 import { NotificationProvider } from "@/components/notifications/notification-provider";
+import { WsNotificationsBridge } from "@/components/notifications/ws-notifications-bridge";
 import { CommandPalette } from "@/components/search/command-palette";
 
 export default function DashboardLayout({
@@ -9,6 +10,7 @@ export default function DashboardLayout({
 }) {
   return (
     <NotificationProvider>
+      <WsNotificationsBridge />
       <div
         className="flex flex-col h-screen overflow-hidden bg-palazzo"
       >

@@ -36,7 +36,7 @@ const RECONNECT_DELAY_MS = 3_000;
 /** Internal frame types that are not surfaced as user notifications. */
 const SILENT_TYPES = new Set(["connected", "ping", "pong"]);
 
-export function useNotifications(): {
+export function useWsNotifications(): {
   notifications: Notification[];
   isConnected: boolean;
   clearNotifications: () => void;

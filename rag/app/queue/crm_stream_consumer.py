@@ -144,6 +144,19 @@ class CrmStreamConsumer:
                 )
             except asyncio.CancelledError:
                 break
+            except aioredis.ResponseError as exc:
+                if "NOGROUP" in str(exc):
+                    logger.warning(
+                        "Consumer group lost (Redis restart?), recreating …"
+                    )
+                    try:
+                        await self._ensure_group()
+                    except Exception as eg:
+                        logger.error("Failed to recreate consumer group: %s", eg)
+                else:
+                    logger.error("XREADGROUP failed: %s", exc, exc_info=True)
+                await asyncio.sleep(1)
+                continue
             except Exception as exc:
                 logger.error("XREADGROUP failed: %s", exc, exc_info=True)
                 await asyncio.sleep(1)

@@ -54,9 +54,12 @@ export function useWsNotifications(): {
 
     const backendUrl =
       process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:18000";
+    // Strip any trailing /api/v1 path before building the WebSocket URL
+    // (NEXT_PUBLIC_BACKEND_URL already includes /api/v1 for HTTP calls)
+    const wsBase = backendUrl.replace(/\/api\/v\d+\/?$/, "");
     // Replace http(s):// with ws(s):// for the WebSocket URL
     const wsUrl =
-      backendUrl.replace(/^http/, "ws") + "/api/v1/ws/notifications";
+      wsBase.replace(/^http/, "ws") + "/api/v1/ws/notifications";
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;

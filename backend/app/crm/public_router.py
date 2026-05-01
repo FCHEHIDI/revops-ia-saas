@@ -38,6 +38,7 @@ from .service import (
     create_account_service,
     create_contact_service,
     create_deal_service,
+    delete_contact_service,
     get_account_by_id,
     get_contact_by_id,
     get_deal_by_id,
@@ -179,6 +180,30 @@ async def update_contact(
     return await update_contact_service(
         db, id, data.model_dump(exclude_unset=True), user.org_id, user.id
     )
+
+
+@router.delete(
+    "/contacts/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Supprimer un contact",
+)
+async def delete_contact(
+    id: UUID,
+    user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Supprime un contact appartenant au tenant courant.
+
+    Args:
+        id: UUID du contact à supprimer.
+        user: Utilisateur courant (JWT).
+        db: Session base de données.
+
+    Raises:
+        HTTPException: 403 si permission manquante, 404 si contact introuvable.
+    """
+    _require_perm(user, "crm:contacts:write")
+    await delete_contact_service(db, id, user.org_id, user.id)
 
 
 # ---------------------------------------------------------------------------

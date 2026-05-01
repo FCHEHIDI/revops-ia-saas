@@ -25,6 +25,11 @@ node_modules/
 out/
 *.tsbuildinfo
 
+## Playwright E2E
+frontend/playwright-report/
+frontend/test-results/
+frontend/e2e/.auth/user.json
+
 ## IDEs / OS
 .DS_Store
 .idea/

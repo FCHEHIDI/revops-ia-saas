@@ -5,6 +5,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use chrono::{Datelike, Local, Months, NaiveDate};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
@@ -84,6 +85,125 @@ async fn list_tools_handler() -> Json<Value> {
     ]))
 }
 
+// ---------------------------------------------------------------------------
+// Period normalisation helpers
+//
+// The orchestrator sends a high-level `period` string (e.g. "last_30_days").
+// Each tool input struct requires explicit ISO 8601 dates or a month count.
+// These helpers translate the period before serde deserialisation.
+// ---------------------------------------------------------------------------
+
+/// Map a natural-language period to (period_start, period_end) dates.
+fn resolve_period(period: &str, today: NaiveDate) -> (NaiveDate, NaiveDate) {
+    match period {
+        "last_7_days" => (today - chrono::Duration::days(7), today),
+        "last_30_days" => (today - chrono::Duration::days(30), today),
+        "last_90_days" => (today - chrono::Duration::days(90), today),
+        "last_6_months" | "last_180_days" => {
+            let start = today.checked_sub_months(Months::new(6)).unwrap_or(today);
+            (start, today)
+        }
+        "last_12_months" => {
+            let start = today.checked_sub_months(Months::new(12)).unwrap_or(today);
+            (start, today)
+        }
+        "current_month" => {
+            let start =
+                NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap_or(today);
+            (start, today)
+        }
+        "last_month" => {
+            let first_of_current =
+                NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap_or(today);
+            let end = first_of_current - chrono::Duration::days(1);
+            let start =
+                NaiveDate::from_ymd_opt(end.year(), end.month(), 1).unwrap_or(end);
+            (start, end)
+        }
+        "current_quarter" => {
+            let q_month = ((today.month() - 1) / 3) * 3 + 1;
+            let start = NaiveDate::from_ymd_opt(today.year(), q_month, 1).unwrap_or(today);
+            (start, today)
+        }
+        "last_quarter" => {
+            let q_month = ((today.month() - 1) / 3) * 3 + 1;
+            let q_start = NaiveDate::from_ymd_opt(today.year(), q_month, 1).unwrap_or(today);
+            let end = q_start - chrono::Duration::days(1);
+            let prev_q_month = ((end.month() - 1) / 3) * 3 + 1;
+            let start =
+                NaiveDate::from_ymd_opt(end.year(), prev_q_month, 1).unwrap_or(end);
+            (start, end)
+        }
+        "current_year" => {
+            let start = NaiveDate::from_ymd_opt(today.year(), 1, 1).unwrap_or(today);
+            (start, today)
+        }
+        "last_year" | "previous_year" => {
+            let start = NaiveDate::from_ymd_opt(today.year() - 1, 1, 1).unwrap_or(today);
+            let end = NaiveDate::from_ymd_opt(today.year() - 1, 12, 31).unwrap_or(today);
+            (start, end)
+        }
+        _ => (today - chrono::Duration::days(30), today),
+    }
+}
+
+/// Map a period string to a month count (for `get_mrr_trend` and `forecast_revenue`).
+fn period_to_months(period: &str) -> u8 {
+    match period {
+        "last_month" | "current_month" | "next_month" => 1,
+        "last_3_months" | "current_quarter" | "last_quarter" | "next_quarter" => 3,
+        "last_6_months" | "next_6_months" => 6,
+        "last_12_months" | "last_year" | "current_year" | "next_year" => 12,
+        _ => 3,
+    }
+}
+
+/// Translate LLM-friendly params into the exact fields expected by each input struct.
+///
+/// Runs in-place on the JSON params object before serde deserialisation.
+fn normalize_period_params(tool: &str, params: &mut Value) {
+    let today = Local::now().date_naive();
+    let map = match params.as_object_mut() {
+        Some(m) => m,
+        None => return,
+    };
+
+    if tool == "forecast_revenue" {
+        // period → forecast_months; inject defaults for model and include_existing_mrr
+        if let Some(pv) = map.remove("period") {
+            let months = period_to_months(pv.as_str().unwrap_or("next_quarter"));
+            map.entry("forecast_months")
+                .or_insert_with(|| Value::Number(months.into()));
+        }
+        map.entry("model")
+            .or_insert_with(|| Value::String("weighted_pipeline".to_string()));
+        map.entry("include_existing_mrr")
+            .or_insert(Value::Bool(true));
+        // confidence_level was in old defs — silently remove it
+        map.remove("confidence_level");
+        return;
+    }
+
+    if tool == "get_mrr_trend" {
+        // period → months
+        if let Some(pv) = map.remove("period") {
+            let months = period_to_months(pv.as_str().unwrap_or("last_12_months"));
+            map.entry("months")
+                .or_insert_with(|| Value::Number(months.into()));
+        }
+        return;
+    }
+
+    // All other period-based analytics tools: period → period_start + period_end
+    if map.contains_key("period") && !map.contains_key("period_start") {
+        if let Some(pv) = map.remove("period") {
+            let (start, end) = resolve_period(pv.as_str().unwrap_or("last_30_days"), today);
+            map.insert("period_start".to_string(), Value::String(start.to_string()));
+            map.insert("period_end".to_string(), Value::String(end.to_string()));
+        }
+    }
+}
+
 fn unauthorized() -> (StatusCode, Json<McpCallResponse>) {
     (
         StatusCode::UNAUTHORIZED,
@@ -151,6 +271,9 @@ async fn mcp_call(
 
     let pool = state.pool.as_ref();
     info!(tool = %body.tool, "MCP HTTP dispatch");
+
+    // Translate period strings and inject defaults before deserialisation
+    normalize_period_params(&body.tool, &mut params);
 
     match body.tool.as_str() {
         // ── Pipeline ──────────────────────────────────────────────────────────

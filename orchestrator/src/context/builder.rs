@@ -493,12 +493,20 @@ pub fn default_tool_definitions() -> Vec<Tool> {
         make_tool(
             "mcp_analytics__compute_churn_rate",
             "Compute monthly or quarterly churn rate as a percentage",
-            &[(
-                "period",
-                "string",
-                "Time period for churn computation",
-                true,
-            )],
+            &[
+                (
+                    "period",
+                    "string",
+                    "Time period for churn computation (e.g. 'current_quarter', 'last_month')",
+                    true,
+                ),
+                (
+                    "churn_type",
+                    "string",
+                    "Type of churn to compute: 'customer' (count-based) or 'revenue' (MRR-based)",
+                    true,
+                ),
+            ],
         ),
         make_tool(
             "mcp_analytics__get_deal_velocity",
@@ -556,24 +564,37 @@ pub fn default_tool_definitions() -> Vec<Tool> {
             "Get stage-by-stage conversion rates across the sales funnel",
             &[("period", "string", "Time period to analyze", true)],
         ),
-        make_tool(
-            "mcp_analytics__forecast_revenue",
-            "Forecast future revenue based on current pipeline and historical close rates",
-            &[
-                (
-                    "period",
-                    "string",
-                    "Forecast horizon (e.g. 'next_quarter')",
-                    true,
-                ),
-                (
-                    "confidence_level",
-                    "string",
-                    "Confidence band: 'low', 'mid', 'high' (default 'mid')",
-                    false,
-                ),
-            ],
-        ),
+        // mcp_analytics__forecast_revenue uses forecast_months + model — built manually
+        // (boolean field `include_existing_mrr` requires raw JSON, not make_tool helper)
+        Tool {
+            tool_type: "function".to_string(),
+            function: ToolFunction {
+                name: "mcp_analytics__forecast_revenue".to_string(),
+                description:
+                    "Forecast future revenue based on current pipeline and historical close rates"
+                        .to_string(),
+                parameters: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "forecast_months": {
+                            "type": "integer",
+                            "description": "Number of months to forecast (1–12)",
+                            "minimum": 1,
+                            "maximum": 12
+                        },
+                        "model": {
+                            "type": "string",
+                            "description": "Forecast model: 'weighted_pipeline' (pipeline × probability), 'linear_trend' (regression on last 6 months), or 'conservative' (weighted_pipeline × 0.7)"
+                        },
+                        "include_existing_mrr": {
+                            "type": "boolean",
+                            "description": "Add current MRR to each forecasted month (default: true)"
+                        }
+                    },
+                    "required": ["forecast_months", "model"]
+                }),
+            },
+        },
         make_tool(
             "mcp_analytics__get_mrr_trend",
             "Get the monthly MRR trend over a given period",

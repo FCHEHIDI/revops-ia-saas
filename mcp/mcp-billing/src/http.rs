@@ -5,6 +5,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use chrono::{Datelike, Local, Months, NaiveDate};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
@@ -82,6 +83,83 @@ async fn list_tools_handler() -> Json<Value> {
     ]))
 }
 
+// ---------------------------------------------------------------------------
+// Period normalisation for billing tools
+//
+// `get_mrr` expects `from_date`/`to_date` (NaiveDate) but the orchestrator
+// sends `period: "2025-01"` (YYYY-MM) or a natural-language range.
+// ---------------------------------------------------------------------------
+
+/// Resolve a `period` string to `(from_date, to_date)` for billing use.
+///
+/// Accepts:
+/// - ISO month "YYYY-MM" → first and last day of that month
+/// - Natural ranges "last_30_days", "current_quarter", etc.
+fn resolve_billing_period(period: &str, today: NaiveDate) -> (NaiveDate, NaiveDate) {
+    // Try "YYYY-MM" first
+    if let Ok(month_date) = NaiveDate::parse_from_str(&format!("{}-01", period), "%Y-%m-%d") {
+        let last_day = {
+            let next = if month_date.month() == 12 {
+                NaiveDate::from_ymd_opt(month_date.year() + 1, 1, 1)
+            } else {
+                NaiveDate::from_ymd_opt(month_date.year(), month_date.month() + 1, 1)
+            };
+            next.unwrap_or(month_date) - chrono::Duration::days(1)
+        };
+        return (month_date, last_day);
+    }
+
+    match period {
+        "last_30_days" => (today - chrono::Duration::days(30), today),
+        "last_90_days" => (today - chrono::Duration::days(90), today),
+        "last_6_months" => {
+            let start = today.checked_sub_months(Months::new(6)).unwrap_or(today);
+            (start, today)
+        }
+        "last_12_months" | "last_year" => {
+            let start = today.checked_sub_months(Months::new(12)).unwrap_or(today);
+            (start, today)
+        }
+        "current_month" => {
+            let start =
+                NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap_or(today);
+            (start, today)
+        }
+        "current_quarter" => {
+            let q_month = ((today.month() - 1) / 3) * 3 + 1;
+            let start = NaiveDate::from_ymd_opt(today.year(), q_month, 1).unwrap_or(today);
+            (start, today)
+        }
+        "current_year" => {
+            let start = NaiveDate::from_ymd_opt(today.year(), 1, 1).unwrap_or(today);
+            (start, today)
+        }
+        _ => {
+            // Fallback: last 30 days
+            (today - chrono::Duration::days(30), today)
+        }
+    }
+}
+
+/// For `get_mrr`: translate `period` → `from_date` / `to_date`.
+fn normalize_billing_params(tool: &str, params: &mut Value) {
+    if tool != "get_mrr" {
+        return;
+    }
+    let today = Local::now().date_naive();
+    let map = match params.as_object_mut() {
+        Some(m) => m,
+        None => return,
+    };
+    if map.contains_key("period") && !map.contains_key("from_date") {
+        if let Some(pv) = map.remove("period") {
+            let (from, to) = resolve_billing_period(pv.as_str().unwrap_or("last_30_days"), today);
+            map.insert("from_date".to_string(), Value::String(from.to_string()));
+            map.insert("to_date".to_string(), Value::String(to.to_string()));
+        }
+    }
+}
+
 fn unauthorized() -> (StatusCode, Json<McpCallResponse>) {
     (
         StatusCode::UNAUTHORIZED,
@@ -149,6 +227,9 @@ async fn mcp_call(
 
     let pool = state.pool.as_ref();
     info!(tool = %body.tool, "MCP HTTP dispatch");
+
+    // Translate period strings before deserialisation
+    normalize_billing_params(&body.tool, &mut params);
 
     match body.tool.as_str() {
         // ── Invoices ──────────────────────────────────────────────────────────

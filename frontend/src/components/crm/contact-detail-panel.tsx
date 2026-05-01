@@ -368,7 +368,7 @@ export function ContactDetailPanel({ contact, onClose, onEdit, onDelete }: Props
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {contactDeals.map((deal) => {
-                      const dc = STAGE_CFG[deal.stage];
+                      const dc = STAGE_CFG[deal.stage] ?? { label: deal.stage ?? "—", color: "#888888" };
                       return (
                         <div
                           key={deal.id}

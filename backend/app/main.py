@@ -72,7 +72,7 @@ app.include_router(proxy_router.router, prefix="/api/v1", tags=["proxy"])
 app.include_router(
     onboarding_router.router, prefix="/api/v1", tags=["onboarding"]
 )
-app.include_router(notifications_router.router, tags=["notifications"])
+app.include_router(notifications_router, tags=["notifications"])
 
 
 @app.get("/health")

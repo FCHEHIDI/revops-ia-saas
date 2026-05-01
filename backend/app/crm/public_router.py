@@ -14,6 +14,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_active_user
@@ -185,6 +186,8 @@ async def update_contact(
 @router.delete(
     "/contacts/{id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+    response_class=Response,
     summary="Supprimer un contact",
 )
 async def delete_contact(

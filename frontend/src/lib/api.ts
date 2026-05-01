@@ -265,3 +265,41 @@ export const documentsApi = {
   },
   deleteDocument: (id: string) => api.delete(`/documents/${id}`),
 };
+
+// ---------------------------------------------------------------------------
+// Sessions endpoints
+// ---------------------------------------------------------------------------
+
+export interface SessionMessage {
+  role: "user" | "assistant";
+  content: string;
+  timestamp?: string;
+}
+
+export interface Session {
+  id: string;
+  user_id: string;
+  org_id: string;
+  title: string | null;
+  messages: SessionMessage[];
+  created_at: string;
+}
+
+export const sessionsApi = {
+  create: (title?: string) =>
+    api.post<Session>("/sessions/", title ? { title } : {}),
+
+  list: () => api.get<Session[]>("/sessions/"),
+
+  get: (sessionId: string) => api.get<Session>(`/sessions/${sessionId}`),
+
+  delete: (sessionId: string) => api.delete<void>(`/sessions/${sessionId}`),
+
+  /** Persist a full exchange (user + assistant messages) after streaming. */
+  persistMessages: (
+    sessionId: string,
+    messages: Array<{ role: "user" | "assistant"; content: string; timestamp?: string }>
+  ) =>
+    api.post<Session>(`/sessions/${sessionId}/messages`, { messages }),
+};
+

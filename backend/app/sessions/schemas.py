@@ -13,7 +13,7 @@ class MessageRole(str, Enum):
 class Message(BaseModel):
     role: MessageRole
     content: str
-    timestamp: datetime
+    timestamp: Optional[datetime] = None
 
 
 class SessionCreate(BaseModel):
@@ -38,4 +38,8 @@ class SessionHistoryResponse(BaseModel):
 class AddMessageRequest(BaseModel):
     role: MessageRole
     content: str
-    timestamp: datetime
+    timestamp: Optional[datetime] = None
+
+
+class BatchMessagesRequest(BaseModel):
+    messages: List["AddMessageRequest"]

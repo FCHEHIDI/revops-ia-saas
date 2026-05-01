@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { generateId } from "@/lib/utils";
+import { sessionsApi } from "@/lib/api";
 import type { ChatMessage, SseEvent, ToolCallData, UsageStats } from "@/types";
 
 interface UseChatOptions {
@@ -55,6 +56,8 @@ export function useChat({
   const conversationIdRef = useRef<string>(initialConversationId ?? generateId());
   const hydratedRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Tracks the backend session ID for server-side persistence
+  const sessionIdRef = useRef<string | null>(null);
 
   // Hydrate from localStorage as soon as tenantId + userId are known (only once)
   useEffect(() => {
@@ -161,6 +164,21 @@ export function useChat({
 
       abortControllerRef.current = new AbortController();
 
+      // Ensure we have a backend session for cross-device persistence
+      if (!sessionIdRef.current) {
+        try {
+          const session = await sessionsApi.create(content.slice(0, 80) || undefined);
+          sessionIdRef.current = session.id;
+          // Align conversation_id with the server session id
+          conversationIdRef.current = session.id;
+        } catch {
+          // non-fatal — streaming still works without persistence
+        }
+      }
+
+      // Accumulate assistant tokens for end-of-stream persistence
+      let assistantContent = "";
+
       try {
         const res = await fetch("/api/chat/stream", {
           method: "POST",
@@ -198,6 +216,9 @@ export function useChat({
             try {
               const event = JSON.parse(data) as SseEvent;
               handleSseEvent(event, assistantMessageId);
+              if (event.type === "token") {
+                assistantContent += (event as { type: "token"; content: string }).content ?? "";
+              }
             } catch {
               // ignore malformed lines
             }
@@ -223,6 +244,17 @@ export function useChat({
           )
         );
         setIsStreaming(false);
+        // Persist the exchange server-side (best-effort, non-blocking)
+        if (sessionIdRef.current && assistantContent) {
+          sessionsApi
+            .persistMessages(sessionIdRef.current, [
+              { role: "user", content, timestamp: userMessage.createdAt.toISOString() },
+              { role: "assistant", content: assistantContent, timestamp: new Date().toISOString() },
+            ])
+            .catch(() => {
+              // non-fatal — message already in localStorage
+            });
+        }
       }
     },
     [isStreaming, tenantId, userId, handleSseEvent]
@@ -231,6 +263,7 @@ export function useChat({
   const clearMessages = useCallback(() => {
     setMessages([]);
     conversationIdRef.current = generateId();
+    sessionIdRef.current = null;
     try {
       localStorage.removeItem(storageKey(tenantId, userId));
     } catch {

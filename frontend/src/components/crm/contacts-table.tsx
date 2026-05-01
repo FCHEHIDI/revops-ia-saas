@@ -1,9 +1,9 @@
 "use client";
 
-import { Search, Plus, Pencil } from "lucide-react";
+import { Search, Plus, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
-import { useApiQuery } from "@/hooks/useApi";
+import { useApiQuery, useApiMutation } from "@/hooks/useApi";
 import { crmApi } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { ContactDetailPanel } from "./contact-detail-panel";
@@ -142,6 +142,18 @@ export function ContactsTable() {
   const [page, setPage] = useState(1);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editContact, setEditContact] = useState<Contact | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const deleteMutation = useApiMutation(
+    (id: string) => crmApi.deleteContact(id),
+    [["contacts"]]
+  );
+
+  async function handleDelete(id: string) {
+    await deleteMutation.mutateAsync(id);
+    setConfirmDeleteId(null);
+    if (selected?.id === id) setSelected(null);
+  }
 
   const { data, isLoading, error } = useApiQuery(
     ["contacts"],
@@ -191,6 +203,7 @@ export function ContactsTable() {
         contact={selected}
         onClose={() => setSelected(null)}
         onEdit={(c) => { setSelected(null); setEditContact(c); }}
+        onDelete={(c) => handleDelete(c.id)}
       />
 
       {/* Modals CRUD */}
@@ -387,35 +400,87 @@ export function ContactsTable() {
 
                       {/* Actions */}
                       <td className="px-3 py-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditContact(contact);
-                          }}
-                          title="Modifier"
-                          style={{
-                            background: "transparent",
-                            border: "1px solid rgba(138,0,0,0.25)",
-                            borderRadius: 4,
-                            padding: "4px 6px",
-                            cursor: "pointer",
-                            color: "var(--gray-silver)",
-                            display: "flex",
-                            alignItems: "center",
-                          }}
-                          onMouseEnter={(e) => {
-                            const btn = e.currentTarget as HTMLButtonElement;
-                            btn.style.color = "var(--red-doge)";
-                            btn.style.borderColor = "var(--red-doge)";
-                          }}
-                          onMouseLeave={(e) => {
-                            const btn = e.currentTarget as HTMLButtonElement;
-                            btn.style.color = "var(--gray-silver)";
-                            btn.style.borderColor = "rgba(138,0,0,0.25)";
-                          }}
-                        >
-                          <Pencil size={11} />
-                        </button>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditContact(contact);
+                            }}
+                            title="Modifier"
+                            style={{
+                              background: "transparent",
+                              border: "1px solid rgba(138,0,0,0.25)",
+                              borderRadius: 4,
+                              padding: "4px 6px",
+                              cursor: "pointer",
+                              color: "var(--gray-silver)",
+                              display: "flex",
+                              alignItems: "center",
+                            }}
+                            onMouseEnter={(e) => {
+                              const btn = e.currentTarget as HTMLButtonElement;
+                              btn.style.color = "var(--red-doge)";
+                              btn.style.borderColor = "var(--red-doge)";
+                            }}
+                            onMouseLeave={(e) => {
+                              const btn = e.currentTarget as HTMLButtonElement;
+                              btn.style.color = "var(--gray-silver)";
+                              btn.style.borderColor = "rgba(138,0,0,0.25)";
+                            }}
+                          >
+                            <Pencil size={11} />
+                          </button>
+
+                          {confirmDeleteId === contact.id ? (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDelete(contact.id); }}
+                              title="Confirmer la suppression"
+                              style={{
+                                background: "rgba(192,0,0,0.2)",
+                                border: "1px solid var(--red-doge)",
+                                borderRadius: 4,
+                                padding: "4px 6px",
+                                cursor: "pointer",
+                                color: "var(--red-doge)",
+                                display: "flex",
+                                alignItems: "center",
+                                fontSize: "0.6rem",
+                                fontFamily: "var(--font-cinzel)",
+                                letterSpacing: "0.06em",
+                                gap: 3,
+                              }}
+                            >
+                              <Trash2 size={10} /> Confirmer
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(contact.id); }}
+                              title="Supprimer"
+                              style={{
+                                background: "transparent",
+                                border: "1px solid rgba(138,0,0,0.25)",
+                                borderRadius: 4,
+                                padding: "4px 6px",
+                                cursor: "pointer",
+                                color: "var(--gray-silver)",
+                                display: "flex",
+                                alignItems: "center",
+                              }}
+                              onMouseEnter={(e) => {
+                                const btn = e.currentTarget as HTMLButtonElement;
+                                btn.style.color = "#ff5050";
+                                btn.style.borderColor = "#ff5050";
+                              }}
+                              onMouseLeave={(e) => {
+                                const btn = e.currentTarget as HTMLButtonElement;
+                                btn.style.color = "var(--gray-silver)";
+                                btn.style.borderColor = "rgba(138,0,0,0.25)";
+                              }}
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

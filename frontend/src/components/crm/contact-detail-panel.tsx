@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   X, Mail, Phone, Building2, Briefcase,
-  Calendar, DollarSign, TrendingUp, Pencil,
+  Calendar, DollarSign, TrendingUp, Pencil, Trash2,
 } from "lucide-react";
 import { useApiQuery } from "@/hooks/useApi";
 import { crmApi } from "@/lib/api";
@@ -141,12 +141,16 @@ interface Props {
   contact: Contact | null;
   onClose: () => void;
   onEdit?: (contact: Contact) => void;
+  onDelete?: (contact: Contact) => void;
 }
 
-export function ContactDetailPanel({ contact, onClose, onEdit }: Props) {
+export function ContactDetailPanel({ contact, onClose, onEdit, onDelete }: Props) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   // Close on Escape
   useEffect(() => {
     if (!contact) return;
+    setConfirmDelete(false);
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -285,6 +289,33 @@ export function ContactDetailPanel({ contact, onClose, onEdit }: Props) {
                   >
                     <Pencil size={12} /> Modifier
                   </button>
+                )}
+                {onDelete && (
+                  confirmDelete ? (
+                    <button
+                      onClick={() => { onDelete(contact); setConfirmDelete(false); onClose(); }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        padding: "6px 12px", borderRadius: 6, fontSize: 12, fontWeight: 500,
+                        background: "rgba(192,0,0,0.25)", color: "#ff5050",
+                        border: "1px solid #ff5050", cursor: "pointer",
+                      }}
+                    >
+                      <Trash2 size={12} /> Confirmer
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        padding: "6px 12px", borderRadius: 6, fontSize: 12, fontWeight: 500,
+                        background: "transparent", color: "var(--text-muted)",
+                        border: "1px solid var(--border-subtle)", cursor: "pointer",
+                      }}
+                    >
+                      <Trash2 size={12} /> Supprimer
+                    </button>
+                  )
                 )}
               </div>
             </div>

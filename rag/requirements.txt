@@ -18,7 +18,7 @@ opentelemetry-exporter-otlp==1.27.0
 opentelemetry-instrumentation-fastapi==0.48b0
 
 # Document parsing — multi-format support
-pypdf==4.3.1
+pypdf==6.10.2
 python-docx==1.1.2
 openpyxl==3.1.5
 

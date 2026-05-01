@@ -262,13 +262,13 @@ pub fn default_tool_definitions() -> Vec<Tool> {
                 (
                     "status",
                     "string",
-                    "Filter by contact status: 'active', 'inactive', 'lead', 'customer', 'churned'",
+                    "Filter by contact status: 'active', 'inactive', 'prospect', 'customer', 'churned'",
                     false,
                 ),
                 (
-                    "limit",
+                    "page_size",
                     "integer",
-                    "Maximum number of results (default 20)",
+                    "Maximum number of results per page (default 20, max 100)",
                     false,
                 ),
             ],
@@ -280,11 +280,11 @@ pub fn default_tool_definitions() -> Vec<Tool> {
                 ("first_name", "string", "Contact first name", true),
                 ("last_name", "string", "Contact last name", true),
                 ("email", "string", "Contact email address", true),
+                ("created_by", "string", "UUID of the user creating the contact", true),
                 ("phone", "string", "Contact phone number", false),
-                ("company", "string", "Company name", false),
                 ("job_title", "string", "Job title or role", false),
                 ("account_id", "string", "UUID of the linked account", false),
-                ("notes", "string", "Optional notes about the contact", false),
+                ("status", "string", "Contact status: 'active', 'inactive', 'prospect', 'customer', 'churned'", false),
             ],
         ),
         make_tool(
@@ -316,11 +316,11 @@ pub fn default_tool_definitions() -> Vec<Tool> {
             "mcp_crm__search_accounts",
             "Search accounts by name or domain",
             &[
-                ("query", "string", "Search query string", true),
+                ("query", "string", "Search query string", false),
                 (
-                    "limit",
+                    "page_size",
                     "integer",
-                    "Maximum number of results (default 10)",
+                    "Maximum number of results per page (default 20, max 100)",
                     false,
                 ),
             ],
@@ -385,12 +385,12 @@ pub fn default_tool_definitions() -> Vec<Tool> {
             "mcp_crm__list_deals",
             "List deals with optional filters on stage or owner",
             &[
-                ("stage", "string", "Filter by stage name", false),
+                ("stage", "string", "Filter by stage: 'prospecting', 'qualification', 'proposal', 'negotiation', 'closed_won', 'closed_lost'", false),
                 ("owner_id", "string", "Filter by owner UUID", false),
                 (
-                    "limit",
+                    "page_size",
                     "integer",
-                    "Maximum number of results (default 20)",
+                    "Maximum number of results per page (default 20, max 100)",
                     false,
                 ),
             ],
@@ -401,11 +401,12 @@ pub fn default_tool_definitions() -> Vec<Tool> {
             &[
                 ("deal_id", "string", "UUID of the deal", true),
                 (
-                    "stage",
+                    "new_stage",
                     "string",
-                    "Target stage name (e.g. 'qualified', 'proposal', 'closed_won')",
+                    "Target stage: 'prospecting', 'qualification', 'proposal', 'negotiation', 'closed_won', 'closed_lost'",
                     true,
                 ),
+                ("notes", "string", "Optional notes to attach to this stage transition", false),
             ],
         ),
         // mcp_crm__create_deal has a contact_ids array field — built manually

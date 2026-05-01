@@ -40,7 +40,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5.1.0
@@ -103,7 +103,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5.1.0
@@ -144,7 +144,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5.1.0
@@ -190,7 +190,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.3.0
@@ -249,7 +249,7 @@ jobs:
       # - Runtime secrets (DB, API keys) : HashiCorp Vault injecté via Vault Agent
       # Ces deux périmètres sont distincts et ne se chevauchent pas.
       - name: Checkout repository
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.3.0
@@ -295,7 +295,7 @@ jobs:
       # - Runtime secrets (DB, API keys) : HashiCorp Vault injecté via Vault Agent
       # Ces deux périmètres sont distincts et ne se chevauchent pas.
       - name: Checkout repository
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.3.0

@@ -59,7 +59,7 @@ jobs:
       # - Runtime secrets (DB, API keys) : HashiCorp Vault injecté via Vault Agent
       # Ces deux périmètres sont distincts et ne se chevauchent pas.
       - name: Checkout repository at release tag
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v6.0.2
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
           fetch-depth: 0
@@ -163,7 +163,7 @@ jobs:
       # - Runtime secrets (DB, API keys) : HashiCorp Vault injecté via Vault Agent
       # Ces deux périmètres sont distincts et ne se chevauchent pas.
       - name: Checkout repository
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v6.0.2
 
       - name: Configure kubectl for production
         run: |

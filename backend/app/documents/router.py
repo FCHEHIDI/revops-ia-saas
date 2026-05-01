@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.db import get_db
 from app.dependencies import get_current_user
-from app.documents.service import upload_document, list_documents, get_document
+from app.documents.service import upload_document, list_documents, get_document, delete_document
 from app.documents.schemas import DocumentResponse
 
 router = APIRouter()
@@ -31,3 +31,13 @@ async def get_doc(
     if not doc or doc.org_id != user["tenant_id"]:
         raise HTTPException(status_code=403, detail="Forbidden")
     return doc
+
+
+@router.delete("/{document_id}", status_code=204)
+async def delete_doc(
+    document_id: str, user=Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
+    doc = await get_document(db, document_id)
+    if not doc or doc.org_id != user["tenant_id"]:
+        raise HTTPException(status_code=404, detail="Document not found")
+    await delete_document(db, doc)

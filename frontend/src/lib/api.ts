@@ -253,15 +253,15 @@ export const sequencesApi = {
 import type { Document } from "@/types";
 
 export const documentsApi = {
-  listDocuments: () => api.get<Document[]>("/rag/documents"),
+  listDocuments: () => api.get<Document[]>("/documents"),
   uploadDocument: (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    return fetch(`${BACKEND_URL}/rag/documents`, {
+    return fetch(`${BACKEND_URL}/documents`, {
       method: "POST",
       credentials: "include",
       body: formData,
     }).then((r) => r.json() as Promise<Document>);
   },
-  deleteDocument: (id: string) => api.delete(`/rag/documents/${id}`),
+  deleteDocument: (id: string) => api.delete(`/documents/${id}`),
 };

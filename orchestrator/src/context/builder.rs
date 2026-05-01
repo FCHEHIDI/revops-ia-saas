@@ -43,7 +43,7 @@ impl ContextBuilder {
         let tenant_id_str = req.tenant_id.to_string();
         let (history_result, rag_result) = tokio::join!(
             self.fetch_history(req),
-            rag_client.retrieve(&tenant_id_str, &req.message, 2),
+            rag_client.retrieve(&tenant_id_str, &req.message, 5),
         );
 
         let history = history_result?;

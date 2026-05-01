@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     internal_api_key: str = ""
     redis_url: str | None = None
     mcp_inter_service_secret: str = "dev-internal-key-change-me"
+    rag_api_url: str = "http://localhost:18500"
 
     @property
     def SECRET_KEY(self) -> str:  # noqa: N802

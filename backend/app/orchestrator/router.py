@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.common.db import get_db
-from app.sessions.service import get_session_history
+from app.sessions.service import get_session
 from app.sessions.schemas import SessionHistoryResponse
 from app.orchestrator.schemas import AddSessionMessageRequest, LLMCallbackRequest
 from app.orchestrator.service import handle_llm_callback
@@ -21,9 +21,16 @@ def verify_internal_secret(x_internal_secret: str = Header(...)):
     response_model=SessionHistoryResponse,
     dependencies=[Depends(verify_internal_secret)],
 )
-async def get_history(session_id: UUID, db: AsyncSession = Depends(get_db)):
-    messages = await get_session_history(db, session_id)
-    return SessionHistoryResponse(session_id=session_id, messages=messages)
+async def get_history(
+    session_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    x_tenant_id: str = Header(...),
+):
+    session = await get_session(db, session_id)
+    # 404 for missing sessions OR cross-tenant access (no info leakage)
+    if not session or str(session.org_id) != x_tenant_id:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return SessionHistoryResponse(session_id=session_id, messages=session.messages)
 
 
 @router.post(

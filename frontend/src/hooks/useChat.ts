@@ -41,7 +41,9 @@ interface UseChatReturn {
   lastUsage: UsageStats | null;
   sendMessage: (content: string) => Promise<void>;
   clearMessages: () => void;
+  loadSession: (sessionId: string, sessionMessages: ChatMessage[]) => void;
   conversationId: string;
+  activeSessionId: string | null;
 }
 
 export function useChat({
@@ -271,12 +273,23 @@ export function useChat({
     }
   }, [tenantId, userId]);
 
+  const loadSession = useCallback(
+    (sessionId: string, sessionMessages: ChatMessage[]) => {
+      sessionIdRef.current = sessionId;
+      conversationIdRef.current = sessionId;
+      setMessages(sessionMessages);
+    },
+    []
+  );
+
   return {
     messages,
     isStreaming,
     lastUsage,
     sendMessage,
     clearMessages,
+    loadSession,
     conversationId: conversationIdRef.current,
+    activeSessionId: sessionIdRef.current,
   };
 }

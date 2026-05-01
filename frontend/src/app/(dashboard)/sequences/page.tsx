@@ -44,7 +44,7 @@ export default function SequencesPage() {
             Séquences
           </h1>
           <p className="text-xs tracking-[0.15em]" style={{ color: "var(--gray-silver)", fontFamily: "var(--font-body)" }}>
-            Rituels d'activation · prospection · rétention
+            Rituels d&apos;activation · prospection · rétention
           </p>
         </div>
       </div>

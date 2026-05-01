@@ -74,8 +74,8 @@ export function MrrChart() {
     }));
     return {
       chartData,
-      currentMrr: Math.round(parseFloat(raw.result.current_mrr)),
-      growth: raw.result.mom_growth_rate,
+      currentMrr: Math.round(parseFloat(raw?.result?.current_mrr ?? "0")),
+      growth: raw?.result?.mom_growth_rate ?? 0,
     };
   }, [raw]);
 

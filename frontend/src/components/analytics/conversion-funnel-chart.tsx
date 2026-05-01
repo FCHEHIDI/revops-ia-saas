@@ -53,7 +53,7 @@ function CustomTooltip({ active, payload }: {
           Taux de conversion : <span style={{ color: healthColor(d.conversion_rate, 60, 40), fontWeight: 600 }}>{d.conversion_rate}%</span>
         </p>
         {d.isBottleneck && (
-          <p style={{ color: C.magenta, marginTop: 4 }}>⚠ Goulot d'étranglement</p>
+          <p style={{ color: C.magenta, marginTop: 4 }}>⚠ Goulot d&apos;étranglement</p>
         )}
       </div>
     </div>
@@ -72,7 +72,7 @@ export function ConversionFunnelChart() {
     if (!stages?.length) {
       return { chartData: FALLBACK_STAGES, overallConversion: 16.7, bottleneck: "Qualification" };
     }
-    const bottleneckKey = raw.result.bottleneck_stage ?? null;
+    const bottleneckKey = raw?.result?.bottleneck_stage ?? null;
     const chartData: FunnelStage[] = stages.map((s) => ({
       stage:           STAGE_LABELS[s.stage] ?? s.stage,
       entered:         s.entered,
@@ -84,7 +84,7 @@ export function ConversionFunnelChart() {
       : null;
     return {
       chartData,
-      overallConversion: Math.round(raw.result.overall_conversion * 100),
+      overallConversion: Math.round((raw?.result?.overall_conversion ?? 0) * 100),
       bottleneck,
     };
   }, [raw]);
@@ -157,7 +157,7 @@ export function ConversionFunnelChart() {
               <LabelList
                 dataKey="conversion_rate"
                 position="right"
-                formatter={(v: number) => `${v}%`}
+                formatter={(v) => `${v ?? 0}%`}
                 style={{ fill: C.secondary, fontSize: 11, fontFamily: CHART.font }}
               />
             </Bar>

@@ -118,12 +118,7 @@ export function BillingStatusChart() {
         )}
       </div>
 
-      {isLoading ? (
-        <div className="flex h-48 items-center justify-center">
-          <Spinner size="lg" />
-        </div>
-      ) : (
-        <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4">
           {/* Donut */}
           <ResponsiveContainer width={160} height={160}>
             <PieChart>
@@ -162,7 +157,6 @@ export function BillingStatusChart() {
             ))}
           </div>
         </div>
-      )}
     </div>
   );
 }

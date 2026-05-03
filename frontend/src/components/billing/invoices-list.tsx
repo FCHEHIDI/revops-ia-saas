@@ -43,15 +43,7 @@ export function InvoicesList() {
     () => billingApi.listInvoices()
   );
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
-  const invoices: Invoice[] = error ? DEMO_INVOICES : (data?.items ?? DEMO_INVOICES);
+  const invoices: Invoice[] = (isLoading || error || !data) ? DEMO_INVOICES : (data?.items ?? DEMO_INVOICES);
 
   if (invoices.length === 0) {
     return (

@@ -63,14 +63,6 @@ export function ChurnRateChart() {
   const nrr_h   = nrrHealth(nrr);
   const churn_h = churnHealth(churnPct);
 
-  if (isLoading) {
-    return (
-      <div className="tablette-marbre flex items-center justify-center" style={{ minHeight: 200, background: "rgba(5,5,5,0.82)", border: "1px solid var(--red-dark)" }}>
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
   return (
     <div className="tablette-marbre flex flex-col gap-5"
       style={{ background: "rgba(5,5,5,0.82)", border: "1px solid var(--red-dark)" }}

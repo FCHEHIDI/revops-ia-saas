@@ -108,12 +108,7 @@ export function MrrChart() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex h-48 items-center justify-center">
-          <Spinner size="lg" />
-        </div>
-      ) : (
-        <ResponsiveContainer width="100%" height={200}>
+      <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={chartData} margin={CHART.margin}>
             <defs>
               <linearGradient id="mrrGradBrand" x1="0" y1="0" x2="0" y2="1">
@@ -149,7 +144,6 @@ export function MrrChart() {
             />
           </AreaChart>
         </ResponsiveContainer>
-      )}
 
       {/* Legend */}
       <div className="flex items-center gap-4 text-xs" style={{ color: C.secondary }}>

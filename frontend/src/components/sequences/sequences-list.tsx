@@ -231,11 +231,7 @@ export function SequencesList() {
       </div>
 
       {/* ── Liste ── */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Spinner size="lg" />
-        </div>
-      ) : sequences.length === 0 ? (
+      {sequences.length === 0 ? (
         <div className="tablette-marbre p-12 text-center">
           <p className="font-cinzel text-sm tracking-[0.2em]" style={{ color: "var(--gray-silver)" }}>
             Aucun rituel dans les archives. Créez-en un !

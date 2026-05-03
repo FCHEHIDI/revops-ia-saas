@@ -117,12 +117,7 @@ export function ConversionFunnelChart() {
         )}
       </div>
 
-      {isLoading ? (
-        <div className="flex h-48 items-center justify-center">
-          <Spinner size="lg" />
-        </div>
-      ) : (
-        <ResponsiveContainer width="100%" height={210}>
+      <ResponsiveContainer width="100%" height={210}>
           <BarChart
             layout="vertical"
             data={chartData}
@@ -163,7 +158,6 @@ export function ConversionFunnelChart() {
             </Bar>
           </BarChart>
         </ResponsiveContainer>
-      )}
 
       {/* Legend */}
       <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: "var(--gray-silver)" }}>

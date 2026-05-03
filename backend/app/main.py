@@ -27,6 +27,7 @@ from app.scoring.router import router as scoring_router
 from app.playbooks.router import router as playbooks_router, internal_router as playbooks_internal_router
 from app.playbooks.service import run_worker as _run_playbook_worker
 from app.email_delivery.service import run_worker as _run_email_worker
+from app.reports.router import router as reports_router
 from app.common.db import AsyncSessionLocal
 
 
@@ -131,6 +132,9 @@ app.include_router(
 )
 app.include_router(
     playbooks_internal_router, prefix="/internal/v1/playbooks", tags=["playbooks-internal"]
+)
+app.include_router(
+    reports_router, prefix="/api/v1/reports", tags=["reports"]
 )
 
 

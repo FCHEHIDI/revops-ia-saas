@@ -1,7 +1,13 @@
 import { refreshSession } from "./auth";
 import type { ApiError } from "@/types";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+// In the browser, use the relative /api/v1 path so Next.js rewrites proxy
+// the request server-side (no CORS). On the server (SSR/RSC) keep the
+// absolute URL for direct node-to-node communication.
+const BACKEND_URL =
+  typeof window === "undefined"
+    ? (process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:18000/api/v1")
+    : "/api/v1";
 
 type RequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;

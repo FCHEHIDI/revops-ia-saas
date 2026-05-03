@@ -7,7 +7,8 @@
  * - POST /auth/logout to clear cookies server-side
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+// auth.ts is always server-side — use the absolute backend URL directly.
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:18000/api/v1";
 
 /**
  * Checks if the user is authenticated by calling /auth/me.

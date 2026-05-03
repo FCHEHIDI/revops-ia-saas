@@ -23,6 +23,7 @@ from app.webhooks.router import router as webhooks_router
 from app.webhooks.service import run_worker as _run_webhook_worker
 from app.activities.router import router as activities_router
 from app.email_delivery.router import router as email_router, tracking_router as email_tracking_router
+from app.scoring.router import router as scoring_router
 from app.email_delivery.service import run_worker as _run_email_worker
 from app.common.db import AsyncSessionLocal
 
@@ -118,6 +119,9 @@ app.include_router(
 )
 app.include_router(
     email_tracking_router, prefix="", tags=["email-tracking"]
+)
+app.include_router(
+    scoring_router, prefix="/internal/v1/scoring", tags=["scoring"]
 )
 
 

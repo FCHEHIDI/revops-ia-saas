@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     email_from: str = "RevOps IA <noreply@revops.local>"
     backend_public_url: str = "http://localhost:18000"  # used for tracking pixel URLs
 
+    # AI lead scoring (Feature #3)
+    openai_api_key: str = ""          # set to a real key in production; empty = heuristic
+    lead_score_ttl_seconds: int = 86400  # 24 h Redis TTL for lead scores
+
     @property
     def SECRET_KEY(self) -> str:  # noqa: N802
         return self.jwt_secret

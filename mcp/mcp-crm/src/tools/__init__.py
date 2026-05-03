@@ -5,6 +5,7 @@ from typing import Callable
 from .contacts import create_contact, get_contact, search_contacts, update_contact
 from .accounts import create_account, get_account, search_accounts, update_account
 from .deals import create_deal, get_deal, list_deals, update_deal_stage
+from .scoring import score_lead
 
 TOOL_REGISTRY: dict[str, Callable] = {
     # Contacts
@@ -22,6 +23,8 @@ TOOL_REGISTRY: dict[str, Callable] = {
     "list_deals": list_deals,
     "create_deal": create_deal,
     "update_deal_stage": update_deal_stage,
+    # Scoring
+    "score_lead": score_lead,
 }
 
 __all__ = [
@@ -38,4 +41,5 @@ __all__ = [
     "list_deals",
     "create_deal",
     "update_deal_stage",
+    "score_lead",
 ]

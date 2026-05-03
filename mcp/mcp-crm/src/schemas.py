@@ -407,4 +407,25 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "name": "score_lead",
+        "description": (
+            "Score a CRM contact using AI (LLM or heuristic fallback). "
+            "Returns a 0-100 quality score, reasoning, and recommended next action. "
+            "Results are cached in Redis for 24 hours."
+        ),
+        "input_schema": {
+            "type": "object",
+            "required": ["tenant_id", "contact_id"],
+            "properties": {
+                "tenant_id": {"type": "string", "format": "uuid"},
+                "contact_id": {"type": "string", "format": "uuid"},
+                "force_refresh": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Bypass cache and re-score even if a cached value exists.",
+                },
+            },
+        },
+    },
 ]

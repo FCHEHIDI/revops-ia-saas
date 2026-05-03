@@ -27,6 +27,8 @@ BYPASS_PATHS = [
     # Internal email enqueue — protected by its own inter-service secret,
     # so we bypass the middleware auth entirely (no tenant context needed).
     "/internal/v1/email",
+    # AI lead scoring — protected by request-body tenant_id; no middleware state needed.
+    "/internal/v1/scoring",
 ]
 # Routes under /internal/v1/ use the internal-API-key fast-path (sets tenant context).
 INTERNAL_API_PREFIX = "/internal/v1/"

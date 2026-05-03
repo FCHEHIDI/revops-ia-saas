@@ -91,7 +91,7 @@ fn classify_intents(text: &str) -> Vec<&'static str> {
 fn tool_call_for_intent(intent: &str, tenant_id: &str) -> ToolCall {
     let (name, arguments) = match intent {
         "crm" => (
-            "mcp_crm__list_contacts",
+            "mcp_crm__search_contacts",
             format!(
                 r#"{{"tenant_id": "{}", "page": 1, "limit": 10}}"#,
                 tenant_id

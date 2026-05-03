@@ -61,7 +61,10 @@ Module CRM complet avec 4 onglets :
 
 RLS PostgreSQL garantit l'isolation stricte par tenant.
 
-![CRM](./docs/screenshots/03-crm.png)
+![CRM Contacts](./docs/screenshots/03-crm.png)
+![CRM Companies](./docs/screenshots/03b-crm-companies.png)
+![CRM Activities](./docs/screenshots/03c-crm-activities.png)
+![CRM Segments](./docs/screenshots/03d-crm-segments.png)
 
 ---
 

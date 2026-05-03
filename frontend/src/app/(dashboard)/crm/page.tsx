@@ -1,8 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { Users, Building2, Activity, Tag } from "lucide-react";
-import { ContactsTable } from "@/components/crm/contacts-table";
+import { ContactsTable }   from "@/components/crm/contacts-table";
+import { CompaniesTable }  from "@/components/crm/companies-table";
+import { ActivitiesTable } from "@/components/crm/activities-table";
+import { SegmentsTable }   from "@/components/crm/segments-table";
 
 const NAV_ITEMS = [
   { id: "contacts",   label: "Contacts",   icon: Users },
@@ -41,6 +45,26 @@ export default function CrmPage() {
               background: "linear-gradient(90deg, rgba(138,0,0,0.2) 0%, transparent 12%, transparent 88%, rgba(138,0,0,0.2) 100%)",
             }}
           />
+          {/* ── Icône décorative filigrane ── */}
+          <Image
+            src="/icons/crm-icon.png"
+            alt=""
+            aria-hidden="true"
+            width={780}
+            height={780}
+            style={{
+              position: "absolute",
+              right: "4%",
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: 780,
+              height: 780,
+              objectFit: "contain",
+              opacity: 0.35,
+              filter: "blur(0.3px)",
+              pointerEvents: "none",
+            }}
+          />
           <div className="absolute bottom-0 left-0 right-0 px-8 pb-6">
             <p
               className="font-cinzel text-xs tracking-[0.3em] uppercase mb-1"
@@ -63,77 +87,66 @@ export default function CrmPage() {
           </div>
         </div>
 
-        {/* ── Layout : sidebar + contenu ──────────────────────────── */}
-        <div className="flex gap-6 px-8 py-8 items-start">
-
-          {/* Sidebar nav */}
-          <aside className="w-44 flex-shrink-0">
-            <div className="tablette-marbre" style={{ padding: "10px 8px" }}>
-              <p
-                className="font-cinzel text-xs tracking-[0.2em] uppercase px-3 pb-2 mb-1"
-                style={{ color: "var(--red-dark)", borderBottom: "1px solid rgba(138,0,0,0.2)" }}
+        {/* ── Tabs horizontaux ────────────────────────────────────── */}
+        <div
+          style={{
+            borderBottom: "1px solid var(--border-subtle)",
+            padding: "0 32px",
+            display: "flex",
+            alignItems: "flex-end",
+            gap: 2,
+          }}
+        >
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "10px 16px",
+                  background: "transparent",
+                  border: "none",
+                  borderBottom: isActive
+                    ? "2px solid var(--red-doge)"
+                    : "2px solid transparent",
+                  cursor: "pointer",
+                  color: isActive ? "var(--white-spectral)" : "var(--text-muted)",
+                  fontSize: 13,
+                  fontFamily: "var(--font-body)",
+                  fontWeight: isActive ? 600 : 400,
+                  letterSpacing: "0.02em",
+                  transition: "color 0.15s, border-color 0.15s",
+                  marginBottom: -1,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) e.currentTarget.style.color = "var(--text-secondary)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) e.currentTarget.style.color = "var(--text-muted)";
+                }}
               >
-                Navigation
-              </p>
-              <div className="space-y-0.5 mt-2">
-                {NAV_ITEMS.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => setActiveTab(item.id)}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded transition-all duration-200 font-cinzel text-xs tracking-[0.08em]"
-                      style={{
-                        background: isActive ? "rgba(138,0,0,0.18)" : "transparent",
-                        border: isActive ? "1px solid var(--red-dark)" : "1px solid transparent",
-                        color: isActive ? "var(--red-doge)" : "var(--gray-silver)",
-                        boxShadow: isActive ? "var(--inner-shadow-red)" : "none",
-                        textAlign: "left",
-                        cursor: "pointer",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.background = "rgba(138,0,0,0.07)";
-                          e.currentTarget.style.color = "var(--white-spectral)";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.color = "var(--gray-silver)";
-                        }
-                      }}
-                    >
-                      <Icon size={12} />
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </aside>
-
-          {/* Contenu principal */}
-          <div className="flex-1 min-w-0">
-            {activeTab === "contacts" && <ContactsTable />}
-            {activeTab !== "contacts" && (
-              <div className="tablette-marbre flex items-center justify-center" style={{ minHeight: 300 }}>
-                <div className="text-center">
-                  <p className="font-cinzel text-2xl mb-3" style={{ color: "var(--red-dark)" }}>⚜</p>
-                  <p
-                    className="font-cinzel text-xs tracking-[0.25em] uppercase"
-                    style={{ color: "var(--gray-silver)" }}
-                  >
-                    Section en préparation
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
+                <Icon size={13} />
+                {item.label}
+              </button>
+            );
+          })}
         </div>
+
+        {/* ── Contenu ─────────────────────────────────────────────── */}
+        <div className="px-8 py-6">
+          {activeTab === "contacts"   && <ContactsTable />}
+          {activeTab === "companies"  && <CompaniesTable />}
+          {activeTab === "activities" && <ActivitiesTable />}
+          {activeTab === "segments"   && <SegmentsTable />}
+        </div>
+
       </main>
     </div>
   );
 }
+

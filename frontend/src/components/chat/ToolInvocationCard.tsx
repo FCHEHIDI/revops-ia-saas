@@ -40,6 +40,20 @@ function JsonHighlight({ value }: { value: unknown }) {
   );
 }
 
+/** Returns true if the tool result indicates an error/failure */
+function isToolError(result: unknown): boolean {
+  if (result == null) return false;
+  if (typeof result === "string") {
+    const lower = result.toLowerCase();
+    return lower.includes("error") || lower.includes("failed") || lower.includes("unavailable");
+  }
+  if (typeof result === "object") {
+    const r = result as Record<string, unknown>;
+    return "error" in r || "message" in r && typeof r.message === "string" && r.message.toLowerCase().includes("error");
+  }
+  return false;
+}
+
 export function ToolInvocationCard({ toolCall }: { toolCall: ToolCallData }) {
   const [expanded, setExpanded] = useState(false);
   const { icon, color, border, bg, bgHover, label } = toolMeta(toolCall.tool);
@@ -54,16 +68,25 @@ export function ToolInvocationCard({ toolCall }: { toolCall: ToolCallData }) {
       ? (toolCall.result as { total: number }).total
       : null;
 
+  const hasError = isToolError(toolCall.result);
+  const statusColor = hasError ? "#ff4444" : "#4dff91";
+  const statusLabel = hasError ? "FAILED" : "OK";
+
+  const cardBorder = hasError ? "rgba(255,68,68,0.35)"  : border;
+  const cardBg     = hasError ? "rgba(255,68,68,0.06)"  : bg;
+  const cardHover  = hasError ? "rgba(255,68,68,0.10)"  : bgHover;
+  const cardColor  = hasError ? "rgba(255,120,120,0.9)" : color;
+
   return (
     <div
       className="rounded-lg overflow-hidden transition-all duration-200"
-      style={{ border: `1px solid ${border}`, background: bg }}
+      style={{ border: `1px solid ${cardBorder}`, background: cardBg }}
     >
       <button
         onClick={() => setExpanded((v) => !v)}
         className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors duration-150"
-        style={{ color }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = bgHover; }}
+        style={{ color: cardColor }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = cardHover; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
         aria-expanded={expanded}
         aria-controls={`tool-result-${toolCall.tool}`}
@@ -75,9 +98,9 @@ export function ToolInvocationCard({ toolCall }: { toolCall: ToolCallData }) {
           style={{
             fontSize: "9px",
             letterSpacing: "0.1em",
-            color,
+            color: cardColor,
             background: "var(--chat-tool-json-bg)",
-            border: `1px solid ${border}`,
+            border: `1px solid ${cardBorder}`,
           }}
         >
           {label}
@@ -85,7 +108,7 @@ export function ToolInvocationCard({ toolCall }: { toolCall: ToolCallData }) {
 
         <span
           className="font-mono-geist font-medium truncate"
-          style={{ fontSize: "11px", letterSpacing: "0.04em", color }}
+          style={{ fontSize: "11px", letterSpacing: "0.04em", color: cardColor }}
         >
           {fnName}
         </span>
@@ -93,13 +116,32 @@ export function ToolInvocationCard({ toolCall }: { toolCall: ToolCallData }) {
         {resultTotal !== null && (
           <span
             className="font-mono-geist ml-1 shrink-0 rounded-full px-1.5 py-0.5"
-            style={{ fontSize: "9px", color, background: "var(--chat-tool-json-bg)" }}
+            style={{ fontSize: "9px", color: cardColor, background: "var(--chat-tool-json-bg)" }}
           >
             {resultTotal} résultats
           </span>
         )}
 
-        <span className="ml-auto shrink-0 opacity-40">
+        {/* Status dot — vert = OK, rouge = FAILED */}
+        <span
+          className="font-mono-geist ml-auto shrink-0 flex items-center gap-1"
+          style={{ fontSize: "8px", color: statusColor, letterSpacing: "0.08em" }}
+        >
+          <span
+            style={{
+              display: "inline-block",
+              width: 5,
+              height: 5,
+              borderRadius: "50%",
+              background: statusColor,
+              boxShadow: `0 0 4px ${statusColor}`,
+              flexShrink: 0,
+            }}
+          />
+          {statusLabel}
+        </span>
+
+        <span className="ml-2 shrink-0 opacity-40">
           {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
         </span>
       </button>
@@ -109,7 +151,7 @@ export function ToolInvocationCard({ toolCall }: { toolCall: ToolCallData }) {
         className="overflow-hidden transition-all duration-200"
         style={{
           maxHeight: expanded ? "300px" : "0px",
-          borderTop: expanded ? `1px solid ${border}` : "none",
+          borderTop: expanded ? `1px solid ${cardBorder}` : "none",
         }}
       >
         <div className="px-3 py-2.5" style={{ background: "var(--chat-tool-json-bg)" }}>

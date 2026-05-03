@@ -153,7 +153,6 @@ pub async fn send_step_email(
 
     let duration_ms = start.elapsed().as_millis() as i64;
     let _ = write_audit(
-        pool,
         AuditEntry::new(
             input.tenant_id,
             Some(input.user_id),
@@ -168,6 +167,7 @@ pub async fn send_step_email(
             "ENQUEUED",
             duration_ms,
         ),
+        pool,
     )
     .await;
 

@@ -43,8 +43,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         onFocus={(e) => {
           e.currentTarget.style.border = error
             ? "1px solid rgba(255,0,0,0.7)"
-            : "1px solid rgba(63,79,255,0.5)";
-          e.currentTarget.style.boxShadow = error ? "var(--shadow-glow)" : "var(--shadow-blue)";
+            : "1px solid var(--red-dark)";
+          e.currentTarget.style.boxShadow = error
+            ? "var(--shadow-glow)"
+            : "0 0 0 3px rgba(192,0,0,0.12)";
           props.onFocus?.(e);
         }}
         onBlur={(e) => {

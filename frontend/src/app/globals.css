@@ -26,8 +26,8 @@
     /* ── Accents ── */
     --accent-red:      #C00000;
     --accent-red-dim:  #4a0000;
-    --accent-blue:     #C00000;
-    --accent-blue-dim: rgba(192, 0, 0, 0.12);
+    --accent-blue:     #2979FF;
+    --accent-blue-dim: rgba(41, 121, 255, 0.12);
     --accent-success:  #00ff88;
     --accent-warning:  #ff0066;
     --accent-white:    #ffffff;
@@ -89,7 +89,7 @@
     /* ── Shadows ── */
     --shadow-card:  0 1px 3px rgba(0,0,0,0.9), 0 4px 16px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.025);
     --shadow-glow:  0 0 0 1px rgba(192,0,0,0.4), 0 4px 28px rgba(192,0,0,0.25);
-    --shadow-blue:  0 0 0 1px rgba(192,0,0,0.4), 0 4px 28px rgba(192,0,0,0.22);
+    --shadow-blue:  0 0 0 1px rgba(41,121,255,0.35), 0 4px 28px rgba(41,121,255,0.18);
     --shadow-deep:  0 8px 48px rgba(0,0,0,0.95);
 
     /* ── Radii ── */
@@ -151,7 +151,7 @@
   /* Glow text */
   .text-glow-red   { text-shadow: 0 0 20px rgba(192,0,0,0.8), 0 0 40px rgba(255,0,0,0.4); }
   .text-glow-doge  { text-shadow: 0 0 14px rgba(192,0,0,0.7); }
-  .text-glow-blue  { text-shadow: 0 0 20px rgba(192,0,0,0.6); }
+  .text-glow-blue  { text-shadow: 0 0 20px rgba(41,121,255,0.7), 0 0 40px rgba(41,121,255,0.3); }
   .text-glow-green { text-shadow: 0 0 20px rgba(0,255,136,0.5); }
 
   /* ── Venetian background (palazzo) ── */
@@ -314,6 +314,17 @@
   .send-pulse:hover { animation: send-pulse 0.8s ease-out; }
 
   /* ── Scroll luminous edge ── */
+  /* ── Skeleton shimmer ── */
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .skeleton-shimmer {
+    background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--bg-hover) 50%, var(--bg-elevated) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+
   .chat-scroll {
     overflow-y: auto;
     scroll-behavior: smooth;

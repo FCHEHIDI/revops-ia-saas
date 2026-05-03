@@ -8,13 +8,149 @@ use crate::models::{
 
 use super::LlmProvider;
 
+// ---------------------------------------------------------------------------
+// Tool-result rendering
+// ---------------------------------------------------------------------------
+
+/// Reads the actual MCP tool result payloads from the message history and
+/// produces a natural-language reply that surfaces the real data.
+///
+/// Falls back to the hardcoded synthesis only when no tool result can be parsed.
+fn render_tool_results(messages: &[Message], intents: &[&str]) -> String {
+    // Collect all tool-result messages in order
+    let results: Vec<&str> = messages
+        .iter()
+        .filter(|m| m.role == Role::Tool)
+        .filter_map(|m| m.content.as_deref())
+        .collect();
+
+    if results.is_empty() {
+        return synthesis_for_intents(intents);
+    }
+
+    let mut parts: Vec<String> = Vec::new();
+
+    for raw in &results {
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(raw) else {
+            continue;
+        };
+
+        // ── CRM contacts ────────────────────────────────────────────────
+        if let Some(items) = v.get("items").and_then(|i| i.as_array()) {
+            let total = v
+                .get("total")
+                .and_then(|t| t.as_u64())
+                .unwrap_or(items.len() as u64);
+            let truncated = v.get("_truncated").is_some();
+
+            let mut block = format!("**{} contacts trouvés.**\n\n", total);
+
+            for (i, contact) in items.iter().enumerate() {
+                let name = contact
+                    .get("full_name")
+                    .or_else(|| contact.get("name"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("—");
+                let email = contact
+                    .get("email")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("—");
+                let company = contact
+                    .get("company")
+                    .or_else(|| contact.get("account_name"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("—");
+                let status = contact
+                    .get("status")
+                    .or_else(|| contact.get("lifecycle_stage"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("—");
+
+                block.push_str(&format!(
+                    "{}. **{}** · {} · {} · `{}`\n",
+                    i + 1,
+                    name,
+                    email,
+                    company,
+                    status
+                ));
+            }
+
+            if truncated {
+                block.push_str(&format!(
+                    "\n*Affichage des 5 premiers sur {} — précisez un filtre (statut, société…) pour affiner.*",
+                    total
+                ));
+            }
+
+            parts.push(block);
+            continue;
+        }
+
+        // ── Billing: overdue payments ────────────────────────────────────
+        if let Some(overdue) = v.get("overdue_payments").and_then(|i| i.as_array()) {
+            let total_amount: f64 = overdue
+                .iter()
+                .filter_map(|p| p.get("amount").and_then(|a| a.as_f64()))
+                .sum();
+            let block = format!(
+                "**{} paiements en retard** pour un total de **{:.2} €**.\n",
+                overdue.len(),
+                total_amount
+            );
+            parts.push(block);
+            continue;
+        }
+
+        // ── Analytics: MRR trend ─────────────────────────────────────────
+        if let Some(points) = v.get("data_points").and_then(|i| i.as_array()) {
+            let last = points.last().and_then(|p| p.get("mrr")).and_then(|m| m.as_f64());
+            let block = if let Some(mrr) = last {
+                format!("**MRR actuel : {:.0} €** ({} points de données).\n", mrr, points.len())
+            } else {
+                format!("Tendance MRR : {} points de données disponibles.\n", points.len())
+            };
+            parts.push(block);
+            continue;
+        }
+
+        // ── Sequences ────────────────────────────────────────────────────
+        if let Some(seqs) = v.get("sequences").and_then(|i| i.as_array()) {
+            let active: Vec<&str> = seqs
+                .iter()
+                .filter(|s| s.get("status").and_then(|v| v.as_str()) == Some("active"))
+                .filter_map(|s| s.get("name").and_then(|v| v.as_str()))
+                .collect();
+            let block = format!(
+                "**{} séquences actives** : {}.\n",
+                active.len(),
+                if active.is_empty() {
+                    "aucune".to_string()
+                } else {
+                    active.join(", ")
+                }
+            );
+            parts.push(block);
+            continue;
+        }
+
+        // ── Fallback: pretty-print unknown structure ─────────────────────
+        if let Ok(pretty) = serde_json::to_string_pretty(&v) {
+            parts.push(format!("```json\n{}\n```", &pretty[..pretty.len().min(800)]));
+        }
+    }
+
+    if parts.is_empty() {
+        synthesis_for_intents(intents)
+    } else {
+        parts.join("\n\n")
+    }
+}
+
 /// Keyword-aware mock LLM provider for E2E tests and `LLM_MOCK=true` dev mode.
 ///
 /// Routes to different MCP tools based on keywords found in the user's last message.
-/// Multi-intent messages trigger multi-turn behaviour (one tool call per turn):
-///   Turn 1 — calls the primary intent tool
-///   Turn 2 — calls the secondary intent tool (if multi-intent message)
-///   Turn 3+ — returns a synthesised summary tailored to the detected intents
+/// The final turn reads the actual tool result payloads and surfaces the real data.
 pub struct MockProvider;
 
 // ---------------------------------------------------------------------------
@@ -236,9 +372,9 @@ impl LlmProvider for MockProvider {
                 })
             }
             _ => {
-                // Final turn — synthesise based on detected intents
+                // Final turn — render actual tool result data from conversation history
                 Ok(LlmResponse {
-                    content: Some(synthesis_for_intents(&intents)),
+                    content: Some(render_tool_results(messages, &intents)),
                     tool_calls: vec![],
                     finish_reason: FinishReason::Stop,
                     usage: UsageStats {

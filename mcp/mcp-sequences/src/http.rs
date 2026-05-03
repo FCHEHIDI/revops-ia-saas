@@ -13,6 +13,7 @@ use tracing::{error, info, instrument, warn};
 
 use crate::tools::{
     analytics::{get_sequence_performance, GetSequencePerformanceInput},
+    email::{send_step_email, SendStepEmailInput},
     enrollment::{enroll_contact, unenroll_contact, list_enrollments, EnrollContactInput, UnenrollContactInput, ListEnrollmentsInput},
     execution::{pause_sequence, resume_sequence, PauseSequenceInput, ResumeSequenceInput},
     sequences::{
@@ -29,6 +30,8 @@ use crate::tools::{
 pub struct HttpState {
     pub pool: Arc<PgPool>,
     pub inter_service_secret: String,
+    /// Base URL of the FastAPI backend — forwarded to email tool.
+    pub backend_url: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -228,6 +231,18 @@ async fn mcp_call(
                 Err(e) => err_resp(e.error_code(), &e.to_string()),
             },
             Err(e) => bad_params(e, "get_sequence_performance"),
+        },
+        "send_step_email" => match serde_json::from_value::<SendStepEmailInput>(params) {
+            Ok(input) => match send_step_email(
+                input,
+                pool,
+                &state.inter_service_secret,
+                &state.backend_url,
+            ).await {
+                Ok(out) => ok_resp(out),
+                Err(e) => err_resp(e.error_code(), &e.to_string()),
+            },
+            Err(e) => bad_params(e, "send_step_email"),
         },
         unknown => {
             error!(tool = unknown, "Unknown sequences tool");

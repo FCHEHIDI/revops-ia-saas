@@ -25,6 +25,8 @@ pub struct Config {
     pub log_level: String,
     pub http_bind: String,
     pub inter_service_secret: String,
+    /// Base URL for the FastAPI backend (used by send_step_email to enqueue sends).
+    pub backend_url: String,
 }
 
 impl Config {
@@ -44,12 +46,16 @@ impl Config {
         let inter_service_secret = env::var("INTER_SERVICE_SECRET")
             .unwrap_or_else(|_| "dev-internal-key-change-me".to_string());
 
+        let backend_url = env::var("BACKEND_URL")
+            .unwrap_or_else(|_| "http://localhost:18000".to_string());
+
         Ok(Config {
             database_url,
             transport: McpTransport::from_str(&transport),
             log_level,
             http_bind,
             inter_service_secret,
+            backend_url,
         })
     }
 }

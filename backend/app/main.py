@@ -22,6 +22,8 @@ from app.api_keys.router import router as api_keys_router
 from app.webhooks.router import router as webhooks_router
 from app.webhooks.service import run_worker as _run_webhook_worker
 from app.activities.router import router as activities_router
+from app.email_delivery.router import router as email_router, tracking_router as email_tracking_router
+from app.email_delivery.service import run_worker as _run_email_worker
 from app.common.db import AsyncSessionLocal
 
 
@@ -35,13 +37,15 @@ async def lifespan(application: FastAPI):
             yield session
 
     worker_task = asyncio.create_task(_run_webhook_worker(_db_factory))
+    email_worker_task = asyncio.create_task(_run_email_worker(_db_factory))
     try:
         yield
     finally:
-        if not worker_task.done():
-            worker_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await worker_task
+        for task in (worker_task, email_worker_task):
+            if not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
 
 app = FastAPI(title="RevOps IA SaaS API", version="1.0.0", lifespan=lifespan)
 
@@ -108,6 +112,12 @@ app.include_router(
 )
 app.include_router(
     activities_router, prefix="/api/v1/activities", tags=["activities"]
+)
+app.include_router(
+    email_router, prefix="/internal/v1/email", tags=["email"]
+)
+app.include_router(
+    email_tracking_router, prefix="", tags=["email-tracking"]
 )
 
 

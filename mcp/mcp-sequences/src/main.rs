@@ -48,6 +48,7 @@ async fn main() -> Result<()> {
             let state = HttpState {
                 pool: Arc::new(pool),
                 inter_service_secret: cfg.inter_service_secret.clone(),
+                backend_url: cfg.backend_url.clone(),
             };
             let app = http::router(state);
             let listener = tokio::net::TcpListener::bind(&cfg.http_bind)
@@ -60,7 +61,7 @@ async fn main() -> Result<()> {
         }
         McpTransport::Stdio => {
             info!("Using stdio transport");
-            let server = SequencesServer::new(pool);
+            let server = SequencesServer::new(pool, cfg.inter_service_secret.clone(), cfg.backend_url.clone());
             let transport = rmcp::transport::stdio();
             rmcp::serve_server(server, transport)
                 .await
@@ -70,7 +71,7 @@ async fn main() -> Result<()> {
             let bind_addr = std::env::var("SSE_BIND_ADDR")
                 .unwrap_or_else(|_| "0.0.0.0:3004".to_string());
             info!(addr = %bind_addr, "Using SSE transport");
-            let server = SequencesServer::new(pool);
+            let server = SequencesServer::new(pool, cfg.inter_service_secret.clone(), cfg.backend_url.clone());
             let bind: std::net::SocketAddr = bind_addr
                 .parse()
                 .context("Invalid SSE_BIND_ADDR")?;

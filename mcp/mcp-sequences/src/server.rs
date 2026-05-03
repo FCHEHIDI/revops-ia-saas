@@ -21,6 +21,7 @@ use tracing::{error, info, instrument};
 use crate::errors::SequencesError;
 use crate::tools::{
     analytics::{get_sequence_performance, GetSequencePerformanceInput},
+    email::{send_step_email, SendStepEmailInput},
     enrollment::{
         enroll_contact, list_enrollments, unenroll_contact, EnrollContactInput,
         ListEnrollmentsInput, UnenrollContactInput,
@@ -40,12 +41,16 @@ use crate::tools::{
 #[derive(Clone)]
 pub struct SequencesServer {
     pool: Arc<PgPool>,
+    inter_service_secret: Arc<String>,
+    backend_url: Arc<String>,
 }
 
 impl SequencesServer {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: PgPool, inter_service_secret: String, backend_url: String) -> Self {
         Self {
             pool: Arc::new(pool),
+            inter_service_secret: Arc::new(inter_service_secret),
+            backend_url: Arc::new(backend_url),
         }
     }
 
@@ -334,6 +339,30 @@ impl ServerHandler for SequencesServer {
                     }
                 })),
             },
+            // ----------------------------------------------------------------
+            // Email delivery
+            // ----------------------------------------------------------------
+            Tool {
+                name: Cow::Borrowed("send_step_email"),
+                description: Cow::Borrowed(
+                    "Sends the email step at the given position in a sequence to a contact. \
+                     Fetches the step template, renders contact variables, and enqueues delivery \
+                     via the backend. Tracking pixels and click tokens are injected automatically. \
+                     Permission: sequences:write.",
+                ),
+                input_schema: s(json!({
+                    "type": "object",
+                    "required": ["tenant_id", "user_id", "sequence_id", "contact_id", "step_index"],
+                    "properties": {
+                        "tenant_id":   { "type": "string", "format": "uuid" },
+                        "user_id":     { "type": "string", "format": "uuid" },
+                        "sequence_id": { "type": "string", "format": "uuid" },
+                        "contact_id":  { "type": "string", "format": "uuid" },
+                        "step_index":  { "type": "integer", "minimum": 0 },
+                        "backend_url": { "type": "string", "description": "Override backend URL (dev/test only)" }
+                    }
+                })),
+            },
         ];
 
         Ok(ListToolsResult {
@@ -428,6 +457,20 @@ impl ServerHandler for SequencesServer {
             "get_sequence_performance" => {
                 let input: GetSequencePerformanceInput = Self::parse_input(args, name)?;
                 match get_sequence_performance(input, pool).await {
+                    Ok(out) => Ok(Self::ok_result(out)),
+                    Err(e) => Ok(Self::err_result(e)),
+                }
+            }
+            "send_step_email" => {
+                let input: SendStepEmailInput = Self::parse_input(args, name)?;
+                match send_step_email(
+                    input,
+                    pool,
+                    &self.inter_service_secret,
+                    &self.backend_url,
+                )
+                .await
+                {
                     Ok(out) => Ok(Self::ok_result(out)),
                     Err(e) => Ok(Self::err_result(e)),
                 }

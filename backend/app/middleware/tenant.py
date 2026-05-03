@@ -21,6 +21,12 @@ BYPASS_PATHS = [
     "/api/v1/webhooks",
     # Activity timeline — auth is enforced by the FastAPI dependency itself.
     "/api/v1/activities",
+    # Email tracking pixels — intentionally public (no auth required).
+    "/track",
+    "/click",
+    # Internal email enqueue — protected by its own inter-service secret,
+    # so we bypass the middleware auth entirely (no tenant context needed).
+    "/internal/v1/email",
 ]
 # Routes under /internal/v1/ use the internal-API-key fast-path (sets tenant context).
 INTERNAL_API_PREFIX = "/internal/v1/"
@@ -56,7 +62,15 @@ class TenantMiddleware:
             k.lower(): v for k, v in scope.get("headers", [])
         }
 
+        # ── Bypass paths (checked first) ─────────────────────────────────────
+        for bypass in BYPASS_PATHS:
+            if path.startswith(bypass):
+                await self.app(scope, receive, send)
+                return
+
         # ── Internal API fast-path ──────────────────────────────────────────
+        # Paths that have their own auth (e.g. inter-service secret) are handled
+        # by BYPASS_PATHS above, so they never reach here.
         if path.startswith(INTERNAL_API_PREFIX):
             from app.config import settings
 
@@ -84,12 +98,6 @@ class TenantMiddleware:
 
             await self.app(scope, receive, send)
             return
-
-        # ── Bypass paths ────────────────────────────────────────────────────
-        for bypass in BYPASS_PATHS:
-            if path.startswith(bypass):
-                await self.app(scope, receive, send)
-                return
 
         # ── API Key Bearer fast-path ────────────────────────────────────────
         # Requests carrying "Authorization: Bearer rk_live_xxx" bypass the

@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     mcp_inter_service_secret: str = "dev-internal-key-change-me"
     rag_api_url: str = "http://localhost:18500"
 
+    # Email delivery (Feature #1)
+    resend_api_key: str = ""          # set to a real key in production
+    email_from: str = "RevOps IA <noreply@revops.local>"
+    backend_public_url: str = "http://localhost:18000"  # used for tracking pixel URLs
+
     @property
     def SECRET_KEY(self) -> str:  # noqa: N802
         return self.jwt_secret

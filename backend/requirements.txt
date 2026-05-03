@@ -11,7 +11,7 @@ passlib[bcrypt]==1.7.4
 # the last 4.x release which still works with passlib's wrappers.
 bcrypt==4.2.1
 httpx==0.27.0
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 slowapi==0.1.9
 redis>=5.0
 python-multipart==0.0.9

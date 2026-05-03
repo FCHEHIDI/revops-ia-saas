@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -21,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.config import settings
+from app.common.utils import utcnow
 from app.models.api_key import ApiKey
 
 _KEY_PREFIX = "rk_live_"
@@ -40,10 +40,6 @@ def generate_raw_key() -> str:
 def hash_key(raw_key: str) -> str:
     """SHA-256 hex-digest of the raw key."""
     return hashlib.sha256(raw_key.encode()).hexdigest()
-
-
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 # ---------------------------------------------------------------------------
@@ -115,7 +111,7 @@ async def lookup_key(db: AsyncSession, raw_key: str) -> Optional[ApiKey]:
     key_obj = result.scalar_one_or_none()
     if key_obj is None:
         return None
-    if key_obj.expires_at and key_obj.expires_at < _utc_now():
+    if key_obj.expires_at and key_obj.expires_at < utcnow():
         return None
     return key_obj
 
@@ -125,7 +121,7 @@ async def touch_last_used(db: AsyncSession, key_id: UUID) -> None:
     await db.execute(
         update(ApiKey)
         .where(ApiKey.id == key_id)
-        .values(last_used_at=_utc_now())
+        .values(last_used_at=utcnow())
     )
     await db.commit()
 

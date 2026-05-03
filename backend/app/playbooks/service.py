@@ -1,11 +1,4 @@
-"""Playbook CRUD, event publishing, and background worker.
-
-Event bus
----------
-A module-level ``asyncio.Queue`` acts as the in-process event bus.
-Producers call ``publish_playbook_event(event_dict)`` (fire-and-forget).
-The background worker (``run_worker``) consumes events and runs matching
-active playbooks.
+"""Playbook CRUD and execution service.
 
 Event dict structure
 --------------------
@@ -23,61 +16,26 @@ Event dict structure
             "contact_id": "<uuid-str>|null",
         },
     }
+
+Event publishing and the background worker live in ``playbooks/worker.py``.
 """
 
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
-from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-from typing import Any, AsyncContextManager, Callable
+from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.utils import utcnow
 from app.models.playbook import Playbook, PlaybookRun
 from app.playbooks.executor import evaluate_conditions, execute_action
 from app.playbooks.schemas import PlaybookCreate, PlaybookUpdate
 
 logger = logging.getLogger(__name__)
-
-# In-process event queue — no Redis required.
-# maxsize=1000 acts as a back-pressure valve; if the queue fills up we drop
-# rather than blocking the caller (CRM service).
-_event_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=1000)
-
-
-# ---------------------------------------------------------------------------
-# Event publishing
-# ---------------------------------------------------------------------------
-
-
-def publish_playbook_event(event: dict[str, Any]) -> None:
-    """Enqueue a CRM event for playbook evaluation (fire-and-forget).
-
-    Safe to call from non-async code (uses put_nowait).
-
-    Args:
-        event: Event dict with keys ``event``, ``tenant_id``, ``entity_type``,
-            ``entity_id``, and ``payload``.
-    """
-    try:
-        _event_queue.put_nowait(event)
-        logger.debug("Playbook event enqueued: %s", event.get("event"))
-    except asyncio.QueueFull:
-        logger.warning(
-            "Playbook event queue full — dropping event: %s tenant=%s",
-            event.get("event"),
-            event.get("tenant_id"),
-        )
-
-
-# ---------------------------------------------------------------------------
-# CRUD helpers
-# ---------------------------------------------------------------------------
 
 
 async def create_playbook(
@@ -348,7 +306,7 @@ async def run_playbook(
             error_msg,
         )
     finally:
-        run.completed_at = datetime.now(timezone.utc)
+        run.completed_at = utcnow()
         await db.commit()
         await db.refresh(run)
 
@@ -388,69 +346,3 @@ async def _notify_playbook_run(run: Any, playbook: Any) -> None:
             await notif_db.commit()
         except Exception as exc:  # noqa: BLE001
             logger.warning("Playbook notification failed: %s", exc)
-
-
-
-
-
-# ---------------------------------------------------------------------------
-# Background worker
-# ---------------------------------------------------------------------------
-
-
-async def run_worker(
-    db_factory: Callable[[], AsyncContextManager[AsyncSession]],
-) -> None:
-    """Process playbook events from the in-process queue indefinitely.
-
-    Intended to run as an asyncio background task (started in main.py lifespan).
-    Cancellation is handled gracefully.
-
-    Args:
-        db_factory: Async context-manager factory yielding an AsyncSession.
-    """
-    logger.info("Playbook worker started")
-    while True:
-        try:
-            event: dict[str, Any] = await asyncio.wait_for(
-                _event_queue.get(), timeout=5.0
-            )
-        except asyncio.TimeoutError:
-            continue
-        except asyncio.CancelledError:
-            logger.info("Playbook worker cancelled")
-            raise
-
-        tenant_id_str: str = event.get("tenant_id", "")
-        trigger_event: str = event.get("event", "")
-        payload: dict[str, Any] = event.get("payload", {})
-
-        if not tenant_id_str or not trigger_event:
-            logger.warning("Playbook worker: malformed event dropped: %r", event)
-            continue
-
-        try:
-            tenant_id = UUID(tenant_id_str)
-        except ValueError:
-            logger.warning("Playbook worker: invalid tenant_id %r", tenant_id_str)
-            continue
-
-        try:
-            async with db_factory() as db:
-                playbooks = await _fetch_active_playbooks_for_event(
-                    db, tenant_id, trigger_event
-                )
-                for playbook in playbooks:
-                    if evaluate_conditions(playbook.trigger_conditions or [], payload):
-                        with contextlib.suppress(Exception):
-                            await run_playbook(db, playbook, event)
-                    else:
-                        logger.debug(
-                            "Playbook %s conditions not met for event %s",
-                            playbook.id,
-                            trigger_event,
-                        )
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:
-            logger.error("Playbook worker error processing event %s: %s", trigger_event, exc)

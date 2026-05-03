@@ -25,7 +25,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.config import settings
-from app.dependencies import get_current_user
+from app.auth.dependencies import get_current_active_user
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -202,7 +203,7 @@ async def billing_health() -> Any:
 @router.post("/billing/call", tags=["billing"])
 async def billing_call(
     body: McpCallRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> Any:
     """Invoke a mcp-billing tool.
 
@@ -222,8 +223,8 @@ async def billing_call(
     """
     params = {
         **body.params,
-        "tenant_id": str(current_user["tenant_id"]),
-        "user_id": str(current_user["user_id"]),
+        "tenant_id": str(current_user.tenant_id),
+        "user_id": str(current_user.id),
     }
     return await _proxy_call("billing", body.tool, params)
 
@@ -246,7 +247,7 @@ async def analytics_health() -> Any:
 @router.post("/analytics/call", tags=["analytics"])
 async def analytics_call(
     body: McpCallRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> Any:
     """Invoke a mcp-analytics tool.
 
@@ -266,8 +267,8 @@ async def analytics_call(
     """
     params = {
         **body.params,
-        "tenant_id": str(current_user["tenant_id"]),
-        "user_id": str(current_user["user_id"]),
+        "tenant_id": str(current_user.tenant_id),
+        "user_id": str(current_user.id),
     }
     return await _proxy_call("analytics", body.tool, params)
 
@@ -290,7 +291,7 @@ async def sequences_health() -> Any:
 @router.post("/sequences/call", tags=["sequences"])
 async def sequences_call(
     body: McpCallRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> Any:
     """Invoke a mcp-sequences tool.
 
@@ -310,8 +311,8 @@ async def sequences_call(
     """
     params = {
         **body.params,
-        "tenant_id": str(current_user["tenant_id"]),
-        "user_id": str(current_user["user_id"]),
+        "tenant_id": str(current_user.tenant_id),
+        "user_id": str(current_user.id),
     }
     return await _proxy_call("sequences", body.tool, params)
 
@@ -334,7 +335,7 @@ async def filesystem_health() -> Any:
 @router.post("/filesystem/call", tags=["filesystem"])
 async def filesystem_call(
     body: McpCallRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> Any:
     """Invoke a mcp-filesystem tool.
 
@@ -354,7 +355,7 @@ async def filesystem_call(
     """
     params = {
         **body.params,
-        "tenant_id": str(current_user["tenant_id"]),
-        "user_id": str(current_user["user_id"]),
+        "tenant_id": str(current_user.tenant_id),
+        "user_id": str(current_user.id),
     }
     return await _proxy_call("filesystem", body.tool, params)

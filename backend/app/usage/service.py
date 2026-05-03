@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone
+from app.common.utils import utcnow
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
@@ -45,7 +46,7 @@ def _period_bounds(period: UsagePeriod) -> tuple[datetime, datetime]:
     Raises:
         ValueError: If the period label is not recognised.
     """
-    now = datetime.now(timezone.utc)
+    now = utcnow()
 
     if period == "current_month":
         start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -101,7 +102,7 @@ async def record_usage(db: AsyncSession, data: UsageEventCreate) -> UsageEvent:
         event_type=data.event_type,
         quantity=data.quantity,
         event_metadata=data.metadata,
-        ts=datetime.now(timezone.utc),
+        ts=utcnow(),
     )
     db.add(event)
     await db.flush()

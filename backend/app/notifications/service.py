@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from app.common.utils import utcnow
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
@@ -257,7 +257,7 @@ async def mark_as_read(
     if notif is None:
         return None
     if notif.read_at is None:
-        notif.read_at = datetime.now(timezone.utc)
+        notif.read_at = utcnow()
         await db.commit()
         await db.refresh(notif)
     return notif
@@ -284,7 +284,7 @@ async def mark_all_as_read(
             Notification.tenant_id == tenant_id,
             Notification.read_at.is_(None),
         )
-        .values(read_at=datetime.now(timezone.utc))
+        .values(read_at=utcnow())
     )
     if user_id is not None:
         stmt = stmt.where(

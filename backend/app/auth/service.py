@@ -1,6 +1,6 @@
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Optional, Tuple
 from uuid import UUID, uuid4
 
@@ -11,15 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.config import settings
+from app.common.utils import utcnow
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.auth.schemas import TokenPayload
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 def get_password_hash(password: str) -> str:
@@ -35,7 +32,7 @@ def _hash_refresh_token(token: str) -> str:
 
 
 def create_access_token(user: User) -> str:
-    expire = _utc_now() + timedelta(minutes=settings.access_token_expire_minutes)
+    expire = utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
     payload = {
         "sub": str(user.id),
         "tenant_id": str(user.tenant_id),
@@ -48,7 +45,7 @@ def create_access_token(user: User) -> str:
 async def create_refresh_token(db: AsyncSession, user: User) -> str:
     raw_token = secrets.token_urlsafe(32)
     token_hash = _hash_refresh_token(raw_token)
-    expire = _utc_now() + timedelta(days=settings.refresh_token_expire_days)
+    expire = utcnow() + timedelta(days=settings.refresh_token_expire_days)
     token_obj = RefreshToken(
         id=uuid4(),
         user_id=user.id,
@@ -82,7 +79,7 @@ async def refresh_tokens(db: AsyncSession, raw_refresh_token: str) -> Tuple[str,
     result = await db.execute(
         select(RefreshToken).where(
             RefreshToken.token_hash == token_hash,
-            RefreshToken.expires_at > _utc_now(),
+            RefreshToken.expires_at > utcnow(),
             RefreshToken.is_revoked.is_(False),
         )
     )

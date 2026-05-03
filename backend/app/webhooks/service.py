@@ -17,7 +17,7 @@ import json
 import logging
 import secrets
 import uuid
-from datetime import datetime, timezone
+from app.common.utils import utcnow
 from typing import Any
 from uuid import UUID
 
@@ -204,7 +204,7 @@ async def publish_event(tenant_id: UUID, event_type: str, payload: dict[str, Any
             "tenant_id": str(tenant_id),
             "event_type": event_type,
             "payload": payload,
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": utcnow().isoformat(),
         }
     )
     try:
@@ -289,7 +289,7 @@ async def _deliver_one(
                 payload=body,
                 response_status=status_code,
                 error=error,
-                delivered_at=datetime.now(timezone.utc),
+                delivered_at=utcnow(),
             )
             async with db_factory() as db:
                 db.add(log)

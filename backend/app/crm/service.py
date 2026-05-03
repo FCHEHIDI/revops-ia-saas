@@ -20,7 +20,7 @@ from .rag_publisher import publish_deal_index_job
 
 def _publish_playbook_event(event: dict) -> None:
     """Lazy import wrapper to avoid circular: crm.service ↔ playbooks.service."""
-    from app.playbooks.service import publish_playbook_event  # noqa: PLC0415
+    from app.playbooks.worker import publish_playbook_event  # noqa: PLC0415
     publish_playbook_event(event)
 
 # --- ACCOUNT ---

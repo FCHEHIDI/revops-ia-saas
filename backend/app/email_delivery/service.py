@@ -29,7 +29,7 @@ import json
 import logging
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from app.common.utils import utcnow
 from typing import Any
 from uuid import UUID
 
@@ -184,7 +184,7 @@ async def _deliver_one(db: AsyncSession, send_id: UUID) -> None:
             .where(EmailSend.id == send_id)
             .values(
                 status="sent",
-                sent_at=datetime.now(timezone.utc),
+                sent_at=utcnow(),
             )
         )
         await db.commit()
@@ -210,7 +210,7 @@ async def _deliver_one(db: AsyncSession, send_id: UUID) -> None:
                 .where(EmailSend.id == send_id)
                 .values(
                     status="sent",
-                    sent_at=datetime.now(timezone.utc),
+                    sent_at=utcnow(),
                 )
             )
             logger.info("email: sent %s to %s via Resend", send_id, row.to_email)
@@ -287,7 +287,7 @@ async def mark_opened(db: AsyncSession, open_token: UUID) -> bool:
     if row is None:
         return False
     if row.opened_at is None:
-        row.opened_at = datetime.now(timezone.utc)
+        row.opened_at = utcnow()
         await db.commit()
         return True
     return False  # already opened
@@ -310,6 +310,6 @@ async def mark_clicked(db: AsyncSession, click_token: UUID) -> str | None:
     if row is None:
         return None
     if row.clicked_at is None:
-        row.clicked_at = datetime.now(timezone.utc)
+        row.clicked_at = utcnow()
         await db.commit()
     return row.to_email

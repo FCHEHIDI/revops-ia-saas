@@ -5,7 +5,8 @@ import httpx
 
 from app.common.db import get_db
 from app.config import settings
-from app.dependencies import get_current_user
+from app.auth.dependencies import get_current_active_user
+from app.models.user import User
 from app.sessions.service import (
     add_message,
     add_messages_batch,
@@ -27,42 +28,47 @@ router = APIRouter()
 @router.post("/", response_model=SessionResponse, status_code=201)
 async def create_new_session(
     data: SessionCreate,
-    user=Depends(get_current_user),
+    user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    session = await create_session(db, user["user_id"], user["tenant_id"], data.title)
+    session = await create_session(db, user.id, user.tenant_id, data.title)
     return session
 
 
 @router.get("/", response_model=list[SessionResponse])
 async def get_sessions(
-    user=Depends(get_current_user), db: AsyncSession = Depends(get_db)
+    user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    return await list_user_sessions(db, user["user_id"], user["tenant_id"])
+    return await list_user_sessions(db, user.id, user.tenant_id)
 
 
 @router.get("/{session_id}", response_model=SessionResponse)
 async def get_single_session(
-    session_id: str, user=Depends(get_current_user), db: AsyncSession = Depends(get_db)
+    session_id: str,
+    user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
 ):
     session = await get_session(db, session_id)
-    if not session or str(session.org_id) != str(user["tenant_id"]):
+    if not session or str(session.org_id) != str(user.tenant_id):
         raise HTTPException(status_code=404, detail="Session not found")
     return session
 
 
 @router.delete("/{session_id}", status_code=204)
 async def remove_session(
-    session_id: str, user=Depends(get_current_user), db: AsyncSession = Depends(get_db)
+    session_id: str,
+    user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    await delete_session(db, session_id, user["user_id"], user["tenant_id"])
+    await delete_session(db, session_id, user.id, user.tenant_id)
 
 
 @router.post("/{session_id}/messages", response_model=SessionResponse)
 async def persist_messages(
     session_id: str,
     data: BatchMessagesRequest,
-    user=Depends(get_current_user),
+    user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Persist a batch of messages (user + assistant) after a streaming exchange."""
@@ -72,8 +78,8 @@ async def persist_messages(
     ]
     return await add_messages_batch(
         db, session_id, raw,
-        owner_user_id=user["user_id"],
-        owner_org_id=user["tenant_id"],
+        owner_user_id=user.id,
+        owner_org_id=user.tenant_id,
     )
 
 
@@ -81,7 +87,7 @@ async def persist_messages(
 async def chat_with_agent(
     session_id: str,
     data: AddMessageRequest,
-    user=Depends(get_current_user),
+    user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Proxy a chat message through the orchestrator with SSE streaming.
@@ -91,21 +97,21 @@ async def chat_with_agent(
     saved asynchronously once the stream completes.
     """
     session = await get_session(db, session_id)
-    if not session or str(session.org_id) != str(user["tenant_id"]):
+    if not session or str(session.org_id) != str(user.tenant_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
     # Persist the user message immediately
     await add_message(
         db, session_id, data.role, data.content,
-        owner_user_id=user["user_id"],
-        owner_org_id=user["tenant_id"],
+        owner_user_id=user.id,
+        owner_org_id=user.tenant_id,
     )
 
     orchestrator_payload = {
-        "tenant_id": str(user["tenant_id"]),
+        "tenant_id": str(user.tenant_id),
         "conversation_id": session_id,
         "message": data.content,
-        "user_id": str(user["user_id"]),
+        "user_id": str(user.id),
     }
 
     async def event_stream():
@@ -163,7 +169,7 @@ async def chat_with_agent(
                 from app.common.db import AsyncSessionLocal
                 from app.usage.service import record_usage
                 from app.usage.schemas import UsageEventCreate
-                tenant_uuid = user["tenant_id"]
+                tenant_uuid = user.tenant_id
                 session_meta = {"session_id": session_id}
                 async with AsyncSessionLocal() as usage_db:
                     try:

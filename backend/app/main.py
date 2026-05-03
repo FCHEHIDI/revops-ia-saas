@@ -29,7 +29,7 @@ from app.activities.router import router as activities_router
 from app.email_delivery.router import router as email_router, tracking_router as email_tracking_router
 from app.scoring.router import router as scoring_router
 from app.playbooks.router import router as playbooks_router, internal_router as playbooks_internal_router
-from app.playbooks.service import run_worker as _run_playbook_worker
+from app.playbooks.worker import run_worker as _run_playbook_worker
 from app.email_delivery.service import run_worker as _run_email_worker
 from app.reports.router import router as reports_router
 from app.usage.router import router as usage_router

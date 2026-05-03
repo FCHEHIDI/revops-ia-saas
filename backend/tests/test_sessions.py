@@ -9,9 +9,9 @@ Coverage:
 - POST /sessions/{id}/chat       — chat proxy: 404 on missing/cross-tenant session,
                                    happy path with mocked orchestrator SSE
 
-All tests use dependency_overrides (get_current_user + get_db) to bypass real DB and auth.
+All tests use dependency_overrides (get_current_active_user + get_db) to bypass real DB and auth.
 The JWT middleware still runs — tests supply a valid cookie to pass it, then the
-overridden get_current_user governs what user state the handler actually sees.
+overridden get_current_active_user governs what user state the handler actually sees.
 """
 
 from __future__ import annotations
@@ -24,8 +24,8 @@ import pytest
 from httpx import AsyncClient
 
 from app.auth.service import create_access_token
+from app.auth.dependencies import get_current_active_user
 from app.common.db import get_db
-from app.dependencies import get_current_user
 from app.main import app
 from app.models.user import User
 from app.sessions.models import UserSession
@@ -36,10 +36,11 @@ from app.sessions.models import UserSession
 # ---------------------------------------------------------------------------
 
 def _make_mock_user(user_id: UUID, tenant_id: UUID) -> User:
-    """Return a MagicMock User suitable for create_access_token."""
+    """Return a MagicMock User suitable for create_access_token and dependency overrides."""
     u = MagicMock(spec=User)
     u.id = user_id
     u.email = f"user_{user_id}@test.io"
+    u.org_id = tenant_id
     u.tenant_id = tenant_id
     u.is_active = True
     u.full_name = "Test User"
@@ -52,9 +53,9 @@ def _jwt_cookie(user_id: UUID, tenant_id: UUID) -> dict[str, str]:
     return {"access_token": token}
 
 
-def _user_state(user_id: UUID, tenant_id: UUID) -> dict:
-    """Return the dict get_current_user normally produces."""
-    return {"user_id": user_id, "tenant_id": tenant_id, "permissions": []}
+def _user_state(user_id: UUID, tenant_id: UUID) -> User:
+    """Return a mock User object (alias for _make_mock_user for backward compat)."""
+    return _make_mock_user(user_id, tenant_id)
 
 
 def _make_session(user_id: UUID, org_id: UUID, messages: list | None = None) -> UserSession:
@@ -100,7 +101,7 @@ def _db_mock(session: UserSession | None) -> tuple:
 def _cleanup_overrides():
     """Restore dependency_overrides after every test."""
     yield
-    app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_current_active_user, None)
     app.dependency_overrides.pop(get_db, None)
 
 
@@ -113,7 +114,7 @@ async def test_create_session_returns_201(client: AsyncClient) -> None:
     uid, tid = uuid4(), uuid4()
     db_override, _ = _db_mock(None)  # create_session never calls get_session
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(uid, tid)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(uid, tid)
     app.dependency_overrides[get_db] = db_override
 
     resp = await client.post(
@@ -144,7 +145,7 @@ async def test_list_sessions_returns_200(client: AsyncClient) -> None:
     session = _make_session(uid, tid)
     db_override, _ = _db_mock(session)
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(uid, tid)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(uid, tid)
     app.dependency_overrides[get_db] = db_override
 
     resp = await client.get("/api/v1/sessions/", cookies=_jwt_cookie(uid, tid))
@@ -163,7 +164,7 @@ async def test_get_owned_session_returns_200(client: AsyncClient) -> None:
     session = _make_session(uid, tid)
     db_override, _ = _db_mock(session)
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(uid, tid)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(uid, tid)
     app.dependency_overrides[get_db] = db_override
 
     resp = await client.get(f"/api/v1/sessions/{session.id}", cookies=_jwt_cookie(uid, tid))
@@ -181,7 +182,7 @@ async def test_get_session_cross_tenant_returns_404(client: AsyncClient) -> None
     session = _make_session(uid_a, tid_a)
     db_override, _ = _db_mock(session)
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(uid_b, tid_b)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(uid_b, tid_b)
     app.dependency_overrides[get_db] = db_override
 
     resp = await client.get(f"/api/v1/sessions/{session.id}", cookies=_jwt_cookie(uid_b, tid_b))
@@ -193,7 +194,7 @@ async def test_get_nonexistent_session_returns_404(client: AsyncClient) -> None:
     uid, tid = uuid4(), uuid4()
     db_override, _ = _db_mock(None)
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(uid, tid)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(uid, tid)
     app.dependency_overrides[get_db] = db_override
 
     resp = await client.get(f"/api/v1/sessions/{uuid4()}", cookies=_jwt_cookie(uid, tid))
@@ -211,7 +212,7 @@ async def test_delete_owned_session_returns_204(client: AsyncClient) -> None:
     session = _make_session(uid, tid)
     db_override, mock_db = _db_mock(session)
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(uid, tid)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(uid, tid)
     app.dependency_overrides[get_db] = db_override
 
     resp = await client.delete(f"/api/v1/sessions/{session.id}", cookies=_jwt_cookie(uid, tid))
@@ -230,7 +231,7 @@ async def test_delete_session_wrong_user_same_tenant_returns_404(client: AsyncCl
     session = _make_session(owner_uid, tid)
     db_override, mock_db = _db_mock(session)
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(other_uid, tid)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(other_uid, tid)
     app.dependency_overrides[get_db] = db_override
 
     resp = await client.delete(
@@ -249,7 +250,7 @@ async def test_delete_session_cross_tenant_returns_404(client: AsyncClient) -> N
     session = _make_session(uid_a, tid_a)
     db_override, mock_db = _db_mock(session)
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(uid_b, tid_b)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(uid_b, tid_b)
     app.dependency_overrides[get_db] = db_override
 
     resp = await client.delete(f"/api/v1/sessions/{session.id}", cookies=_jwt_cookie(uid_b, tid_b))
@@ -262,7 +263,7 @@ async def test_delete_nonexistent_session_returns_404(client: AsyncClient) -> No
     uid, tid = uuid4(), uuid4()
     db_override, _ = _db_mock(None)
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(uid, tid)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(uid, tid)
     app.dependency_overrides[get_db] = db_override
 
     resp = await client.delete(f"/api/v1/sessions/{uuid4()}", cookies=_jwt_cookie(uid, tid))
@@ -280,7 +281,7 @@ async def test_batch_persist_appends_messages(client: AsyncClient) -> None:
     session = _make_session(uid, tid)
     db_override, mock_db = _db_mock(session)
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(uid, tid)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(uid, tid)
     app.dependency_overrides[get_db] = db_override
 
     payload = {
@@ -310,7 +311,7 @@ async def test_batch_persist_empty_list_returns_200(client: AsyncClient) -> None
     session = _make_session(uid, tid)
     db_override, _ = _db_mock(session)
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(uid, tid)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(uid, tid)
     app.dependency_overrides[get_db] = db_override
 
     resp = await client.post(
@@ -330,7 +331,7 @@ async def test_batch_persist_cross_tenant_returns_403(client: AsyncClient) -> No
     session = _make_session(uid_a, tid_a)
     db_override, _ = _db_mock(session)
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(uid_b, tid_b)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(uid_b, tid_b)
     app.dependency_overrides[get_db] = db_override
 
     resp = await client.post(
@@ -346,7 +347,7 @@ async def test_batch_persist_nonexistent_session_returns_404(client: AsyncClient
     uid, tid = uuid4(), uuid4()
     db_override, _ = _db_mock(None)
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(uid, tid)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(uid, tid)
     app.dependency_overrides[get_db] = db_override
 
     resp = await client.post(
@@ -367,7 +368,7 @@ async def test_chat_session_not_found_returns_404(client: AsyncClient) -> None:
     uid, tid = uuid4(), uuid4()
     db_override, _ = _db_mock(None)
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(uid, tid)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(uid, tid)
     app.dependency_overrides[get_db] = db_override
 
     resp = await client.post(
@@ -387,7 +388,7 @@ async def test_chat_cross_tenant_session_returns_404(client: AsyncClient) -> Non
     session = _make_session(uid_a, tid_a)
     db_override, _ = _db_mock(session)
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(uid_b, tid_b)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(uid_b, tid_b)
     app.dependency_overrides[get_db] = db_override
 
     resp = await client.post(
@@ -405,7 +406,7 @@ async def test_chat_streams_orchestrator_sse(client: AsyncClient) -> None:
     session = _make_session(uid, tid)
     db_override, _ = _db_mock(session)
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(uid, tid)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(uid, tid)
     app.dependency_overrides[get_db] = db_override
 
     # Simulated orchestrator SSE output
@@ -469,7 +470,7 @@ async def test_chat_orchestrator_error_streams_error_event(client: AsyncClient) 
     session = _make_session(uid, tid)
     db_override, _ = _db_mock(session)
 
-    app.dependency_overrides[get_current_user] = lambda: _user_state(uid, tid)
+    app.dependency_overrides[get_current_active_user] = lambda: _user_state(uid, tid)
     app.dependency_overrides[get_db] = db_override
 
     mock_resp = MagicMock()

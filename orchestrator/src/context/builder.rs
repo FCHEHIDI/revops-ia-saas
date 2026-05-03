@@ -268,6 +268,62 @@ fn prune_history_by_budget(
     kept
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn msg(content: &str) -> ConversationMessage {
+        ConversationMessage {
+            role: "user".to_string(),
+            content: content.to_string(),
+            tool_call_id: None,
+            tool_calls: None,
+        }
+    }
+
+    #[test]
+    fn prune_empty_history_returns_empty() {
+        let result = prune_history_by_budget(vec![], 1_000);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn prune_history_under_budget_returns_all() {
+        let history = vec![msg("hello"), msg("world")];
+        let result = prune_history_by_budget(history, 10_000);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].content, "hello");
+        assert_eq!(result[1].content, "world");
+    }
+
+    #[test]
+    fn prune_history_over_budget_drops_oldest() {
+        // 3 messages: 5_000 + 5_000 + 5_000 chars, budget = 12_000
+        let long = "x".repeat(5_000);
+        let history = vec![msg(&long), msg(&long), msg(&long)];
+        let result = prune_history_by_budget(history, 12_000);
+        // Only the 2 most recent messages fit (5_000 + 5_000 = 10_000 <= 12_000)
+        // Adding the 3rd (oldest) would exceed 12_000 after keeping at least one.
+        assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn prune_preserves_single_oversized_message() {
+        // A single message larger than the budget must still be kept.
+        let huge = "x".repeat(20_000);
+        let result = prune_history_by_budget(vec![msg(&huge)], 12_000);
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn prune_preserves_chronological_order() {
+        let history = vec![msg("first"), msg("second"), msg("third")];
+        let result = prune_history_by_budget(history, 10_000);
+        assert_eq!(result[0].content, "first");
+        assert_eq!(result[result.len() - 1].content, "third");
+    }
+}
+
 /// Static tool definitions for all MCP servers.
 ///
 /// In a future iteration these can be fetched dynamically from each MCP server

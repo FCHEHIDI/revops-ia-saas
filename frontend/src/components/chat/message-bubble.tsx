@@ -10,8 +10,8 @@ interface MessageBubbleProps {
 }
 
 /* Format time — Geist Mono style */
-function MsgTime() {
-  const t = new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+function MsgTime({ date }: { date: Date }) {
+  const t = date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   return (
     <span
       className="font-mono-geist select-none"
@@ -70,7 +70,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                   background: "var(--chat-user-bg)",
                   border: "1px solid var(--chat-user-border)",
                   boxShadow: "inset 0 1px 0 rgba(255,80,80,0.06), 0 2px 12px rgba(0,0,0,0.6)",
-                  color: "var(--mcp-crm)",
+                  color: "var(--text-primary)",
                   backdropFilter: "blur(12px)",
                   borderRadius: "10px 10px 2px 10px",
                 }
@@ -133,7 +133,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         </div>
 
         {/* Timestamp */}
-        {!message.isStreaming && <MsgTime />}
+        {!message.isStreaming && <MsgTime date={message.createdAt} />}
 
         {/* Tool calls */}
         {message.toolCalls && message.toolCalls.length > 0 && (

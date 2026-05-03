@@ -63,77 +63,79 @@ export default function CrmPage() {
           </div>
         </div>
 
-        {/* ── Layout : sidebar + contenu ──────────────────────────── */}
-        <div className="flex gap-6 px-8 py-8 items-start">
-
-          {/* Sidebar nav */}
-          <aside className="w-44 flex-shrink-0">
-            <div className="tablette-marbre" style={{ padding: "10px 8px" }}>
-              <p
-                className="font-cinzel text-xs tracking-[0.2em] uppercase px-3 pb-2 mb-1"
-                style={{ color: "var(--red-dark)", borderBottom: "1px solid rgba(138,0,0,0.2)" }}
+        {/* ── Tabs horizontaux ────────────────────────────────────── */}
+        <div
+          style={{
+            borderBottom: "1px solid var(--border-subtle)",
+            padding: "0 32px",
+            display: "flex",
+            alignItems: "flex-end",
+            gap: 2,
+          }}
+        >
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "10px 16px",
+                  background: "transparent",
+                  border: "none",
+                  borderBottom: isActive
+                    ? "2px solid var(--red-doge)"
+                    : "2px solid transparent",
+                  cursor: "pointer",
+                  color: isActive ? "var(--white-spectral)" : "var(--text-muted)",
+                  fontSize: 13,
+                  fontFamily: "var(--font-body)",
+                  fontWeight: isActive ? 600 : 400,
+                  letterSpacing: "0.02em",
+                  transition: "color 0.15s, border-color 0.15s",
+                  marginBottom: -1,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) e.currentTarget.style.color = "var(--text-secondary)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) e.currentTarget.style.color = "var(--text-muted)";
+                }}
               >
-                Navigation
-              </p>
-              <div className="space-y-0.5 mt-2">
-                {NAV_ITEMS.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => setActiveTab(item.id)}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded transition-all duration-200 font-cinzel text-xs tracking-[0.08em]"
-                      style={{
-                        background: isActive ? "rgba(138,0,0,0.18)" : "transparent",
-                        border: isActive ? "1px solid var(--red-dark)" : "1px solid transparent",
-                        color: isActive ? "var(--red-doge)" : "var(--gray-silver)",
-                        boxShadow: isActive ? "var(--inner-shadow-red)" : "none",
-                        textAlign: "left",
-                        cursor: "pointer",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.background = "rgba(138,0,0,0.07)";
-                          e.currentTarget.style.color = "var(--white-spectral)";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.color = "var(--gray-silver)";
-                        }
-                      }}
-                    >
-                      <Icon size={12} />
-                      {item.label}
-                    </button>
-                  );
-                })}
+                <Icon size={13} />
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Contenu ─────────────────────────────────────────────── */}
+        <div className="px-8 py-6">
+          {activeTab === "contacts" && <ContactsTable />}
+          {activeTab !== "contacts" && (
+            <div
+              className="tablette-marbre flex items-center justify-center"
+              style={{ minHeight: 300 }}
+            >
+              <div className="text-center">
+                <p className="font-cinzel text-2xl mb-3" style={{ color: "var(--red-dark)" }}>⚜</p>
+                <p
+                  className="font-cinzel text-xs tracking-[0.25em] uppercase"
+                  style={{ color: "var(--gray-silver)" }}
+                >
+                  Section en préparation
+                </p>
               </div>
             </div>
-          </aside>
-
-          {/* Contenu principal */}
-          <div className="flex-1 min-w-0">
-            {activeTab === "contacts" && <ContactsTable />}
-            {activeTab !== "contacts" && (
-              <div className="tablette-marbre flex items-center justify-center" style={{ minHeight: 300 }}>
-                <div className="text-center">
-                  <p className="font-cinzel text-2xl mb-3" style={{ color: "var(--red-dark)" }}>⚜</p>
-                  <p
-                    className="font-cinzel text-xs tracking-[0.25em] uppercase"
-                    style={{ color: "var(--gray-silver)" }}
-                  >
-                    Section en préparation
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
+          )}
         </div>
+
       </main>
     </div>
   );
 }
+

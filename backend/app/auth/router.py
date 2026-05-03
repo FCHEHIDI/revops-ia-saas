@@ -6,6 +6,7 @@ from sqlalchemy.future import select
 
 from app.common.db import get_db
 from app.config import settings
+from app.rate_limiter import limiter
 from app.auth.dependencies import get_current_active_user
 from app.auth.schemas import (
     LoginRequest,
@@ -64,8 +65,10 @@ def _set_auth_cookies(
 @router.post(
     "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
+@limiter.limit("5/minute")
 async def register(
     data: RegisterRequest,
+    request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db),
 ) -> UserResponse:
@@ -128,8 +131,10 @@ async def register(
 
 
 @router.post("/login", response_model=UserResponse)
+@limiter.limit("10/minute")
 async def login(
     data: LoginRequest,
+    request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db),
 ) -> UserResponse:
@@ -148,6 +153,7 @@ async def login(
 
 
 @router.post("/refresh", response_model=MessageResponse)
+@limiter.limit("20/minute")
 async def refresh(
     request: Request,
     response: Response,

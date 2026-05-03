@@ -5,8 +5,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from app.rate_limiter import limiter
 
 from app.middleware.tenant import TenantMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.auth import router as auth_router
 from app.users import router as users_router
 from app.sessions import router as sessions_router
@@ -30,6 +34,7 @@ from app.email_delivery.service import run_worker as _run_email_worker
 from app.reports.router import router as reports_router
 from app.usage.router import router as usage_router
 from app.common.db import AsyncSessionLocal
+from sqlalchemy import text as sa_text
 
 
 @asynccontextmanager
@@ -54,6 +59,8 @@ async def lifespan(application: FastAPI):
                     await task
 
 app = FastAPI(title="RevOps IA SaaS API", version="1.0.0", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # ---------------------------------------------------------------------------# ---------------------------------------------------------------------------
 # CORS — required for the Next.js frontend to call the API from the browser.
@@ -88,6 +95,7 @@ else:
 # the tenant/JWT enforcement.
 app.add_middleware(TenantMiddleware)
 app.add_middleware(CORSMiddleware, **cors_kwargs)
+app.add_middleware(SecurityHeadersMiddleware)
 
 app.include_router(auth_router.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(users_router.router, prefix="/api/v1/users", tags=["users"])
@@ -143,5 +151,10 @@ app.include_router(
 
 
 @app.get("/health")
-def health():
-    return {"status": "ok"}
+async def health() -> dict:
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(sa_text("SELECT 1"))
+        return {"status": "ok", "db": "ok"}
+    except Exception:
+        return {"status": "degraded", "db": "error"}

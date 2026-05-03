@@ -9,7 +9,16 @@ from starlette.requests import Request
 from app.config import settings
 
 Base = declarative_base()
-engine = create_async_engine(settings.database_url, future=True, echo=False)
+engine = create_async_engine(
+    settings.database_url,
+    future=True,
+    echo=False,
+    pool_pre_ping=True,   # detect stale connections before use
+    pool_size=10,
+    max_overflow=20,
+    pool_timeout=30,
+    pool_recycle=1800,    # recycle connections every 30 min
+)
 AsyncSessionLocal = async_sessionmaker(
     engine, expire_on_commit=False, class_=AsyncSession
 )

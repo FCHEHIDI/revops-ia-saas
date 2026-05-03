@@ -38,7 +38,13 @@ class Settings(BaseSettings):
 
 settings = Settings()  # type: ignore[call-arg]
 
-if hasattr(settings, 'environment') and settings.environment == "production":
+if settings.environment == "production":
+    _errors: list[str] = []
     if not settings.internal_api_key:
-        import warnings
-        warnings.warn("INTERNAL_API_KEY is empty in production! Security risk.")
+        _errors.append("INTERNAL_API_KEY must be set in production")
+    if settings.mcp_inter_service_secret == "dev-internal-key-change-me":
+        _errors.append("MCP_INTER_SERVICE_SECRET must be changed from default in production")
+    if not settings.jwt_secret or settings.jwt_secret == "dev-jwt-secret-change-in-production":
+        _errors.append("JWT_SECRET must be set to a strong random value in production")
+    if _errors:
+        raise ValueError("Production startup failed due to insecure configuration:\n" + "\n".join(f"  - {e}" for e in _errors))

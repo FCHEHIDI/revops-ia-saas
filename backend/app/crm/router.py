@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from uuid import UUID
@@ -26,7 +26,7 @@ async def get_account_route(id: UUID,
     return await get_account_by_id(db, id, tenant_id, user_id)
 
 @router.get("/accounts", response_model=PaginatedAccounts)
-async def list_accounts_route(query: Optional[str] = None, industry: Optional[str] = None, page: int = 1, limit: int = 20,
+async def list_accounts_route(query: Optional[str] = None, industry: Optional[str] = None, page: int = Query(default=1, ge=1), limit: int = Query(default=20, ge=1, le=200),
         tenant_id: UUID = Depends(extract_tenant),
         user_id: Optional[UUID] = Depends(extract_user_id),
         db: AsyncSession = Depends(get_db)):
@@ -55,7 +55,7 @@ async def get_contact_route(id: UUID,
     return await get_contact_by_id(db, id, tenant_id, user_id)
 
 @router.get("/contacts", response_model=PaginatedContacts)
-async def list_contacts_route(query: Optional[str] = None, account_id: Optional[UUID] = None, page: int = 1, limit: int = 20,
+async def list_contacts_route(query: Optional[str] = None, account_id: Optional[UUID] = None, page: int = Query(default=1, ge=1), limit: int = Query(default=20, ge=1, le=200),
         tenant_id: UUID = Depends(extract_tenant),
         user_id: Optional[UUID] = Depends(extract_user_id),
         db: AsyncSession = Depends(get_db)):
@@ -91,7 +91,7 @@ async def get_deal_route(id: UUID,
     return await get_deal_by_id(db, id, tenant_id, user_id)
 
 @router.get("/deals", response_model=PaginatedDeals)
-async def list_deals_route(stage: Optional[str] = None, owner_id: Optional[UUID] = None, page: int = 1, limit: int = 20,
+async def list_deals_route(stage: Optional[str] = None, owner_id: Optional[UUID] = None, page: int = Query(default=1, ge=1), limit: int = Query(default=20, ge=1, le=200),
         tenant_id: UUID = Depends(extract_tenant),
         user_id: Optional[UUID] = Depends(extract_user_id),
         db: AsyncSession = Depends(get_db)):

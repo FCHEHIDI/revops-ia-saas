@@ -16,7 +16,6 @@ from app.models.user import User
 from app.auth.schemas import TokenPayload
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-ALGORITHM = "HS256"
 
 
 def _utc_now() -> datetime:
@@ -43,7 +42,7 @@ def create_access_token(user: User) -> str:
         "exp": int(expire.timestamp()),
         "type": "access",
     }
-    return jwt.encode(payload, settings.jwt_secret, algorithm=ALGORITHM)
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
 async def create_refresh_token(db: AsyncSession, user: User) -> str:
@@ -64,7 +63,7 @@ async def create_refresh_token(db: AsyncSession, user: User) -> str:
 
 def verify_access_token(token: str) -> TokenPayload:
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
         return TokenPayload(
             sub=UUID(payload["sub"]),
             tenant_id=UUID(payload["tenant_id"]),

@@ -3,13 +3,17 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini .
 
 ENV PYTHONPATH=/app
+
+# Run as non-root user for security
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+USER appuser
 
 EXPOSE 8000
 

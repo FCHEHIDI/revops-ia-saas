@@ -428,4 +428,44 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "name": "list_playbooks",
+        "description": "List active automation playbooks for a tenant.",
+        "input_schema": {
+            "type": "object",
+            "required": ["tenant_id"],
+            "properties": {
+                "tenant_id": {"type": "string", "format": "uuid"},
+            },
+        },
+    },
+    {
+        "name": "trigger_playbook",
+        "description": (
+            "Manually trigger a playbook execution for a CRM entity. "
+            "Bypasses event queue and runs the playbook synchronously."
+        ),
+        "input_schema": {
+            "type": "object",
+            "required": ["tenant_id", "playbook_id"],
+            "properties": {
+                "tenant_id": {"type": "string", "format": "uuid"},
+                "playbook_id": {"type": "string", "format": "uuid"},
+                "entity_type": {
+                    "type": "string",
+                    "enum": ["deal", "contact", "account"],
+                    "description": "Type of entity this playbook acts on.",
+                },
+                "entity_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "UUID of the entity to act on.",
+                },
+                "event_payload": {
+                    "type": "object",
+                    "description": "Additional context passed to playbook actions.",
+                },
+            },
+        },
+    },
 ]

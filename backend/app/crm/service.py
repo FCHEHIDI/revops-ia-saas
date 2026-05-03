@@ -17,6 +17,12 @@ from app.activities.service import record as _record_activity
 from app.webhooks.service import publish_event as _publish_webhook_event
 from .rag_publisher import publish_deal_index_job
 
+
+def _publish_playbook_event(event: dict) -> None:
+    """Lazy import wrapper to avoid circular: crm.service ↔ playbooks.service."""
+    from app.playbooks.service import publish_playbook_event  # noqa: PLC0415
+    publish_playbook_event(event)
+
 # --- ACCOUNT ---
 async def get_account_by_id(db: AsyncSession, account_id: UUID, tenant_id: UUID, user_id: UUID | None) -> AccountRead:
     acc = await get_account(db, account_id)
@@ -77,6 +83,13 @@ async def create_contact_service(db: AsyncSession, data: ContactCreate, tenant_i
             event_type="contact.created",
             payload={"id": str(c.id), "email": c.email, "name": c.name},
         )
+        _publish_playbook_event({
+            "event": "contact.created",
+            "tenant_id": str(tenant_id),
+            "entity_type": "contact",
+            "entity_id": str(c.id),
+            "payload": {"contact_id": str(c.id), "email": c.email},
+        })
         return ContactRead.model_validate(c)
     except IntegrityError:
         raise HTTPException(status_code=409, detail="Contact already exists")
@@ -125,6 +138,18 @@ async def create_deal_service(db: AsyncSession, data: DealCreate, tenant_id: UUI
         # Si notes non vide → déclenche publish_deal_index_job
         if d.notes:
             await publish_deal_index_job(d.id, tenant_id, d.notes, {"deal_id": str(d.id), "account_id": str(d.account_id), "stage": d.stage})
+        _publish_playbook_event({
+            "event": "deal.created",
+            "tenant_id": str(tenant_id),
+            "entity_type": "deal",
+            "entity_id": str(d.id),
+            "payload": {
+                "deal_id": str(d.id),
+                "stage": d.stage,
+                "account_id": str(d.account_id),
+                "contact_id": str(d.contact_id) if d.contact_id else None,
+            },
+        })
         return DealRead.model_validate(d)
     except IntegrityError:
         raise HTTPException(status_code=409, detail="Deal already exists")
@@ -148,6 +173,17 @@ async def update_deal_service(db: AsyncSession, deal_id: UUID, fields: dict, ten
                 actor_id=user_id,
                 payload={"stage": stage},
             )
+            _publish_playbook_event({
+                "event": "deal.stage_changed",
+                "tenant_id": str(tenant_id),
+                "entity_type": "deal",
+                "entity_id": str(deal_id),
+                "payload": {
+                    "deal_id": str(deal_id),
+                    "stage": stage,
+                    "contact_id": str(d.contact_id) if d.contact_id else None,
+                },
+            })
         if stage or notes:
             await publish_deal_index_job(deal_id, tenant_id, notes or "", {"deal_id": str(deal_id), "stage": stage})
         # Fire webhook events for terminal stage transitions

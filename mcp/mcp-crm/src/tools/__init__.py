@@ -6,6 +6,7 @@ from .contacts import create_contact, get_contact, search_contacts, update_conta
 from .accounts import create_account, get_account, search_accounts, update_account
 from .deals import create_deal, get_deal, list_deals, update_deal_stage
 from .scoring import score_lead
+from .playbooks import list_playbooks, trigger_playbook
 
 TOOL_REGISTRY: dict[str, Callable] = {
     # Contacts
@@ -25,6 +26,9 @@ TOOL_REGISTRY: dict[str, Callable] = {
     "update_deal_stage": update_deal_stage,
     # Scoring
     "score_lead": score_lead,
+    # Playbooks
+    "list_playbooks": list_playbooks,
+    "trigger_playbook": trigger_playbook,
 }
 
 __all__ = [
@@ -42,4 +46,6 @@ __all__ = [
     "create_deal",
     "update_deal_stage",
     "score_lead",
+    "list_playbooks",
+    "trigger_playbook",
 ]

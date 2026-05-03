@@ -29,6 +29,8 @@ BYPASS_PATHS = [
     "/internal/v1/email",
     # AI lead scoring — protected by request-body tenant_id; no middleware state needed.
     "/internal/v1/scoring",
+    # Playbooks internal API — accessed by mcp-crm with X-Internal-API-Key header.
+    "/internal/v1/playbooks",
 ]
 # Routes under /internal/v1/ use the internal-API-key fast-path (sets tenant context).
 INTERNAL_API_PREFIX = "/internal/v1/"

@@ -24,6 +24,8 @@ from app.webhooks.service import run_worker as _run_webhook_worker
 from app.activities.router import router as activities_router
 from app.email_delivery.router import router as email_router, tracking_router as email_tracking_router
 from app.scoring.router import router as scoring_router
+from app.playbooks.router import router as playbooks_router, internal_router as playbooks_internal_router
+from app.playbooks.service import run_worker as _run_playbook_worker
 from app.email_delivery.service import run_worker as _run_email_worker
 from app.common.db import AsyncSessionLocal
 
@@ -39,10 +41,11 @@ async def lifespan(application: FastAPI):
 
     worker_task = asyncio.create_task(_run_webhook_worker(_db_factory))
     email_worker_task = asyncio.create_task(_run_email_worker(_db_factory))
+    playbook_worker_task = asyncio.create_task(_run_playbook_worker(_db_factory))
     try:
         yield
     finally:
-        for task in (worker_task, email_worker_task):
+        for task in (worker_task, email_worker_task, playbook_worker_task):
             if not task.done():
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
@@ -122,6 +125,12 @@ app.include_router(
 )
 app.include_router(
     scoring_router, prefix="/internal/v1/scoring", tags=["scoring"]
+)
+app.include_router(
+    playbooks_router, prefix="/api/v1/playbooks", tags=["playbooks"]
+)
+app.include_router(
+    playbooks_internal_router, prefix="/internal/v1/playbooks", tags=["playbooks-internal"]
 )
 
 

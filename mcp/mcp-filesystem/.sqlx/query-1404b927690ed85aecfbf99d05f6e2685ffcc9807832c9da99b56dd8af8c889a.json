@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*)\n        FROM fs_playbooks\n        WHERE tenant_id = $1\n          AND is_active = true\n          AND ($2::playbook_category IS NULL OR category = $2)\n          AND ($3::text[] IS NULL OR tags @> $3)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "playbook_category",
+            "kind": {
+              "Enum": [
+                "sales_process",
+                "objection_handling",
+                "battle_card",
+                "onboarding",
+                "competitive_analysis",
+                "pricing_guide"
+              ]
+            }
+          }
+        },
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1404b927690ed85aecfbf99d05f6e2685ffcc9807832c9da99b56dd8af8c889a"
+}

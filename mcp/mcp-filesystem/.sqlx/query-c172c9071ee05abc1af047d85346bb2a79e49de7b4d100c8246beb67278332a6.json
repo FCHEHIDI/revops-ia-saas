@@ -1,0 +1,105 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            id,\n            tenant_id,\n            filename,\n            document_type AS \"document_type: DocumentType\",\n            mime_type,\n            size_bytes,\n            tags,\n            rag_indexed,\n            rag_indexed_at,\n            uploaded_by,\n            created_at,\n            updated_at\n        FROM fs_documents\n        WHERE id = $1 AND tenant_id = $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "tenant_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "filename",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "document_type: DocumentType",
+        "type_info": {
+          "Custom": {
+            "name": "document_type",
+            "kind": {
+              "Enum": [
+                "playbook",
+                "report",
+                "contract",
+                "proposal",
+                "presentation",
+                "datasheet",
+                "internal",
+                "other"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "mime_type",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "size_bytes",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "tags",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 7,
+        "name": "rag_indexed",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "rag_indexed_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "uploaded_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c172c9071ee05abc1af047d85346bb2a79e49de7b4d100c8246beb67278332a6"
+}

@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO fs_documents (\n            id, tenant_id, filename, document_type, mime_type,\n            size_bytes, storage_path, tags, rag_indexed,\n            uploaded_by, created_at, updated_at\n        )\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false, $9, $10, $11)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Varchar",
+        {
+          "Custom": {
+            "name": "document_type",
+            "kind": {
+              "Enum": [
+                "playbook",
+                "report",
+                "contract",
+                "proposal",
+                "presentation",
+                "datasheet",
+                "internal",
+                "other"
+              ]
+            }
+          }
+        },
+        "Varchar",
+        "Int8",
+        "Varchar",
+        "TextArray",
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "be8b06e9fcc20e5460b8f54386b4345da5742346e27bbb3f657ff6a42e9e693d"
+}

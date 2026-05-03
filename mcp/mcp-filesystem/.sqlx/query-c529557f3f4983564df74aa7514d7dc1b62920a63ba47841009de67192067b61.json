@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, tenant_id, filename, mime_type, storage_path, page_count\n        FROM fs_documents\n        WHERE id = $1 AND tenant_id = $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "tenant_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "filename",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "mime_type",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "storage_path",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "page_count",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "c529557f3f4983564df74aa7514d7dc1b62920a63ba47841009de67192067b61"
+}

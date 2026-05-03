@@ -1,0 +1,109 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            id,\n            tenant_id,\n            filename,\n            document_type AS \"document_type: DocumentType\",\n            mime_type,\n            size_bytes,\n            tags,\n            rag_indexed,\n            rag_indexed_at,\n            uploaded_by,\n            created_at,\n            updated_at\n        FROM fs_documents\n        WHERE tenant_id = $1\n          AND document_type = 'report'\n          AND ($2::timestamptz IS NULL OR created_at >= $2)\n          AND ($3::timestamptz IS NULL OR created_at <= $3)\n          AND ($4::text IS NULL OR $4 = ANY(tags))\n        ORDER BY created_at DESC\n        LIMIT $5 OFFSET $6\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "tenant_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "filename",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "document_type: DocumentType",
+        "type_info": {
+          "Custom": {
+            "name": "document_type",
+            "kind": {
+              "Enum": [
+                "playbook",
+                "report",
+                "contract",
+                "proposal",
+                "presentation",
+                "datasheet",
+                "internal",
+                "other"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "mime_type",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "size_bytes",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "tags",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 7,
+        "name": "rag_indexed",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "rag_indexed_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "uploaded_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f8e2237d28c7060d4d911f88a83e8177368c7a588b2b1907be4a53a5fccc40e7"
+}

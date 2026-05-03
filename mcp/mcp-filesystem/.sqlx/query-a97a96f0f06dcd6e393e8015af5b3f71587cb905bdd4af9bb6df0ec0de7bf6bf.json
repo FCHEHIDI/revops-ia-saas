@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*)\n        FROM fs_documents\n        WHERE tenant_id = $1\n          AND document_type = 'report'\n          AND ($2::timestamptz IS NULL OR created_at >= $2)\n          AND ($3::timestamptz IS NULL OR created_at <= $3)\n          AND ($4::text IS NULL OR $4 = ANY(tags))\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a97a96f0f06dcd6e393e8015af5b3f71587cb905bdd4af9bb6df0ec0de7bf6bf"
+}

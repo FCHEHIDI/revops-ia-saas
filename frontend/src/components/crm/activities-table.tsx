@@ -43,7 +43,12 @@ function fmtAmount(amount?: number, currency = "EUR"): string {
 }
 
 function StageBadge({ stage }: { stage: DealStage }) {
-  const cfg = STAGE_CONFIG[stage];
+  const cfg = STAGE_CONFIG[stage] ?? {
+    label: stage,
+    color: "#666666",
+    bg: "rgba(85,85,85,0.06)",
+    border: "rgba(85,85,85,0.2)",
+  };
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs"

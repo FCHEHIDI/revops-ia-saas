@@ -352,7 +352,45 @@ async def run_playbook(
         await db.commit()
         await db.refresh(run)
 
+    asyncio.ensure_future(_notify_playbook_run(run, playbook))
     return run
+
+
+async def _notify_playbook_run(run: Any, playbook: Any) -> None:
+    """Fire-and-forget helper: create a notification after a playbook run.
+
+    Uses a separate DB session so the caller's session is already committed.
+
+    Args:
+        run: The PlaybookRun ORM object (already committed).
+        playbook: The Playbook ORM object (already committed).
+    """
+    from app.common.db import AsyncSessionLocal
+    from app.notifications.schemas import NotificationCreate
+    from app.notifications.service import create_notification
+
+    status_label = "exécuté" if run.status == "completed" else "échoué"
+    async with AsyncSessionLocal() as notif_db:
+        try:
+            await create_notification(
+                notif_db,
+                NotificationCreate(
+                    tenant_id=playbook.tenant_id,
+                    type="playbook_triggered",
+                    title=f"Playbook '{playbook.name}' {status_label}",
+                    data={
+                        "playbook_id": str(playbook.id),
+                        "run_id": str(run.id),
+                        "status": run.status,
+                    },
+                ),
+            )
+            await notif_db.commit()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Playbook notification failed: %s", exc)
+
+
+
 
 
 # ---------------------------------------------------------------------------

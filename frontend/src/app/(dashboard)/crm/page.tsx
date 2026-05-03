@@ -3,7 +3,10 @@
 import Image from "next/image";
 import { useState } from "react";
 import { Users, Building2, Activity, Tag } from "lucide-react";
-import { ContactsTable } from "@/components/crm/contacts-table";
+import { ContactsTable }   from "@/components/crm/contacts-table";
+import { CompaniesTable }  from "@/components/crm/companies-table";
+import { ActivitiesTable } from "@/components/crm/activities-table";
+import { SegmentsTable }   from "@/components/crm/segments-table";
 
 const NAV_ITEMS = [
   { id: "contacts",   label: "Contacts",   icon: Users },
@@ -136,23 +139,10 @@ export default function CrmPage() {
 
         {/* ── Contenu ─────────────────────────────────────────────── */}
         <div className="px-8 py-6">
-          {activeTab === "contacts" && <ContactsTable />}
-          {activeTab !== "contacts" && (
-            <div
-              className="tablette-marbre flex items-center justify-center"
-              style={{ minHeight: 300 }}
-            >
-              <div className="text-center">
-                <p className="font-cinzel text-2xl mb-3" style={{ color: "var(--red-dark)" }}>⚜</p>
-                <p
-                  className="font-cinzel text-xs tracking-[0.25em] uppercase"
-                  style={{ color: "var(--gray-silver)" }}
-                >
-                  Section en préparation
-                </p>
-              </div>
-            </div>
-          )}
+          {activeTab === "contacts"   && <ContactsTable />}
+          {activeTab === "companies"  && <CompaniesTable />}
+          {activeTab === "activities" && <ActivitiesTable />}
+          {activeTab === "segments"   && <SegmentsTable />}
         </div>
 
       </main>

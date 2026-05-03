@@ -15,6 +15,7 @@ from app.audit import router as audit_router
 from app.proxy import router as proxy_router
 from app.onboarding import router as onboarding_router
 from app.notifications import router as notifications_router
+from app.api_keys.router import router as api_keys_router
 
 app = FastAPI(title="RevOps IA SaaS API", version="1.0.0")
 
@@ -73,6 +74,9 @@ app.include_router(
     onboarding_router.router, prefix="/api/v1", tags=["onboarding"]
 )
 app.include_router(notifications_router, tags=["notifications"])
+app.include_router(
+    api_keys_router, prefix="/api/v1/api-keys", tags=["api-keys"]
+)
 
 
 @app.get("/health")

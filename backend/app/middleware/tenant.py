@@ -15,6 +15,8 @@ BYPASS_PATHS = [
     "/api/v1/analytics/health",
     "/api/v1/sequences/health",
     "/api/v1/filesystem/health",
+    # API key management — auth is enforced by the FastAPI dependency itself.
+    "/api/v1/api-keys",
 ]
 # Routes under /internal/v1/ use the internal-API-key fast-path (sets tenant context).
 INTERNAL_API_PREFIX = "/internal/v1/"
@@ -84,6 +86,16 @@ class TenantMiddleware:
             if path.startswith(bypass):
                 await self.app(scope, receive, send)
                 return
+
+        # ── API Key Bearer fast-path ────────────────────────────────────────
+        # Requests carrying "Authorization: Bearer rk_live_xxx" bypass the
+        # cookie check. The FastAPI dependency validates the key and resolves
+        # the user; tenant_id is therefore not set in state here but is
+        # available via current_user.tenant_id inside the handler.
+        auth_header = raw_headers.get(b"authorization", b"").decode()
+        if auth_header.startswith("Bearer rk_live_"):
+            await self.app(scope, receive, send)
+            return
 
         # ── JWT cookie auth ─────────────────────────────────────────────────
         cookie_header = raw_headers.get(b"cookie", b"").decode("utf-8", errors="replace")

@@ -47,8 +47,9 @@ impl ContextBuilder {
         );
 
         let history = history_result?;
-        // Keep only the last 6 messages to stay within token limits
-        let history: Vec<_> = history.into_iter().rev().take(6).rev().collect();
+        // Prune history to stay within ~3 000 tokens (≈ 12 000 chars).
+        // Keeps the most recent messages, discarding oldest first.
+        let history = prune_history_by_budget(history, 12_000);
         let chunks = rag_result.unwrap_or_else(|e| {
             warn!(error = %e, "RAG retrieval failed — continuing without context");
             vec![]
@@ -235,6 +236,36 @@ fn crm_chunk_header(chunk: &RagChunk) -> String {
             entity_type, entity_name, chunk.similarity_score
         ),
     }
+}
+
+/// Prunes conversation history to stay within a character budget.
+///
+/// Messages are kept from the most recent end of the history. Oldest messages
+/// are dropped first. The returned slice preserves chronological order.
+///
+/// # Arguments
+/// * `history` - Full conversation history (oldest first).
+/// * `budget`  - Maximum total character count across all message content.
+fn prune_history_by_budget(
+    history: Vec<ConversationMessage>,
+    budget: usize,
+) -> Vec<ConversationMessage> {
+    let mut kept: Vec<ConversationMessage> = Vec::with_capacity(history.len());
+    let mut total_chars: usize = 0;
+
+    // Walk from newest to oldest, accumulate until budget is exhausted.
+    for msg in history.into_iter().rev() {
+        let len = msg.content.len();
+        if total_chars + len > budget && !kept.is_empty() {
+            break;
+        }
+        total_chars += len;
+        kept.push(msg);
+    }
+
+    // Restore chronological order.
+    kept.reverse();
+    kept
 }
 
 /// Static tool definitions for all MCP servers.
@@ -653,6 +684,35 @@ pub fn default_tool_definitions() -> Vec<Tool> {
             ],
         ),
         make_tool(
+            "mcp_sequences__update_sequence",
+            "Update the name or description of an existing sequence",
+            &[
+                ("sequence_id", "string", "UUID of the sequence", true),
+                ("name", "string", "New sequence name", false),
+                ("description", "string", "New description", false),
+            ],
+        ),
+        make_tool(
+            "mcp_sequences__delete_sequence",
+            "Delete a sequence (must have no active enrollments)",
+            &[("sequence_id", "string", "UUID of the sequence", true)],
+        ),
+        make_tool(
+            "mcp_sequences__get_sequence",
+            "Get full details of a sequence including steps and enrollment count",
+            &[("sequence_id", "string", "UUID of the sequence", true)],
+        ),
+        make_tool(
+            "mcp_sequences__list_sequences",
+            "List all sequences for the tenant with optional status filter",
+            &[(
+                "status",
+                "string",
+                "Filter by status: 'active', 'paused', 'archived' (optional)",
+                false,
+            )],
+        ),
+        make_tool(
             "mcp_sequences__enroll_contact",
             "Enroll a contact in an existing outreach sequence",
             &[
@@ -666,6 +726,37 @@ pub fn default_tool_definitions() -> Vec<Tool> {
             ],
         ),
         make_tool(
+            "mcp_sequences__unenroll_contact",
+            "Remove a contact from a sequence before completion",
+            &[
+                ("sequence_id", "string", "UUID of the sequence", true),
+                ("contact_id", "string", "UUID of the contact", true),
+            ],
+        ),
+        make_tool(
+            "mcp_sequences__list_enrollments",
+            "List all contacts enrolled in a sequence with their current step",
+            &[
+                ("sequence_id", "string", "UUID of the sequence", true),
+                (
+                    "status",
+                    "string",
+                    "Filter by enrollment status: 'active', 'completed', 'unenrolled' (optional)",
+                    false,
+                ),
+            ],
+        ),
+        make_tool(
+            "mcp_sequences__pause_sequence",
+            "Pause all active enrollments in a sequence",
+            &[("sequence_id", "string", "UUID of the sequence", true)],
+        ),
+        make_tool(
+            "mcp_sequences__resume_sequence",
+            "Resume a paused sequence and its enrollments",
+            &[("sequence_id", "string", "UUID of the sequence", true)],
+        ),
+        make_tool(
             "mcp_sequences__get_sequence_performance",
             "Get open rates, reply rates, and conversion metrics for a sequence",
             &[("sequence_id", "string", "UUID of the sequence", true)],
@@ -677,6 +768,26 @@ pub fn default_tool_definitions() -> Vec<Tool> {
             &[("path", "string", "Relative path to the document", true)],
         ),
         make_tool(
+            "mcp_filesystem__list_documents",
+            "List all documents stored for the tenant with optional type filter",
+            &[(
+                "document_type",
+                "string",
+                "Filter by type: 'playbook', 'report', 'contract', 'template' (optional)",
+                false,
+            )],
+        ),
+        make_tool(
+            "mcp_filesystem__get_document_metadata",
+            "Get metadata (size, type, created_at, tags) for a stored document",
+            &[("path", "string", "Relative path to the document", true)],
+        ),
+        make_tool(
+            "mcp_filesystem__delete_document",
+            "Permanently delete a stored document",
+            &[("path", "string", "Relative path to the document to delete", true)],
+        ),
+        make_tool(
             "mcp_filesystem__list_playbooks",
             "List all available sales and RevOps playbooks",
             &[(
@@ -685,6 +796,42 @@ pub fn default_tool_definitions() -> Vec<Tool> {
                 "Filter by type: 'playbook', 'report', 'contract' (optional)",
                 false,
             )],
+        ),
+        make_tool(
+            "mcp_filesystem__get_playbook",
+            "Read the full content of a specific playbook",
+            &[("playbook_id", "string", "UUID or slug of the playbook", true)],
+        ),
+        make_tool(
+            "mcp_filesystem__upload_report",
+            "Store a generated report document for later retrieval",
+            &[
+                ("filename", "string", "Report filename (e.g. 'pipeline_may_2026.md')", true),
+                ("content", "string", "Report content as plain text or Markdown", true),
+            ],
+        ),
+        make_tool(
+            "mcp_filesystem__list_reports",
+            "List all stored reports for the tenant",
+            &[(
+                "limit",
+                "integer",
+                "Maximum number of reports to return (default 20)",
+                false,
+            )],
+        ),
+        make_tool(
+            "mcp_filesystem__search_documents",
+            "Full-text search across all stored documents",
+            &[
+                ("query", "string", "Search terms to look for", true),
+                (
+                    "document_type",
+                    "string",
+                    "Restrict search to a document type: 'playbook', 'report', 'contract' (optional)",
+                    false,
+                ),
+            ],
         ),
     ]
 }

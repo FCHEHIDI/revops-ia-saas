@@ -31,7 +31,7 @@ Interface conversationnelle full-screen. Xenito orchestre vos données CRM, fact
 
 ![Xenito Chat](./docs/screenshots/01-xenito-chat.png)
 
-> **Pipeline MCP** : les badges `Billing · list_overdue_payments` et `Analytics · get_mrr_trend` confirment que l'orchestrateur Rust appelle les outils métier avant de synthétiser la réponse via Groq `llama-3.3-70b-versatile`.
+> **Pipeline MCP** : les badges `Billing · list_overdue_payments` et `Analytics · get_mrr_trend` confirment que l'orchestrateur Rust appelle les outils métier avant de synthétiser la réponse via Anthropic `claude-haiku-4-5`. Les ToolCards affichent en rouge les appels en erreur avec détection automatique (`isToolError`).
 
 ---
 
@@ -52,7 +52,14 @@ KPIs temps réel : ARR, pipeline, deals actifs, win rate. Graphique revenue mens
 
 ### CRM — Salle des Masques
 
-Contacts & deals avec galerie de portraits, sidebar de navigation (Contacts / Companies / Activities / Segments), tableau full-text searchable. RLS PostgreSQL garantit l'isolation stricte par tenant.
+Module CRM complet avec 4 onglets :
+
+- **Contacts** — galerie de portraits, recherche full-text, statuts colorés (Active / Lead / Customer / Churned)
+- **Companies** — liste des comptes avec secteur (`IndustryBadge`), taille, ARR formaté (ex. `1.2M€`), pagination
+- **Activities (Deals pipeline)** — pipeline commercial avec `StageBadge` par étape, barres de probabilité (vert ≥70%, ambre ≥40%, rouge <40%), KPIs pipeline en header, filtre par étape
+- **Segments** — regroupement automatique des contacts par statut, cartes avec progression et pourcentages
+
+RLS PostgreSQL garantit l'isolation stricte par tenant.
 
 ![CRM](./docs/screenshots/03-crm.png)
 
@@ -119,7 +126,7 @@ Client (Next.js 15)
                          ├── MCP Billing (Rust) ─── :19002
                          ├── MCP Analytics (Rust) ── :19003
                          ├── MCP Sequences (Rust) ── :19004
-                         └── Groq LLM ─ llama-3.3-70b-versatile
+                         └── Anthropic LLM ─ claude-haiku-4-5
 ```
 
 ---
@@ -128,7 +135,7 @@ Client (Next.js 15)
 
 | Couche | Technologie | Port |
 |---|---|---|
-| Frontend | Next.js 15, TypeScript, Tailwind CSS | :3000 |
+| Frontend | Next.js 15, TypeScript, Tailwind CSS | :13000 |
 | Backend API | FastAPI, SQLAlchemy async, Alembic | :18000 |
 | Orchestrateur LLM | Rust / Axum, SSE streaming | :8003 |
 | RAG | FastAPI + pgvector | :18500 |
@@ -137,7 +144,7 @@ Client (Next.js 15)
 | Base de données | PostgreSQL 16 (RLS multi-tenant) | :5433 |
 | Cache / Queue | Redis | :6380 |
 
-**LLM** : Groq (`llama-3.3-70b-versatile`) — streaming SSE end-to-end.
+**LLM** : Anthropic (`claude-haiku-4-5`) — streaming SSE end-to-end.
 
 ---
 
@@ -197,27 +204,37 @@ cd backend && python -m pytest tests/ -q
 
 ---
 
-## État du projet (1er mai 2026)
+## État du projet (3 mai 2026)
 
-### Frontend v1 — Design System stabilisé ✅
+### Frontend v2 — UX overhaul ✅ (merge `feature/ux-fixes`)
 
-- **Design System Venetian Cyber-Gothic** : palette crimson/ambre/améthyste, Cinzel, animations CSS (pulseMarbre, bellRing, badgePulse, fog/smoke)
-- **Login** : fond gothique, médaillon ROI logo, fumée 4 couches `mix-blend-mode: screen`
-- **Navigation** : 8 médaillons dorés, z-index fix (notifications au-dessus des heroes)
-- **XENITO** (ex-Chat) : hero "Salle du Guide", interface border crimson animée pulseMarbre
+**Design System**
+- **Venetian Cyber-Gothic OS** : palette crimson/ambre/améthyste, Cinzel + Space Grotesk + Geist Mono, animations CSS (pulseMarbre, bellRing, badgePulse, fog/smoke)
+- **Navigation compacte 56px** : texte Cinzel uppercase, icônes comme watermarks décoratifs, z-index notifications corrigé
+- **Composants UI** : `Badge` CSS vars, `Skeleton` (6 variantes), `EmptyState` (7 types avec glyphs SVG)
+
+**XENITO — Copilote IA**
+- Timestamps corrigés : `MsgTime` affiche désormais `message.createdAt` (et non l'heure de rendu)
+- Contraste user messages : `var(--text-primary)` blanc sur fond rouge sombre (était illisible)
+- `ToolInvocationCard` : détection auto des erreurs MCP → carte rouge + label `Outil en erreur`
+
+**CRM — Salle des Masques (4 onglets)**
+- **Contacts** : galerie portraits, recherche full-text, pagination, statuts colorés
+- **Companies** : `IndustryBadge` (SaaS/Finance/Healthcare/Retail/Media), ARR formaté, pagination
+- **Activities (Deals)** : `StageBadge` 7 étapes + fallback unknown stage, barres probabilité tricolores, KPIs pipeline
+- **Segments** : cartes par statut (`customer/active/lead/inactive/churned`), progress bars, % couverture
+
+**Autres pages**
 - **Dashboard** : KPIs, revenue chart, activité récente, deals en vedette
-- **CRM** : galerie portraits, tableau contacts RLS, sidebar navigation
 - **Analytics** : metrics cards + MRR chart + funnel pipeline + billing status
 - **Facturation** : registre invoices multi-statut, totaux header
 - **Séquences** : rituels outreach avec progression, 6 cadences seedées
 - **Documents** : drop zone RAG + registre manuscrits
-- **Notifications** : panel Venetian pulseMarbre + bellRing badge
-- **Profile card** : médaillon THE DOGE 150×150
 
 ### Backend & Infra ✅
 
 - **Auth** : login/logout cookie httpOnly, refresh token, middleware JWT ASGI, RLS multi-tenant
-- **CRM** : contacts, deals — RLS par tenant, RBAC
+- **CRM** : contacts, accounts, deals — RLS par tenant, RBAC
 - **Seed data** : 50 contacts, 6 invoices, 6 séquences, 4 métriques analytiques
 - **Tests** : 28 passed — auth, JWT, CRM permissions, tenant isolation, RLS, sessions
 
@@ -226,13 +243,16 @@ cd backend && python -m pytest tests/ -q
 - **Orchestrateur Rust** (Axum) : SSE streaming stateless end-to-end
 - **MCP routing** : `Billing · list_overdue_payments`, `Analytics · get_mrr_trend`, `CRM · search_contacts`
 - **RAG** : pgvector backend opérationnel
-- **LLM** : Groq `llama-3.3-70b-versatile`
+- **LLM** : Anthropic `claude-haiku-4-5`
+- **Mock mode** : rendu des vraies données de résultat MCP (plus de données hardcodées)
 
 ### Prochaines étapes
 
+- [ ] Dashboard KPIs — brancher sur vraie API (actuellement hardcodé `$4.2M ARR`)
+- [ ] MCP Sequences — fix `cargo sqlx prepare` (2 queries uncached dans `email.rs`)
 - [ ] MCP Billing + Analytics — connexion complète orchestrateur (données live)
 - [ ] RAG : pipeline ingestion PDF → pgvector front-to-back
-- [ ] Observabilité : métriques LLM, coûts Groq, latences par tenant (OpenTelemetry)
+- [ ] Observabilité : métriques LLM, latences par tenant (OpenTelemetry)
 - [ ] Rate limiting production (Redis token bucket)
 - [ ] CI/CD pipeline GitHub Actions → Docker build → deploy
 

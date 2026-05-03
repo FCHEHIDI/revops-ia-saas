@@ -13,6 +13,7 @@ from .schemas import (
     DealCreate, DealRead, PaginatedDeals
 )
 from app.audit.service import log_action
+from app.activities.service import record as _record_activity
 from app.webhooks.service import publish_event as _publish_webhook_event
 from .rag_publisher import publish_deal_index_job
 
@@ -62,6 +63,15 @@ async def create_contact_service(db: AsyncSession, data: ContactCreate, tenant_i
     try:
         c = await create_contact(db, data, user_id, tenant_id)
         await log_action(db, tenant_id, user_id, "crm:contacts:create", "contacts", {"id": str(c.id)})
+        await _record_activity(
+            db,
+            tenant_id=tenant_id,
+            entity_type="contact",
+            entity_id=c.id,
+            activity_type="contact_created",
+            actor_id=user_id,
+            payload={"email": c.email, "name": c.name},
+        )
         await _publish_webhook_event(
             tenant_id=tenant_id,
             event_type="contact.created",
@@ -103,6 +113,15 @@ async def create_deal_service(db: AsyncSession, data: DealCreate, tenant_id: UUI
     try:
         d = await create_deal(db, data, user_id, tenant_id)
         await log_action(db, tenant_id, user_id, "crm:deals:create", "deals", {"id": str(d.id)})
+        await _record_activity(
+            db,
+            tenant_id=tenant_id,
+            entity_type="deal",
+            entity_id=d.id,
+            activity_type="deal_created",
+            actor_id=user_id,
+            payload={"account_id": str(d.account_id), "stage": d.stage, "value": str(d.value or "")},
+        )
         # Si notes non vide → déclenche publish_deal_index_job
         if d.notes:
             await publish_deal_index_job(d.id, tenant_id, d.notes, {"deal_id": str(d.id), "account_id": str(d.account_id), "stage": d.stage})
@@ -119,6 +138,16 @@ async def update_deal_service(db: AsyncSession, deal_id: UUID, fields: dict, ten
         if not d:
             raise HTTPException(status_code=404, detail="Deal not found")
         await log_action(db, tenant_id, user_id, "crm:deals:update", "deals", {"id": str(deal_id)})
+        if stage:
+            await _record_activity(
+                db,
+                tenant_id=tenant_id,
+                entity_type="deal",
+                entity_id=deal_id,
+                activity_type="deal_stage_changed",
+                actor_id=user_id,
+                payload={"stage": stage},
+            )
         if stage or notes:
             await publish_deal_index_job(deal_id, tenant_id, notes or "", {"deal_id": str(deal_id), "stage": stage})
         # Fire webhook events for terminal stage transitions

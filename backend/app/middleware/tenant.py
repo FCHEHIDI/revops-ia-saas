@@ -19,6 +19,8 @@ BYPASS_PATHS = [
     "/api/v1/api-keys",
     # Webhook management — auth is enforced by the FastAPI dependency itself.
     "/api/v1/webhooks",
+    # Activity timeline — auth is enforced by the FastAPI dependency itself.
+    "/api/v1/activities",
 ]
 # Routes under /internal/v1/ use the internal-API-key fast-path (sets tenant context).
 INTERNAL_API_PREFIX = "/internal/v1/"

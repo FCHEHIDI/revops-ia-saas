@@ -21,6 +21,7 @@ from app.notifications import router as notifications_router
 from app.api_keys.router import router as api_keys_router
 from app.webhooks.router import router as webhooks_router
 from app.webhooks.service import run_worker as _run_webhook_worker
+from app.activities.router import router as activities_router
 from app.common.db import AsyncSessionLocal
 
 
@@ -104,6 +105,9 @@ app.include_router(
 )
 app.include_router(
     webhooks_router, prefix="/api/v1/webhooks", tags=["webhooks"]
+)
+app.include_router(
+    activities_router, prefix="/api/v1/activities", tags=["activities"]
 )
 
 

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { DocumentsUpload } from "@/components/documents/documents-upload";
 
 export default function DocumentsPage() {
@@ -43,6 +44,27 @@ export default function DocumentsPage() {
             right: 0,
             height: 70,
             background: "linear-gradient(to top, rgba(60,30,0,0.18) 0%, transparent 100%)",
+          }}
+        />
+
+        {/* ── Icône décorative filigrane ── */}
+        <Image
+          src="/icons/documents-icon.png"
+          alt=""
+          aria-hidden="true"
+          width={780}
+          height={780}
+          style={{
+            position: "absolute",
+            right: "4%",
+            top: "50%",
+            transform: "translateY(-50%)",
+            width: 780,
+            height: 780,
+            objectFit: "contain",
+            opacity: 0.35,
+            filter: "blur(0.3px)",
+            pointerEvents: "none",
           }}
         />
 

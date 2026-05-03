@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Activity, BarChart2, Zap } from "lucide-react";
 import {
   TabletteHeader,
@@ -131,6 +132,26 @@ export default function DashboardPage() {
             className="absolute inset-0 pointer-events-none"
             style={{
               background: "linear-gradient(90deg, rgba(138,0,0,0.15) 0%, transparent 15%, transparent 85%, rgba(138,0,0,0.15) 100%)",
+            }}
+          />
+          {/* ── Icône décorative filigrane ── */}
+          <Image
+            src="/icons/dashboard-icon.png"
+            alt=""
+            aria-hidden="true"
+            width={780}
+            height={780}
+            style={{
+              position: "absolute",
+              right: "4%",
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: 780,
+              height: 780,
+              objectFit: "contain",
+              opacity: 0.35,
+              filter: "blur(0.3px)",
+              pointerEvents: "none",
             }}
           />
           <div className="absolute bottom-0 left-0 right-0 px-8 pb-6">

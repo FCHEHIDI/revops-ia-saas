@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { MetricsCards } from "@/components/analytics/metrics-cards";
 import { MrrChart } from "@/components/analytics/mrr-chart";
 import { ConversionFunnelChart } from "@/components/analytics/conversion-funnel-chart";
@@ -39,6 +40,27 @@ export default function AnalyticsPage() {
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(138,0,0,0.18) 0%, transparent 25%, transparent 75%, rgba(138,0,0,0.18) 100%)" }} />
           {/* Brume rouge au sol */}
           <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 60, background: "linear-gradient(to top, rgba(138,0,0,0.12), transparent)" }} />
+
+          {/* ── Icône décorative filigrane ── */}
+          <Image
+            src="/icons/analytics-icon.png"
+            alt=""
+            aria-hidden="true"
+            width={780}
+            height={780}
+            style={{
+              position: "absolute",
+              right: "4%",
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: 780,
+              height: 780,
+              objectFit: "contain",
+              opacity: 0.35,
+              filter: "blur(0.3px)",
+              pointerEvents: "none",
+            }}
+          />
 
           {/* Texte */}
           <div

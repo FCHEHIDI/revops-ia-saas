@@ -10,13 +10,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { NotificationPanel } from "@/components/notifications/notification-panel";
 
 const navItems = [
-  { href: "/chat",      label: "Xenito",      customIcon: "/icons/xenito-icon.png"      },
-  { href: "/dashboard", label: "Dashboard",   customIcon: "/icons/dashboard-icon.png"   },
-  { href: "/crm",       label: "CRM",         customIcon: "/icons/crm-icon.png"         },
-  { href: "/analytics", label: "Analytics",   customIcon: "/icons/analytics-icon.png"   },
-  { href: "/billing",   label: "Facturation", customIcon: "/icons/facturation-icon.png" },
-  { href: "/sequences", label: "Séquences",   customIcon: "/icons/sequences-icon.png"   },
-  { href: "/documents", label: "Documents",   customIcon: "/icons/documents-icon.png"   },
+  { href: "/chat",      label: "Xenito"      },
+  { href: "/dashboard", label: "Dashboard"   },
+  { href: "/crm",       label: "CRM"         },
+  { href: "/analytics", label: "Analytics"   },
+  { href: "/billing",   label: "Facturation" },
+  { href: "/sequences", label: "Séquences"   },
+  { href: "/documents", label: "Documents"   },
 ];
 
 /* ── Compact user menu with logout dropdown ─────────────── */
@@ -190,9 +190,9 @@ export function TopNav() {
       {/* ── Separator ── */}
       <div style={{ width: 1, height: 28, background: "var(--border-default)", flexShrink: 0 }} />
 
-      {/* ── Nav items ── */}
-      <nav className="flex items-center gap-0.5 flex-1">
-        {navItems.map(({ href, label, customIcon }) => {
+      {/* ── Nav items — texte Cinzel ── */}
+      <nav className="flex items-center flex-1" style={{ gap: 2 }}>
+        {navItems.map(({ href, label }) => {
           const isActive = pathname === href || pathname.startsWith(href + "/");
           const isHovered = hoveredNav === href;
 
@@ -200,73 +200,33 @@ export function TopNav() {
             <Link
               key={href}
               href={href}
-              title={label}
               onMouseEnter={() => setHoveredNav(href)}
               onMouseLeave={() => setHoveredNav(null)}
-              className="relative flex flex-col items-center justify-center shrink-0 rounded-lg transition-all duration-200"
+              className="relative shrink-0"
               style={{
-                padding: "4px 8px",
-                gap: 2,
-                background: isActive
-                  ? "rgba(138,0,0,0.15)"
-                  : isHovered
-                  ? "rgba(138,0,0,0.07)"
-                  : "transparent",
-                border: isActive
-                  ? "1px solid var(--red-dark)"
-                  : "1px solid transparent",
-                boxShadow: isActive ? "inset 0 0 10px rgba(138,0,0,0.25)" : "none",
+                display: "inline-flex",
+                alignItems: "center",
+                height: 44,
+                padding: "0 12px",
                 textDecoration: "none",
-                minWidth: 52,
+                fontFamily: "var(--font-title)",
+                fontSize: 11,
+                fontWeight: isActive ? 700 : 400,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: isActive
+                  ? "var(--white-spectral)"
+                  : isHovered
+                  ? "var(--gray-silver)"
+                  : "var(--text-muted)",
+                transition: "color 0.15s",
+                borderBottom: isActive
+                  ? "2px solid var(--red-doge)"
+                  : "2px solid transparent",
+                marginBottom: -1,
               }}
             >
-              <div
-                style={{
-                  filter: isActive
-                    ? "drop-shadow(0 0 5px rgba(255,0,0,0.6))"
-                    : isHovered
-                    ? "brightness(1.2)"
-                    : "grayscale(0.1) opacity(0.65)",
-                  transition: "filter 0.2s",
-                  height: 24,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Image
-                  src={customIcon}
-                  alt={label}
-                  width={24}
-                  height={24}
-                  style={{ width: 24, height: 24, objectFit: "contain" }}
-                />
-              </div>
-              <span
-                style={{
-                  fontSize: 9,
-                  fontFamily: "var(--font-body)",
-                  color: isActive ? "var(--red-doge)" : "var(--text-muted)",
-                  letterSpacing: "0.04em",
-                  whiteSpace: "nowrap",
-                  transition: "color 0.2s",
-                  lineHeight: 1,
-                }}
-              >
-                {label}
-              </span>
-              {/* Active underline bar */}
-              {isActive && (
-                <span
-                  className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 rounded-full"
-                  style={{
-                    width: "60%",
-                    height: 2,
-                    background: "var(--red-doge)",
-                    boxShadow: "0 0 8px rgba(192,0,0,0.8)",
-                  }}
-                />
-              )}
+              {label}
             </Link>
           );
         })}
@@ -321,4 +281,4 @@ export function TopNav() {
       </div>
     </header>
   );
-}
+}

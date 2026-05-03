@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { Users, Building2, Activity, Tag } from "lucide-react";
 import { ContactsTable } from "@/components/crm/contacts-table";
@@ -39,6 +40,26 @@ export default function CrmPage() {
             className="absolute inset-0 pointer-events-none"
             style={{
               background: "linear-gradient(90deg, rgba(138,0,0,0.2) 0%, transparent 12%, transparent 88%, rgba(138,0,0,0.2) 100%)",
+            }}
+          />
+          {/* ── Icône décorative filigrane ── */}
+          <Image
+            src="/icons/crm-icon.png"
+            alt=""
+            aria-hidden="true"
+            width={780}
+            height={780}
+            style={{
+              position: "absolute",
+              right: "4%",
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: 780,
+              height: 780,
+              objectFit: "contain",
+              opacity: 0.35,
+              filter: "blur(0.3px)",
+              pointerEvents: "none",
             }}
           />
           <div className="absolute bottom-0 left-0 right-0 px-8 pb-6">
@@ -138,4 +159,4 @@ export default function CrmPage() {
     </div>
   );
 }
-
+

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { ChatInterface } from "@/components/chat/chat-interface";
 
 export default function ChatPage() {
@@ -28,6 +29,27 @@ export default function ChatPage() {
           position: "absolute", bottom: 0, left: 0, right: 0, height: 90,
           background: "linear-gradient(to top, rgba(80,0,0,0.22), transparent)",
         }} />
+
+        {/* ── Icône décorative filigrane ── */}
+        <Image
+          src="/icons/xenito-icon.png"
+          alt=""
+          aria-hidden="true"
+          width={780}
+          height={780}
+          style={{
+            position: "absolute",
+            right: "4%",
+            top: "50%",
+            transform: "translateY(-50%)",
+            width: 780,
+            height: 780,
+            objectFit: "contain",
+            opacity: 0.35,
+            filter: "blur(0.3px)",
+            pointerEvents: "none",
+          }}
+        />
 
         {/* Labels — ancrés en bas, identique aux autres salles */}
         <div style={{ position: "absolute", bottom: 28, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>

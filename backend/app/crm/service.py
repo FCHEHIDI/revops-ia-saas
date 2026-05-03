@@ -13,6 +13,7 @@ from .schemas import (
     DealCreate, DealRead, PaginatedDeals
 )
 from app.audit.service import log_action
+from app.webhooks.service import publish_event as _publish_webhook_event
 from .rag_publisher import publish_deal_index_job
 
 # --- ACCOUNT ---
@@ -61,6 +62,11 @@ async def create_contact_service(db: AsyncSession, data: ContactCreate, tenant_i
     try:
         c = await create_contact(db, data, user_id, tenant_id)
         await log_action(db, tenant_id, user_id, "crm:contacts:create", "contacts", {"id": str(c.id)})
+        await _publish_webhook_event(
+            tenant_id=tenant_id,
+            event_type="contact.created",
+            payload={"id": str(c.id), "email": c.email, "name": c.name},
+        )
         return ContactRead.model_validate(c)
     except IntegrityError:
         raise HTTPException(status_code=409, detail="Contact already exists")
@@ -115,6 +121,17 @@ async def update_deal_service(db: AsyncSession, deal_id: UUID, fields: dict, ten
         await log_action(db, tenant_id, user_id, "crm:deals:update", "deals", {"id": str(deal_id)})
         if stage or notes:
             await publish_deal_index_job(deal_id, tenant_id, notes or "", {"deal_id": str(deal_id), "stage": stage})
+        # Fire webhook events for terminal stage transitions
+        if stage in ("won", "lost"):
+            await _publish_webhook_event(
+                tenant_id=tenant_id,
+                event_type=f"deal.{stage}",
+                payload={
+                    "id": str(deal_id),
+                    "stage": stage,
+                    "account_id": str(d.account_id),
+                },
+            )
         return DealRead.model_validate(d)
     except IntegrityError:
         raise HTTPException(status_code=409, detail="Deal update conflict")

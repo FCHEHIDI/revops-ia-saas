@@ -1,4 +1,7 @@
+import asyncio
+import contextlib
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,10 +19,32 @@ from app.proxy import router as proxy_router
 from app.onboarding import router as onboarding_router
 from app.notifications import router as notifications_router
 from app.api_keys.router import router as api_keys_router
+from app.webhooks.router import router as webhooks_router
+from app.webhooks.service import run_worker as _run_webhook_worker
+from app.common.db import AsyncSessionLocal
 
-app = FastAPI(title="RevOps IA SaaS API", version="1.0.0")
 
-# ---------------------------------------------------------------------------
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Manage application lifecycle: start webhook worker on startup, cancel on shutdown."""
+
+    @contextlib.asynccontextmanager
+    async def _db_factory():
+        async with AsyncSessionLocal() as session:
+            yield session
+
+    worker_task = asyncio.create_task(_run_webhook_worker(_db_factory))
+    try:
+        yield
+    finally:
+        if not worker_task.done():
+            worker_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await worker_task
+
+app = FastAPI(title="RevOps IA SaaS API", version="1.0.0", lifespan=lifespan)
+
+# ---------------------------------------------------------------------------# ---------------------------------------------------------------------------
 # CORS — required for the Next.js frontend to call the API from the browser.
 # In dev the frontend may run on any localhost port (3000, 3001, 13000...),
 # so we accept the entire localhost regex when ENVIRONMENT=development.
@@ -76,6 +101,9 @@ app.include_router(
 app.include_router(notifications_router, tags=["notifications"])
 app.include_router(
     api_keys_router, prefix="/api/v1/api-keys", tags=["api-keys"]
+)
+app.include_router(
+    webhooks_router, prefix="/api/v1/webhooks", tags=["webhooks"]
 )
 
 

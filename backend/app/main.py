@@ -28,6 +28,7 @@ from app.playbooks.router import router as playbooks_router, internal_router as 
 from app.playbooks.service import run_worker as _run_playbook_worker
 from app.email_delivery.service import run_worker as _run_email_worker
 from app.reports.router import router as reports_router
+from app.usage.router import router as usage_router
 from app.common.db import AsyncSessionLocal
 
 
@@ -135,6 +136,9 @@ app.include_router(
 )
 app.include_router(
     reports_router, prefix="/api/v1/reports", tags=["reports"]
+)
+app.include_router(
+    usage_router, prefix="/api/v1/billing", tags=["billing"]
 )
 
 

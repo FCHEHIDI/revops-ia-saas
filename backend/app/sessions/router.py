@@ -109,7 +109,13 @@ async def chat_with_agent(
     }
 
     async def event_stream():
+        import json as _json
         assistant_tokens: list[str] = []
+        # Accumulated usage from the orchestrator Done event
+        usage_stats: dict = {}
+        # Number of MCP tool_call events received
+        mcp_call_count: int = 0
+
         try:
             async with httpx.AsyncClient(timeout=120.0) as client:
                 async with client.stream(
@@ -126,13 +132,17 @@ async def chat_with_agent(
                             yield "\n"
                             continue
                         yield f"{line}\n"
-                        # Collect tokens for persistence
+                        # Collect tokens / usage for persistence
                         if line.startswith("data: "):
-                            import json as _json
                             try:
                                 ev = _json.loads(line[6:])
-                                if ev.get("type") == "token":
+                                ev_type = ev.get("type")
+                                if ev_type == "token":
                                     assistant_tokens.append(ev.get("content", ""))
+                                elif ev_type == "done":
+                                    usage_stats = ev.get("usage", {})
+                                elif ev_type == "tool_call":
+                                    mcp_call_count += 1
                             except Exception:
                                 pass
         finally:
@@ -147,5 +157,50 @@ async def chat_with_agent(
                         )
                     except Exception:
                         pass  # non-fatal
+
+            # Record usage events (fire-and-forget, best-effort)
+            if usage_stats or mcp_call_count:
+                from app.common.db import AsyncSessionLocal
+                from app.usage.service import record_usage
+                from app.usage.schemas import UsageEventCreate
+                tenant_uuid = user["tenant_id"]
+                session_meta = {"session_id": session_id}
+                async with AsyncSessionLocal() as usage_db:
+                    try:
+                        prompt_tokens = int(usage_stats.get("prompt_tokens", 0))
+                        completion_tokens = int(usage_stats.get("completion_tokens", 0))
+                        if prompt_tokens > 0:
+                            await record_usage(
+                                usage_db,
+                                UsageEventCreate(
+                                    tenant_id=tenant_uuid,
+                                    event_type="llm_tokens_input",
+                                    quantity=prompt_tokens,
+                                    metadata=session_meta,
+                                ),
+                            )
+                        if completion_tokens > 0:
+                            await record_usage(
+                                usage_db,
+                                UsageEventCreate(
+                                    tenant_id=tenant_uuid,
+                                    event_type="llm_tokens_output",
+                                    quantity=completion_tokens,
+                                    metadata=session_meta,
+                                ),
+                            )
+                        if mcp_call_count > 0:
+                            await record_usage(
+                                usage_db,
+                                UsageEventCreate(
+                                    tenant_id=tenant_uuid,
+                                    event_type="mcp_calls",
+                                    quantity=mcp_call_count,
+                                    metadata=session_meta,
+                                ),
+                            )
+                        await usage_db.commit()
+                    except Exception:
+                        pass  # non-fatal — metering must never break chat
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

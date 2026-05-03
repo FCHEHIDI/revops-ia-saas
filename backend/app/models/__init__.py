@@ -7,8 +7,9 @@ from .playbook import Playbook as Playbook
 from .playbook import PlaybookRun as PlaybookRun
 from .refresh_token import RefreshToken as RefreshToken
 from .report_job import ReportJob as ReportJob
+from .usage_event import UsageEvent as UsageEvent
 from .user import User as User
 from .webhook import WebhookDeliveryLog as WebhookDeliveryLog
 from .webhook import WebhookEndpoint as WebhookEndpoint
 
-__all__ = ["Activity", "ApiKey", "EmailSend", "LeadScore", "Organization", "Playbook", "PlaybookRun", "RefreshToken", "ReportJob", "User", "WebhookEndpoint", "WebhookDeliveryLog"]
+__all__ = ["Activity", "ApiKey", "EmailSend", "LeadScore", "Organization", "Playbook", "PlaybookRun", "RefreshToken", "ReportJob", "UsageEvent", "User", "WebhookEndpoint", "WebhookDeliveryLog"]

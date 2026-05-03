@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "generated_at": "2026-05-03T16:28:42.866212+00:00",
+    "seed": 42,
+    "password": "acme1234"
+  },
+  "org": {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "name": "Acme RevOps",
+    "slug": "acme-revops",
+    "plan": "pro"
+  },
+  "users": [
+    {
+      "id": "00000000-0000-0000-0000-000000000010",
+      "email": "admin@acme.io",
+      "full_name": "Alice Admin",
+      "roles": [
+        "admin"
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000012",
+      "email": "ops@acme.io",
+      "full_name": "Oscar Ops",
+      "roles": [
+        "revops"
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000011",
+      "email": "sales@acme.io",
+      "full_name": "Sam Sales",
+      "roles": [
+        "sales"
+      ]
+    }
+  ],
+  "accounts_count": 30,
+  "contacts_count": 80,
+  "deals_count": 25,
+  "activities_count": 50
+}

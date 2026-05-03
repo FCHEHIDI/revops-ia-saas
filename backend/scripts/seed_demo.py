@@ -15,11 +15,12 @@ Prérequis :
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import random
 import sys
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -34,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.auth.service import get_password_hash
 from app.crm.models import Account, Contact, Deal
+from app.models.activity import Activity
 from app.models.organization import Organization
 from app.models.user import User
 
@@ -146,6 +148,150 @@ def _make_email(first: str, last: str, domain: str) -> str:
     return f"{clean(first)}.{clean(last)}@{domain}"
 
 
+# ── Helpers activités ─────────────────────────────────────────────────────────
+
+_ACTIVITY_TYPES = [
+    ("note_added",         "contact"),
+    ("deal_stage_changed", "deal"),
+    ("email_sent",         "contact"),
+    ("ai_chat_message",    "deal"),
+    ("note_added",         "deal"),
+    ("email_opened",       "contact"),
+]
+_NOTE_TEXTS = [
+    "Call découverte effectué. Budget confirmé à 200K€.",
+    "Démo réalisée. Feedback très positif de la DSI.",
+    "Devis envoyé. En attente de validation direction.",
+    "Point hebdo : avancement conforme au plan.",
+    "Escalade vers le CTO — décision attendue sous 2 semaines.",
+    "Renouvellement confirmé par email.",
+    "RDV planifié pour présentation executive.",
+    "Contrat en relecture juridique.",
+    "KO suite à changement de priorités chez le prospect.",
+    "Champion identifié : Directeur Commercial.",
+    "POC démarré. Résultats attendus en J+15.",
+    "Mise à jour CRM après appel de suivi.",
+    "Invitation salon envoyée. Participation confirmée.",
+    "Feedback négatif sur la tarification — à retravailler.",
+    "Nouveau contact identifié dans l'org.",
+    "LLM a suggéré un follow-up immédiat.",
+    "Email de relance envoyé (J+7 sans réponse).",
+    "Réunion avec équipe technique validée.",
+    "Analyse de compétitivité demandée par le prospect.",
+    "Champion en vacances — reprise prévue semaine prochaine.",
+]
+
+
+async def _seed_activities_only(db: AsyncSession, org: "Organization") -> None:
+    """Insère 50 activités pour une org existante (patch idempotent).
+
+    Args:
+        db: Session SQLAlchemy async.
+        org: Organisation cible (acme-revops).
+    """
+    from sqlalchemy import func as sqlfunc
+
+    rng = random.Random(42)
+    now_utc = datetime.now(timezone.utc)
+
+    # Récupérer utilisateurs, deals, contacts existants
+    users_res = (await db.execute(select(User).where(User.org_id == org.id))).scalars().all()
+    deals_res = (await db.execute(select(Deal).where(Deal.org_id == org.id))).scalars().all()
+    contacts_res = (await db.execute(select(Contact).where(Contact.org_id == org.id))).scalars().all()
+
+    await db.execute(
+        text("SELECT set_config('app.current_tenant_id', :tid, true)"),
+        {"tid": str(org.id)},
+    )
+
+    current_count_result = await db.execute(
+        select(sqlfunc.count()).select_from(Activity).where(Activity.tenant_id == org.id)
+    )
+    current_count = current_count_result.scalar() or 0
+    needed = 50 - current_count
+
+    inserted = 0
+    for i in range(needed):
+        atype, entity_type = _ACTIVITY_TYPES[i % len(_ACTIVITY_TYPES)]
+        actor = users_res[i % len(users_res)] if users_res else None
+        days_ago = rng.randint(0, 90)
+        created_ts = now_utc - timedelta(days=days_ago, hours=rng.randint(0, 23))
+
+        if entity_type == "deal" and deals_res:
+            entity_id = deals_res[i % len(deals_res)].id
+        elif contacts_res:
+            entity_id = contacts_res[i % len(contacts_res)].id
+        else:
+            continue
+
+        note_text = rng.choice(_NOTE_TEXTS)
+        act = Activity(
+            id=uuid.uuid4(),
+            tenant_id=org.id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            actor_id=actor.id if actor else None,
+            type=atype,
+            payload={"note": note_text},
+        )
+        act.created_at = created_ts  # type: ignore[assignment]
+        db.add(act)
+        inserted += 1
+
+    await db.flush()
+    print(f"  + {inserted} activités ajoutées (total: {current_count + inserted})")
+    await _write_fixture(db, org)
+    await db.commit()
+    print("\n✅  Activités seed terminé avec succès !")
+
+
+async def _write_fixture(db: AsyncSession, org: "Organization") -> None:
+    """Écrit le fichier fixture JSON pour les tests.
+
+    Args:
+        db: Session SQLAlchemy async.
+        org: Organisation cible.
+    """
+    from sqlalchemy import func as sqlfunc
+
+    now_utc = datetime.now(timezone.utc)
+    users_res = (await db.execute(select(User).where(User.org_id == org.id))).scalars().all()
+    accounts_count = (await db.execute(
+        select(sqlfunc.count()).select_from(Account).where(Account.org_id == org.id)
+    )).scalar() or 0
+    contacts_count = (await db.execute(
+        select(sqlfunc.count()).select_from(Contact).where(Contact.org_id == org.id)
+    )).scalar() or 0
+    deals_count = (await db.execute(
+        select(sqlfunc.count()).select_from(Deal).where(Deal.org_id == org.id)
+    )).scalar() or 0
+    activities_count = (await db.execute(
+        select(sqlfunc.count()).select_from(Activity).where(Activity.tenant_id == org.id)
+    )).scalar() or 0
+
+    fixture_path = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "demo_seed.json"
+    fixture_path.parent.mkdir(parents=True, exist_ok=True)
+    fixture: dict = {
+        "meta": {
+            "generated_at": now_utc.isoformat(),
+            "seed": 42,
+            "password": DEMO_PASSWORD,
+        },
+        "org": {"id": str(org.id), "name": org.name, "slug": org.slug, "plan": org.plan},
+        "users": [
+            {"id": str(u.id), "email": u.email, "full_name": u.full_name, "roles": u.roles}
+            for u in users_res
+        ],
+        "accounts_count": accounts_count,
+        "contacts_count": contacts_count,
+        "deals_count": deals_count,
+        "activities_count": activities_count,
+    }
+    fixture_path.write_text(json.dumps(fixture, indent=2, ensure_ascii=False))
+    rel = fixture_path.relative_to(Path(__file__).resolve().parent.parent.parent)
+    print(f"  + Fixture JSON → {rel}")
+
+
 # ── Seed principal ────────────────────────────────────────────────────────────
 
 async def seed(db: AsyncSession) -> None:
@@ -165,7 +311,17 @@ async def seed(db: AsyncSession) -> None:
     ).scalar_one_or_none()
 
     if existing_org is not None:
-        print("✓  Organisation 'acme-revops' déjà présente — seed ignoré.")
+        # Org existe déjà — vérifier si les activités manquent
+        from sqlalchemy import func as sqlfunc
+        act_count_result = await db.execute(
+            select(sqlfunc.count()).select_from(Activity).where(Activity.tenant_id == existing_org.id)
+        )
+        act_count = act_count_result.scalar() or 0
+        if act_count >= 50:
+            print("✓  Organisation 'acme-revops' déjà présente avec activités — seed ignoré.")
+            return
+        print(f"  ↻  Organisation existe, mais seulement {act_count} activité(s). Ajout des activités manquantes…")
+        await _seed_activities_only(db, existing_org)
         return
 
     org = Organization(
@@ -327,7 +483,10 @@ async def seed(db: AsyncSession) -> None:
     await db.flush()
     print(f"  + {len(DEAL_TEMPLATES)} deals créés")
 
-    await db.commit()
+    # ── 6 & 7. Activités + fixture JSON ───────────────────────────────────────
+    await _seed_activities_only(db, org)
+    # _seed_activities_only calls db.commit() internally, so we exit here.
+
     print("\n✅  Seed terminé avec succès !")
     print(f"\n  Logins disponibles (mdp commun : {DEMO_PASSWORD})")
     print("  ┌─────────────────────┬──────────┐")

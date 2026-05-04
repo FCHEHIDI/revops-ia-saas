@@ -387,3 +387,284 @@ impl LlmProvider for MockProvider {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Unit tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::Role;
+
+    // ── classify_intents ──────────────────────────────────────────────────
+
+    #[test]
+    fn classify_billing_keywords() {
+        let cases = [
+            "montre moi les factures impayées",
+            "paiements en retard ce mois",
+            "billing summary",
+            "invoice overdue",
+            "abonnement en cours",
+            "subscription status",
+        ];
+        for msg in &cases {
+            let intents = classify_intents(msg);
+            assert!(
+                intents.contains(&"billing"),
+                "Expected 'billing' intent for: {:?}, got {:?}",
+                msg,
+                intents
+            );
+        }
+    }
+
+    #[test]
+    fn classify_analytics_keywords() {
+        let cases = [
+            "tendance MRR sur 3 mois",
+            "analytics revenue",
+            "taux de churn du trimestre",
+            "funnel de conversion",
+            "entonnoir commercial",
+            "métriques KPI",
+        ];
+        for msg in &cases {
+            let intents = classify_intents(msg);
+            assert!(
+                intents.contains(&"analytics"),
+                "Expected 'analytics' intent for: {:?}, got {:?}",
+                msg,
+                intents
+            );
+        }
+    }
+
+    #[test]
+    fn classify_sequences_keywords() {
+        let cases = [
+            "liste des séquences actives",
+            "créer une relance outreach",
+            "automatisation campagne",
+            "automation sequence",
+        ];
+        for msg in &cases {
+            let intents = classify_intents(msg);
+            assert!(
+                intents.contains(&"sequences"),
+                "Expected 'sequences' intent for: {:?}, got {:?}",
+                msg,
+                intents
+            );
+        }
+    }
+
+    #[test]
+    fn classify_multiservice_billing_analytics() {
+        let msg = "paiements en retard et tendance mrr du mois dernier";
+        let intents = classify_intents(msg);
+        assert!(
+            intents.contains(&"billing"),
+            "Expected 'billing' in intents: {:?}",
+            intents
+        );
+        assert!(
+            intents.contains(&"analytics"),
+            "Expected 'analytics' in intents: {:?}",
+            intents
+        );
+        // billing must come before analytics (billing keyword matched first)
+        let bi = intents.iter().position(|&i| i == "billing").unwrap();
+        let ai = intents.iter().position(|&i| i == "analytics").unwrap();
+        assert!(bi < ai, "billing should precede analytics in intent order");
+    }
+
+    #[test]
+    fn classify_crm_billing_combined() {
+        let msg = "contacts avec factures impayées";
+        let intents = classify_intents(msg);
+        assert!(intents.contains(&"crm"), "Expected 'crm'");
+        assert!(intents.contains(&"billing"), "Expected 'billing'");
+    }
+
+    #[test]
+    fn classify_unknown_defaults_to_billing() {
+        let msg = "bonjour que puis-je faire pour vous ?";
+        let intents = classify_intents(msg);
+        // default branch returns ["billing"]
+        assert_eq!(intents, vec!["billing"]);
+    }
+
+    // ── tool_call_for_intent ──────────────────────────────────────────────
+
+    #[test]
+    fn tool_call_billing_is_list_overdue_payments() {
+        let tc = tool_call_for_intent("billing", "tenant-abc");
+        assert_eq!(tc.function.name, "mcp_billing__list_overdue_payments");
+        assert!(tc.function.arguments.contains("tenant-abc"));
+    }
+
+    #[test]
+    fn tool_call_analytics_is_get_mrr_trend() {
+        let tc = tool_call_for_intent("analytics", "tenant-abc");
+        assert_eq!(tc.function.name, "mcp_analytics__get_mrr_trend");
+        assert!(tc.function.arguments.contains("tenant-abc"));
+    }
+
+    #[test]
+    fn tool_call_sequences_is_list_sequences() {
+        let tc = tool_call_for_intent("sequences", "tenant-abc");
+        assert_eq!(tc.function.name, "mcp_sequences__list_sequences");
+    }
+
+    #[test]
+    fn tool_call_crm_is_search_contacts() {
+        let tc = tool_call_for_intent("crm", "tenant-abc");
+        assert_eq!(tc.function.name, "mcp_crm__search_contacts");
+    }
+
+    // ── MockProvider turns ────────────────────────────────────────────────
+
+    fn system_msg(tenant_id: &str) -> Message {
+        Message {
+            role: Role::System,
+            content: Some(format!("tenant_id: {}", tenant_id)),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        }
+    }
+
+    fn user_msg(text: &str) -> Message {
+        Message {
+            role: Role::User,
+            content: Some(text.to_string()),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        }
+    }
+
+    fn tool_result_msg(call_id: &str, content: &str) -> Message {
+        Message {
+            role: Role::Tool,
+            content: Some(content.to_string()),
+            tool_calls: None,
+            tool_call_id: Some(call_id.to_string()),
+            name: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn mock_turn_1_billing_returns_overdue_tool_call() {
+        let provider = MockProvider;
+        let messages = vec![
+            system_msg("00000000-0000-0000-0000-000000000001"),
+            user_msg("paiements en retard ce mois"),
+        ];
+        let resp = provider.complete(&messages, &[]).await.unwrap();
+
+        assert_eq!(resp.tool_calls.len(), 1);
+        assert_eq!(
+            resp.tool_calls[0].function.name,
+            "mcp_billing__list_overdue_payments"
+        );
+        assert!(resp.content.is_none());
+    }
+
+    #[tokio::test]
+    async fn mock_turn_1_analytics_returns_mrr_tool_call() {
+        let provider = MockProvider;
+        let messages = vec![
+            system_msg("00000000-0000-0000-0000-000000000001"),
+            user_msg("tendance mrr sur 6 mois"),
+        ];
+        let resp = provider.complete(&messages, &[]).await.unwrap();
+
+        assert_eq!(resp.tool_calls.len(), 1);
+        assert_eq!(resp.tool_calls[0].function.name, "mcp_analytics__get_mrr_trend");
+    }
+
+    #[tokio::test]
+    async fn mock_multiservice_billing_analytics_3_turns() {
+        let provider = MockProvider;
+        let tenant = "00000000-0000-0000-0000-000000000001";
+
+        // Turn 1: no tool results yet → billing tool call
+        let messages_t1 = vec![
+            system_msg(tenant),
+            user_msg("paiements en retard et tendance mrr"),
+        ];
+        let resp_t1 = provider.complete(&messages_t1, &[]).await.unwrap();
+        assert_eq!(resp_t1.tool_calls.len(), 1);
+        assert_eq!(
+            resp_t1.tool_calls[0].function.name,
+            "mcp_billing__list_overdue_payments"
+        );
+
+        // Turn 2: 1 tool result → analytics tool call
+        let call_id_1 = &resp_t1.tool_calls[0].id;
+        let mut messages_t2 = messages_t1.clone();
+        messages_t2.push(tool_result_msg(
+            call_id_1,
+            r#"{"overdue_payments": [{"amount": 1200.0}]}"#,
+        ));
+        let resp_t2 = provider.complete(&messages_t2, &[]).await.unwrap();
+        assert_eq!(resp_t2.tool_calls.len(), 1);
+        assert_eq!(
+            resp_t2.tool_calls[0].function.name,
+            "mcp_analytics__get_mrr_trend"
+        );
+
+        // Turn 3: 2 tool results → final text response
+        let call_id_2 = &resp_t2.tool_calls[0].id;
+        let mut messages_t3 = messages_t2.clone();
+        messages_t3.push(tool_result_msg(
+            call_id_2,
+            r#"{"data_points": [{"period": "2026-03", "mrr": 42000.0}]}"#,
+        ));
+        let resp_t3 = provider.complete(&messages_t3, &[]).await.unwrap();
+        assert!(resp_t3.tool_calls.is_empty(), "Final turn must have no tool calls");
+        assert!(
+            resp_t3.content.is_some(),
+            "Final turn must return text content"
+        );
+        let text = resp_t3.content.unwrap();
+        // render_tool_results should surface the MRR data from turn 2 result
+        assert!(
+            text.contains("MRR") || text.contains("42000") || text.contains("paiements"),
+            "Final response should reference tool results: {:?}",
+            text
+        );
+    }
+
+    #[tokio::test]
+    async fn mock_single_service_crm_2_turns() {
+        let provider = MockProvider;
+        let tenant = "00000000-0000-0000-0000-000000000001";
+
+        // Turn 1 → crm search_contacts
+        let messages_t1 = vec![
+            system_msg(tenant),
+            user_msg("liste des contacts CRM"),
+        ];
+        let resp_t1 = provider.complete(&messages_t1, &[]).await.unwrap();
+        assert_eq!(resp_t1.tool_calls[0].function.name, "mcp_crm__search_contacts");
+
+        // Turn 2: 1 tool result, single intent → final response
+        let mut messages_t2 = messages_t1.clone();
+        messages_t2.push(tool_result_msg(
+            &resp_t1.tool_calls[0].id,
+            r#"{"items": [{"full_name": "Alice Martin", "email": "alice@acme.io", "company": "Acme", "status": "active"}], "total": 1}"#,
+        ));
+        let resp_t2 = provider.complete(&messages_t2, &[]).await.unwrap();
+        assert!(resp_t2.tool_calls.is_empty(), "Should be final turn");
+        let text = resp_t2.content.unwrap();
+        assert!(
+            text.contains("Alice Martin") || text.contains("contact"),
+            "Should surface CRM data: {:?}",
+            text
+        );
+    }
+}

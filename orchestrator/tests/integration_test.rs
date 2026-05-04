@@ -390,3 +390,326 @@ fn test_build_system_prompt_crm_section() {
         "PDF chunk should appear in the documentation section"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Billing / Analytics / Sequences tool-name parsing
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Verify that all billing MCP tool names parse correctly via `parse_tool_name`.
+#[test]
+fn test_parse_billing_tool_names() {
+    use orchestrator::mcp_client::parse_tool_name;
+
+    let billing_tools = [
+        ("mcp_billing__list_invoices", "mcp_billing", "list_invoices"),
+        ("mcp_billing__get_invoice", "mcp_billing", "get_invoice"),
+        (
+            "mcp_billing__list_overdue_payments",
+            "mcp_billing",
+            "list_overdue_payments",
+        ),
+        (
+            "mcp_billing__get_subscription",
+            "mcp_billing",
+            "get_subscription",
+        ),
+        (
+            "mcp_billing__update_subscription_status",
+            "mcp_billing",
+            "update_subscription_status",
+        ),
+        (
+            "mcp_billing__check_subscription_status",
+            "mcp_billing",
+            "check_subscription_status",
+        ),
+        (
+            "mcp_billing__get_customer_billing_summary",
+            "mcp_billing",
+            "get_customer_billing_summary",
+        ),
+        ("mcp_billing__get_mrr", "mcp_billing", "get_mrr"),
+    ];
+
+    for (full_name, expected_prefix, expected_tool) in &billing_tools {
+        let result = parse_tool_name(full_name)
+            .unwrap_or_else(|_| panic!("parse_tool_name failed for '{}'", full_name));
+        assert_eq!(
+            result.0, *expected_prefix,
+            "prefix mismatch for {}",
+            full_name
+        );
+        assert_eq!(result.1, *expected_tool, "tool mismatch for {}", full_name);
+    }
+}
+
+/// Verify that all analytics MCP tool names parse correctly via `parse_tool_name`.
+#[test]
+fn test_parse_analytics_tool_names() {
+    use orchestrator::mcp_client::parse_tool_name;
+
+    let analytics_tools = [
+        (
+            "mcp_analytics__get_mrr_trend",
+            "mcp_analytics",
+            "get_mrr_trend",
+        ),
+        (
+            "mcp_analytics__get_pipeline_metrics",
+            "mcp_analytics",
+            "get_pipeline_metrics",
+        ),
+        (
+            "mcp_analytics__compute_churn_rate",
+            "mcp_analytics",
+            "compute_churn_rate",
+        ),
+        (
+            "mcp_analytics__get_at_risk_accounts",
+            "mcp_analytics",
+            "get_at_risk_accounts",
+        ),
+        (
+            "mcp_analytics__get_rep_performance",
+            "mcp_analytics",
+            "get_rep_performance",
+        ),
+        (
+            "mcp_analytics__get_team_leaderboard",
+            "mcp_analytics",
+            "get_team_leaderboard",
+        ),
+        (
+            "mcp_analytics__get_deal_velocity",
+            "mcp_analytics",
+            "get_deal_velocity",
+        ),
+        (
+            "mcp_analytics__get_funnel_analysis",
+            "mcp_analytics",
+            "get_funnel_analysis",
+        ),
+        (
+            "mcp_analytics__forecast_revenue",
+            "mcp_analytics",
+            "forecast_revenue",
+        ),
+        (
+            "mcp_analytics__get_activity_metrics",
+            "mcp_analytics",
+            "get_activity_metrics",
+        ),
+    ];
+
+    for (full_name, expected_prefix, expected_tool) in &analytics_tools {
+        let result = parse_tool_name(full_name)
+            .unwrap_or_else(|_| panic!("parse_tool_name failed for '{}'", full_name));
+        assert_eq!(
+            result.0, *expected_prefix,
+            "prefix mismatch for {}",
+            full_name
+        );
+        assert_eq!(result.1, *expected_tool, "tool mismatch for {}", full_name);
+    }
+}
+
+/// Verify that all sequences MCP tool names parse correctly via `parse_tool_name`.
+#[test]
+fn test_parse_sequences_tool_names() {
+    use orchestrator::mcp_client::parse_tool_name;
+
+    let sequences_tools = [
+        (
+            "mcp_sequences__list_sequences",
+            "mcp_sequences",
+            "list_sequences",
+        ),
+        (
+            "mcp_sequences__create_sequence",
+            "mcp_sequences",
+            "create_sequence",
+        ),
+        (
+            "mcp_sequences__update_sequence",
+            "mcp_sequences",
+            "update_sequence",
+        ),
+        (
+            "mcp_sequences__delete_sequence",
+            "mcp_sequences",
+            "delete_sequence",
+        ),
+        (
+            "mcp_sequences__get_sequence",
+            "mcp_sequences",
+            "get_sequence",
+        ),
+        (
+            "mcp_sequences__enroll_contact",
+            "mcp_sequences",
+            "enroll_contact",
+        ),
+        (
+            "mcp_sequences__unenroll_contact",
+            "mcp_sequences",
+            "unenroll_contact",
+        ),
+        (
+            "mcp_sequences__list_enrollments",
+            "mcp_sequences",
+            "list_enrollments",
+        ),
+        (
+            "mcp_sequences__pause_sequence",
+            "mcp_sequences",
+            "pause_sequence",
+        ),
+        (
+            "mcp_sequences__resume_sequence",
+            "mcp_sequences",
+            "resume_sequence",
+        ),
+        (
+            "mcp_sequences__get_sequence_performance",
+            "mcp_sequences",
+            "get_sequence_performance",
+        ),
+    ];
+
+    for (full_name, expected_prefix, expected_tool) in &sequences_tools {
+        let result = parse_tool_name(full_name)
+            .unwrap_or_else(|_| panic!("parse_tool_name failed for '{}'", full_name));
+        assert_eq!(
+            result.0, *expected_prefix,
+            "prefix mismatch for {}",
+            full_name
+        );
+        assert_eq!(result.1, *expected_tool, "tool mismatch for {}", full_name);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// default_tool_definitions — multi-service coverage
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Verify that `default_tool_definitions()` includes tools for all five services.
+#[test]
+fn test_default_tool_definitions_covers_all_services() {
+    use orchestrator::context::builder::default_tool_definitions;
+
+    let tools = default_tool_definitions();
+    let names: Vec<&str> = tools.iter().map(|t| t.function.name.as_str()).collect();
+
+    // Billing
+    for expected in &[
+        "mcp_billing__list_invoices",
+        "mcp_billing__get_invoice",
+        "mcp_billing__list_overdue_payments",
+        "mcp_billing__get_subscription",
+    ] {
+        assert!(
+            names.contains(expected),
+            "Missing billing tool: {}. Have: {:?}",
+            expected,
+            names
+        );
+    }
+
+    // Analytics
+    for expected in &[
+        "mcp_analytics__get_mrr_trend",
+        "mcp_analytics__get_pipeline_metrics",
+        "mcp_analytics__compute_churn_rate",
+        "mcp_analytics__forecast_revenue",
+    ] {
+        assert!(
+            names.contains(expected),
+            "Missing analytics tool: {}",
+            expected
+        );
+    }
+
+    // Sequences
+    for expected in &[
+        "mcp_sequences__list_sequences",
+        "mcp_sequences__create_sequence",
+        "mcp_sequences__enroll_contact",
+        "mcp_sequences__get_sequence_performance",
+    ] {
+        assert!(
+            names.contains(expected),
+            "Missing sequences tool: {}",
+            expected
+        );
+    }
+
+    // Filesystem
+    for expected in &[
+        "mcp_filesystem__read_document",
+        "mcp_filesystem__list_documents",
+    ] {
+        assert!(
+            names.contains(expected),
+            "Missing filesystem tool: {}",
+            expected
+        );
+    }
+}
+
+/// Verify that the total number of tools covers all services (billing + analytics +
+/// sequences + filesystem on top of the 12 CRM tools).
+#[test]
+fn test_default_tool_definitions_total_count() {
+    use orchestrator::context::builder::default_tool_definitions;
+
+    let tools = default_tool_definitions();
+
+    let crm_count = tools
+        .iter()
+        .filter(|t| t.function.name.starts_with("mcp_crm__"))
+        .count();
+    let billing_count = tools
+        .iter()
+        .filter(|t| t.function.name.starts_with("mcp_billing__"))
+        .count();
+    let analytics_count = tools
+        .iter()
+        .filter(|t| t.function.name.starts_with("mcp_analytics__"))
+        .count();
+    let sequences_count = tools
+        .iter()
+        .filter(|t| t.function.name.starts_with("mcp_sequences__"))
+        .count();
+    let filesystem_count = tools
+        .iter()
+        .filter(|t| t.function.name.starts_with("mcp_filesystem__"))
+        .count();
+
+    assert_eq!(crm_count, 12, "Expected 12 CRM tools, got {}", crm_count);
+    assert!(
+        billing_count >= 4,
+        "Expected at least 4 billing tools, got {}",
+        billing_count
+    );
+    assert!(
+        analytics_count >= 4,
+        "Expected at least 4 analytics tools, got {}",
+        analytics_count
+    );
+    assert!(
+        sequences_count >= 4,
+        "Expected at least 4 sequences tools, got {}",
+        sequences_count
+    );
+    assert!(
+        filesystem_count >= 2,
+        "Expected at least 2 filesystem tools, got {}",
+        filesystem_count
+    );
+
+    assert!(
+        tools.len() > 12,
+        "Total tools should exceed 12 (CRM only), got {}",
+        tools.len()
+    );
+}

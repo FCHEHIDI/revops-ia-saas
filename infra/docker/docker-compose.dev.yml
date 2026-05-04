@@ -9,6 +9,8 @@ volumes:
     driver: local
   qdrant_data:
     driver: local
+  filesystem_storage:
+    driver: local
 
 services:
   # ═══════════════════════════════════════════════════════════════════════════════
@@ -110,6 +112,7 @@ services:
       MCP_BILLING_URL: http://mcp-billing:9002
       MCP_ANALYTICS_URL: http://mcp-analytics:9003
       MCP_SEQUENCES_URL: http://mcp-sequences:9004
+      MCP_FILESYSTEM_URL: http://mcp-filesystem:9005
     depends_on:
       postgres:
         condition: service_healthy
@@ -154,6 +157,7 @@ services:
       MCP_BILLING_URL: http://mcp-billing:9002
       MCP_ANALYTICS_URL: http://mcp-analytics:9003
       MCP_SEQUENCES_URL: http://mcp-sequences:9004
+      MCP_FILESYSTEM_URL: http://mcp-filesystem:9005
       RAG_API_URL: http://rag:8500
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       DEFAULT_MODEL: llama3.2:3b
@@ -245,6 +249,31 @@ services:
       INTER_SERVICE_SECRET: dev-internal-key-change-me
       BACKEND_URL: http://backend:8000
       LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  mcp-filesystem:
+    build:
+      context: ../../mcp/mcp-filesystem
+      dockerfile: Dockerfile
+    container_name: revops-dev-mcp-filesystem
+    restart: unless-stopped
+    networks:
+      - revops_dev
+    ports:
+      - "19005:9005"
+    environment:
+      DATABASE_URL: postgresql://revops:revops@postgres:5432/revops
+      MCP_TRANSPORT: http
+      HTTP_BIND: 0.0.0.0:9005
+      INTER_SERVICE_SECRET: dev-internal-key-change-me
+      STORAGE_BACKEND: local
+      STORAGE_BASE_DIR: /data/storage
+      RAG_SERVICE_URL: http://rag:8500
+      LOG_LEVEL: info
+    volumes:
+      - filesystem_storage:/data/storage
     depends_on:
       postgres:
         condition: service_healthy

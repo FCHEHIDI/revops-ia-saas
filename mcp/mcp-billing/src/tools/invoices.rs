@@ -1,4 +1,4 @@
-use chrono::{NaiveDate, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -158,11 +158,15 @@ pub struct ListInvoicesOutput {
 
 struct InvoiceSummaryRow {
     id: Uuid,
+    tenant_id: Uuid,
     invoice_number: String,
     status: InvoiceStatus,
     amount: Decimal,
     currency: String,
     due_date: NaiveDate,
+    created_at: DateTime<Utc>,
+    paid_at: Option<DateTime<Utc>>,
+    account_name: Option<String>,
 }
 
 struct InvoiceAggRow {
@@ -203,15 +207,23 @@ pub async fn list_invoices(input: ListInvoicesInput, pool: &PgPool) -> Result<Li
         InvoiceSummaryRow,
         r#"
         SELECT
-            id, invoice_number,
-            status AS "status: InvoiceStatus",
-            amount, currency, due_date
-        FROM invoices
-        WHERE tenant_id = $1
-            AND ($2::invoice_status IS NULL OR status = $2)
-            AND ($3::date IS NULL OR due_date >= $3)
-            AND ($4::date IS NULL OR due_date <= $4)
-        ORDER BY created_at DESC
+            inv.id,
+            inv.tenant_id,
+            inv.invoice_number,
+            inv.status AS "status: InvoiceStatus",
+            inv.amount,
+            inv.currency,
+            inv.due_date,
+            inv.created_at,
+            inv.paid_at,
+            a.name AS account_name
+        FROM invoices inv
+        LEFT JOIN accounts a ON a.id = inv.account_id AND a.tenant_id = inv.tenant_id
+        WHERE inv.tenant_id = $1
+            AND ($2::invoice_status IS NULL OR inv.status = $2)
+            AND ($3::date IS NULL OR inv.due_date >= $3)
+            AND ($4::date IS NULL OR inv.due_date <= $4)
+        ORDER BY inv.created_at DESC
         LIMIT $5 OFFSET $6
         "#,
         input.tenant_id,
@@ -229,11 +241,15 @@ pub async fn list_invoices(input: ListInvoicesInput, pool: &PgPool) -> Result<Li
         .into_iter()
         .map(|r| InvoiceSummary {
             id: r.id,
+            tenant_id: r.tenant_id,
             invoice_number: r.invoice_number,
             status: r.status,
             amount: r.amount,
             currency: r.currency,
             due_date: r.due_date,
+            issued_at: r.created_at,
+            paid_at: r.paid_at,
+            customer_name: r.account_name,
         })
         .collect();
 
@@ -364,11 +380,15 @@ pub async fn list_overdue_payments(
         .map(|r| OverdueInvoice {
             invoice: InvoiceSummary {
                 id: r.id,
+                tenant_id: input.tenant_id,
                 invoice_number: r.invoice_number,
                 status: r.status,
                 amount: r.amount,
                 currency: r.currency,
                 due_date: r.due_date,
+                issued_at: chrono::Utc::now(),
+                paid_at: None,
+                customer_name: None,
             },
             overdue_days: r.overdue_days.unwrap_or(0),
             contact_email: r.contact_email,

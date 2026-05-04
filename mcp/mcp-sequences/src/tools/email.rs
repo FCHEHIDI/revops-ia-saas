@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::PgPool;
-use tracing::{error, instrument, warn};
+use tracing::{error, instrument};
 use uuid::Uuid;
 
 use crate::audit::{write_audit, AuditEntry};
@@ -90,7 +90,7 @@ pub async fn send_step_email(
     .map_err(SequencesError::DatabaseError)?
     .ok_or(SequencesError::ContactNotFound(input.contact_id))?;
 
-    let to_email = contact.email.clone().unwrap_or_default();
+    let to_email = contact.email.clone();
     if to_email.is_empty() {
         return Err(SequencesError::ValidationError(format!(
             "contact {} has no email address",
@@ -99,8 +99,8 @@ pub async fn send_step_email(
     }
 
     // 3. Simple template variable substitution: {{first_name}}, {{last_name}}
-    let first_name = contact.first_name.clone().unwrap_or_default();
-    let last_name = contact.last_name.clone().unwrap_or_default();
+    let first_name = contact.first_name.clone();
+    let last_name = contact.last_name.clone();
     let body_html = body_template
         .replace("{{first_name}}", &first_name)
         .replace("{{last_name}}", &last_name)

@@ -16,7 +16,7 @@ import type { CSSProperties } from "react";
 /** Brand accent colours — venetian gothic palette */
 export const C = {
   /** Ambre vénitien (alerte modérée / neutral)   */
-  blue:    "#C07000",
+  amber:    "#C07000",
   /** Or vénitien sombre (croissance / positif)   */
   green:   "#A07800",
   /** Améthyste profonde (séquences)              */

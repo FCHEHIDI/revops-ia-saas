@@ -69,7 +69,7 @@ export function BillingStatusChart() {
       return {
         chartData: [
           { name: "Payée",      value: 8, color: C.green, amount: 24000 },
-          { name: "En attente", value: 3, color: C.blue,  amount: 5400  },
+          { name: "En attente", value: 3, color: C.amber,  amount: 5400  },
           { name: "En retard",  value: 4, color: C.red,   amount: 7800  },
         ] as SliceData[],
         total: 15,

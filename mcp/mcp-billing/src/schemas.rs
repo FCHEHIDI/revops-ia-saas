@@ -111,11 +111,15 @@ pub struct InvoiceLineItem {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InvoiceSummary {
     pub id: Uuid,
+    pub tenant_id: Uuid,
     pub invoice_number: String,
     pub status: InvoiceStatus,
     pub amount: Decimal,
     pub currency: String,
     pub due_date: NaiveDate,
+    pub issued_at: DateTime<Utc>,
+    pub paid_at: Option<DateTime<Utc>>,
+    pub customer_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -10,7 +10,7 @@ import { C } from "@/lib/chart-theme";
 function nrrHealth(nrr: number): { color: string; label: string; hint: string } {
   if (nrr >= 110) return { color: C.success,  label: "Expansion",  hint: "Upsell > churn — excellent" };
   if (nrr >= 100) return { color: C.green,    label: "Stable",     hint: "Revenus retenus intégralement" };
-  if (nrr >= 90)  return { color: C.blue,     label: "Attention",  hint: "Légère perte nette de revenu" };
+  if (nrr >= 90)  return { color: C.amber,     label: "Attention",  hint: "Légère perte nette de revenu" };
   return             { color: C.magenta,   label: "Alerte",     hint: "Churn supérieur aux upsells" };
 }
 

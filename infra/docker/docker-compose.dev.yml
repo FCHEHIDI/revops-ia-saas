@@ -107,6 +107,9 @@ services:
       ENVIRONMENT: development
       LOG_LEVEL: INFO
       PYTHONUNBUFFERED: "1"
+      MCP_BILLING_URL: http://mcp-billing:9002
+      MCP_ANALYTICS_URL: http://mcp-analytics:9003
+      MCP_SEQUENCES_URL: http://mcp-sequences:9004
     depends_on:
       postgres:
         condition: service_healthy
@@ -148,6 +151,9 @@ services:
       REDIS_URL: redis://redis:6379/0
       INTER_SERVICE_SECRET: dev-internal-key-change-me
       MCP_CRM_URL: http://mcp-crm:9001
+      MCP_BILLING_URL: http://mcp-billing:9002
+      MCP_ANALYTICS_URL: http://mcp-analytics:9003
+      MCP_SEQUENCES_URL: http://mcp-sequences:9004
       RAG_API_URL: http://rag:8500
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       DEFAULT_MODEL: llama3.2:3b
@@ -181,6 +187,67 @@ services:
     depends_on:
       backend:
         condition: service_started
+
+  mcp-billing:
+    build:
+      context: ../../mcp/mcp-billing
+      dockerfile: Dockerfile
+    container_name: revops-dev-mcp-billing
+    restart: unless-stopped
+    networks:
+      - revops_dev
+    ports:
+      - "19002:9002"
+    environment:
+      DATABASE_URL: postgresql://revops:revops@postgres:5432/revops
+      MCP_TRANSPORT: http
+      HTTP_BIND: 0.0.0.0:9002
+      INTER_SERVICE_SECRET: dev-internal-key-change-me
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  mcp-analytics:
+    build:
+      context: ../../mcp/mcp-analytics
+      dockerfile: Dockerfile
+    container_name: revops-dev-mcp-analytics
+    restart: unless-stopped
+    networks:
+      - revops_dev
+    ports:
+      - "19003:9003"
+    environment:
+      DATABASE_URL: postgresql://revops:revops@postgres:5432/revops
+      MCP_TRANSPORT: http
+      HTTP_BIND: 0.0.0.0:9003
+      INTER_SERVICE_SECRET: dev-internal-key-change-me
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  mcp-sequences:
+    build:
+      context: ../../mcp/mcp-sequences
+      dockerfile: Dockerfile
+    container_name: revops-dev-mcp-sequences
+    restart: unless-stopped
+    networks:
+      - revops_dev
+    ports:
+      - "19004:9004"
+    environment:
+      DATABASE_URL: postgresql://revops:revops@postgres:5432/revops
+      MCP_TRANSPORT: http
+      HTTP_BIND: 0.0.0.0:9004
+      INTER_SERVICE_SECRET: dev-internal-key-change-me
+      BACKEND_URL: http://backend:8000
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   # ═══════════════════════════════════════════════════════════════════════════════
   # RAG Layer (Python) — Vector store, embeddings, retrievers

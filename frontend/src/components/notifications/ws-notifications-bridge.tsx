@@ -17,6 +17,7 @@
 
 import { useEffect } from "react";
 import { useWsNotifications } from "@/hooks/useNotifications";
+import { useAuth } from "@/hooks/useAuth";
 import type { NotificationType } from "./notification-provider";
 
 /** Maps a backend event `type` to a UI notification type. */
@@ -55,7 +56,8 @@ function mapBody(eventType: string, data: unknown): string | undefined {
 }
 
 export function WsNotificationsBridge() {
-  const { notifications } = useWsNotifications();
+  const { isAuthenticated } = useAuth();
+  const { notifications } = useWsNotifications(isAuthenticated);
 
   // Each time a new WS notification arrives, forward it to the app event bus.
   // We track the last seen index so we only dispatch newly arrived items.

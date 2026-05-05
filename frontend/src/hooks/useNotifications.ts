@@ -36,7 +36,15 @@ const RECONNECT_DELAY_MS = 3_000;
 /** Internal frame types that are not surfaced as user notifications. */
 const SILENT_TYPES = new Set(["connected", "ping", "pong"]);
 
-export function useWsNotifications(): {
+/**
+ * WebSocket close codes that must NOT trigger a reconnection attempt:
+ *  4001 — backend rejected the connection (not authenticated / invalid token)
+ *  1000 — normal closure (intentional disconnect, e.g. logout)
+ *  1001 — endpoint going away (server shutdown)
+ */
+const NO_RECONNECT_CODES = new Set([4001, 1000, 1001]);
+
+export function useWsNotifications(enabled: boolean = true): {
   notifications: Notification[];
   isConnected: boolean;
   clearNotifications: () => void;
@@ -52,14 +60,15 @@ export function useWsNotifications(): {
   const connect = useCallback(() => {
     if (unmountedRef.current) return;
 
+    // Connect directly to the backend (Next.js rewrites do not proxy WebSocket
+    // upgrades).  Cookies are domain-scoped (port-independent) so the
+    // access_token cookie set at :3000 is sent to the backend at :18000.
     const backendUrl =
-      process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:18000";
-    // Strip any trailing /api/v1 path before building the WebSocket URL
-    // (NEXT_PUBLIC_BACKEND_URL already includes /api/v1 for HTTP calls)
-    const wsBase = backendUrl.replace(/\/api\/v\d+\/?$/, "");
-    // Replace http(s):// with ws(s):// for the WebSocket URL
-    const wsUrl =
-      wsBase.replace(/^http/, "ws") + "/api/v1/ws/notifications";
+      process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:18000/api/v1";
+    const wsBase = backendUrl
+      .replace(/\/api\/v\d+\/?$/, "")
+      .replace("localhost", "127.0.0.1");
+    const wsUrl = wsBase.replace(/^http/, "ws") + "/api/v1/ws/notifications";
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -68,10 +77,14 @@ export function useWsNotifications(): {
       setIsConnected(true);
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event: CloseEvent) => {
       setIsConnected(false);
       wsRef.current = null;
-      if (!unmountedRef.current) {
+      // Only reconnect for unexpected network drops — never for auth rejection
+      // (4001), normal closure (1000), or endpoint going away (1001).
+      const shouldReconnect =
+        !unmountedRef.current && !NO_RECONNECT_CODES.has(event.code);
+      if (shouldReconnect) {
         reconnectTimer.current = setTimeout(connect, RECONNECT_DELAY_MS);
       }
     };
@@ -116,16 +129,22 @@ export function useWsNotifications(): {
 
   useEffect(() => {
     unmountedRef.current = false;
-    connect();
+
+    if (enabled) {
+      connect();
+    }
 
     return () => {
       unmountedRef.current = true;
       if (reconnectTimer.current !== null) {
         clearTimeout(reconnectTimer.current);
       }
-      wsRef.current?.close();
+      // Close with code 1000 (normal) so onclose doesn't schedule a reconnect.
+      if (wsRef.current) {
+        wsRef.current.close(1000);
+      }
     };
-  }, [connect]);
+  }, [connect, enabled]);
 
   const clearNotifications = useCallback(() => setNotifications([]), []);
 

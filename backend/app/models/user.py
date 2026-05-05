@@ -44,6 +44,8 @@ class User(Base):
     permissions = Column(
         ARRAY(String), nullable=False, server_default="{}", default=list
     )
+    mfa_enabled = Column(Boolean, nullable=False, server_default="false", default=False)
+    mfa_secret = Column(Text, nullable=True)
     is_active = Column(Boolean, nullable=False, server_default="true", default=True)
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

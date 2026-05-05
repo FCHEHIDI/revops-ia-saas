@@ -7,6 +7,7 @@ asyncpg==0.29.0
 alembic==1.13.1
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+pyotp==2.9.0
 # bcrypt 5.x removes the legacy backend `passlib` 1.7.x relies on; pin to
 # the last 4.x release which still works with passlib's wrappers.
 bcrypt==4.2.1

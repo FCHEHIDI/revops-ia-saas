@@ -13,6 +13,7 @@ ENV PYTHONPATH=/app
 
 # Run as non-root user for security
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+RUN mkdir -p /app/uploads && chown -R appuser:appgroup /app/uploads
 USER appuser
 
 EXPOSE 8000

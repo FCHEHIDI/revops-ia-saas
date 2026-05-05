@@ -10,13 +10,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { NotificationPanel } from "@/components/notifications/notification-panel";
 
 const navItems = [
-  { href: "/chat",      label: "Xenito"      },
-  { href: "/dashboard", label: "Dashboard"   },
-  { href: "/crm",       label: "CRM"         },
-  { href: "/analytics", label: "Analytics"   },
-  { href: "/billing",   label: "Facturation" },
-  { href: "/sequences", label: "Séquences"   },
-  { href: "/documents", label: "Documents"   },
+  { href: "/chat",      label: "Xenito",         allowedRoles: ["admin", "revops", "sales", "customer_success"] },
+  { href: "/dashboard", label: "Dashboard",      allowedRoles: ["admin", "revops", "sales", "customer_success"] },
+  { href: "/crm",       label: "CRM",            allowedRoles: ["admin", "sales", "revops", "customer_success"] },
+  { href: "/analytics", label: "Analytics",      allowedRoles: ["admin", "revops"] },
+  { href: "/billing", label: "Facturation",   allowedRoles: ["admin", "revops"] },
+  { href: "/sequences", label: "Séquences",      allowedRoles: ["admin", "sales"] },
+  { href: "/documents", label: "Documents",      allowedRoles: ["admin", "customer_success"] },
+  { href: "/settings", label: "Sécurité",       allowedRoles: ["admin", "revops", "sales", "customer_success"] },
 ];
 
 /* ── Compact user menu with logout dropdown ─────────────── */
@@ -139,6 +140,13 @@ export function TopNav() {
   const { user, logout } = useAuth();
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
 
+  const allowedNavItems = navItems.filter((item) => {
+    if (!item.allowedRoles || item.allowedRoles.length === 0) {
+      return true;
+    }
+    return user?.roles?.some((role) => item.allowedRoles.includes(role));
+  });
+
   return (
     <header
       className={cn("flex items-center w-full shrink-0 px-5 gap-4")}
@@ -192,7 +200,7 @@ export function TopNav() {
 
       {/* ── Nav items — texte Cinzel ── */}
       <nav className="flex items-center flex-1" style={{ gap: 2 }}>
-        {navItems.map(({ href, label }) => {
+        {allowedNavItems.map(({ href, label }) => {
           const isActive = pathname === href || pathname.startsWith(href + "/");
           const isHovered = hoveredNav === href;
 

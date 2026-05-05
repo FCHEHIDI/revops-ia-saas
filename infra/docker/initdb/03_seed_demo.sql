@@ -165,8 +165,8 @@ VALUES (
     '00000000-0000-0000-0000-000000000010',
     '00000000-0000-0000-0000-000000000001',
     'demo@acme-revops.io',
-    -- bcrypt de 'demo1234' (cost=12) — placeholder non-utilisé en prod
-    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj2NJqhN8.',
+    -- bcrypt of 'demo1234' (cost=12) — generated 2026-05-05
+    '$2b$12$SAv1sgk0OfrtCFg3G/CL6.ZjmkRrUmiwPNk.UvpCEQLYK4YeFRKku',
     'Sarah Dupont',
     'Sarah Dupont',
     'Head of Revenue Operations',

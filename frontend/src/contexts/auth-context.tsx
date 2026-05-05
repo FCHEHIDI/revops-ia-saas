@@ -50,6 +50,12 @@ export interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// Key for the non-sensitive localStorage flag that indicates a session may
+// exist.  Avoids firing GET /auth/me (and logging a 401) on every page load
+// for unauthenticated visitors.  The flag carries no secret — the real auth
+// check is still done via httpOnly cookies on the backend.
+const AUTH_HINT_KEY = "auth_hint";
+
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
@@ -64,10 +70,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const fetchUser = useCallback(async () => {
+    // Skip the network call when there is no session hint so we don't log a
+    // 401 for every unauthenticated page visit.
+    if (typeof window !== "undefined" && !localStorage.getItem(AUTH_HINT_KEY)) {
+      setState({ user: null, isLoading: false, isAuthenticated: false });
+      return;
+    }
     try {
       const user = await authApi.me();
       setState({ user, isLoading: false, isAuthenticated: true });
     } catch {
+      // Session expired or revoked — clear the hint so the next load is silent.
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(AUTH_HINT_KEY);
+      }
       setState({ user: null, isLoading: false, isAuthenticated: false });
     }
   }, []);
@@ -80,6 +96,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (data: LoginRequest) => {
       await authApi.login(data);
+      // Mark that a session now exists before fetching the user profile.
+      if (typeof window !== "undefined") {
+        localStorage.setItem(AUTH_HINT_KEY, "1");
+      }
       // Backend sets httpOnly cookies on success — fetch user info immediately
       // so the shared state is populated before the route transition completes.
       const user = await authApi.me();
@@ -93,6 +113,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authApi.logout();
     } finally {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(AUTH_HINT_KEY);
+      }
       setState({ user: null, isLoading: false, isAuthenticated: false });
       router.push("/login");
     }

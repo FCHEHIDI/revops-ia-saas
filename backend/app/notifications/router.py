@@ -43,23 +43,22 @@ router = APIRouter()
 _PING_INTERVAL = 25
 
 
-@router.websocket("/ws/notifications")
+@router.websocket("/api/v1/ws/notifications")
 async def notifications_ws(
     websocket: WebSocket,
-    request: Request,
 ) -> None:
     """Real-time notification stream for the authenticated tenant.
 
     Args:
         websocket: The WebSocket connection object (injected by FastAPI).
-        request: The HTTP request used to extract tenant context from middleware state.
 
     Raises:
         WebSocketDisconnect: Raised by Starlette when the client closes the connection.
     """
     # TenantMiddleware has already validated the JWT cookie and set scope["state"].
-    tenant_id: UUID | None = getattr(request.state, "tenant_id", None)
-    user_id: UUID | None = getattr(request.state, "user_id", None)
+    # WebSocket inherits from HTTPConnection, so websocket.state reflects scope["state"].
+    tenant_id: UUID | None = getattr(websocket.state, "tenant_id", None)
+    user_id: UUID | None = getattr(websocket.state, "user_id", None)
 
     if tenant_id is None:
         # Middleware should reject unauthenticated requests before reaching here,

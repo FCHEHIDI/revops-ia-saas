@@ -1,15 +1,18 @@
+import asyncio
 import hashlib
 import secrets
 from datetime import timedelta
 from typing import Optional, Tuple
 from uuid import UUID, uuid4
 
+import pyotp
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
+from app.auth.validation import validate_password_format
 from app.config import settings
 from app.common.utils import utcnow
 from app.models.refresh_token import RefreshToken
@@ -18,13 +21,46 @@ from app.auth.schemas import TokenPayload
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+# Precomputed dummy hash used for constant-time response when the user does not
+# exist — prevents email enumeration via timing attacks.
+_DUMMY_HASH: str = pwd_context.hash("__dummy__")
+
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
+async def get_password_hash_async(password: str) -> str:
+    """Non-blocking bcrypt hash — runs in a thread pool."""
+    return await asyncio.to_thread(pwd_context.hash, password)
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
+
+
+async def verify_password_async(plain_password: str, hashed_password: str) -> bool:
+    """Non-blocking bcrypt verify — runs in a thread pool."""
+    return await asyncio.to_thread(pwd_context.verify, plain_password, hashed_password)
+
+
+def generate_mfa_secret() -> str:
+    return pyotp.random_base32()
+
+
+def get_totp(secret: str) -> pyotp.TOTP:
+    return pyotp.TOTP(secret, digits=6, interval=30)
+
+
+def verify_mfa_code(secret: str, code: str) -> bool:
+    try:
+        return bool(get_totp(secret).verify(code, valid_window=1))
+    except Exception:
+        return False
+
+
+def validate_password(password: str) -> None:
+    validate_password_format(password)
 
 
 def _hash_refresh_token(token: str) -> str:
@@ -121,10 +157,29 @@ async def revoke_refresh_token(db: AsyncSession, raw_refresh_token: str) -> None
 
 
 async def authenticate_user(
-    db: AsyncSession, email: str, password: str
+    db: AsyncSession, email: str, password: str, mfa_code: Optional[str] = None
 ) -> Optional[User]:
+    # Exact email match first.
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
-    if user and user.is_active and verify_password(password, user.password_hash):
-        return user
-    return None
+
+    # Username-style fallback: if input has no "@" and no exact match, look up
+    # the unique user whose email starts with "username@" (dev convenience).
+    if user is None and "@" not in email:
+        result = await db.execute(
+            select(User).where(User.email.like(f"{email}@%"))
+        )
+        users = result.scalars().all()
+        user = users[0] if len(users) == 1 else None
+
+    # Always run bcrypt — even when the user does not exist — so response time
+    # is constant and cannot be used to enumerate valid email addresses.
+    hash_to_check = user.password_hash if (user and user.is_active) else _DUMMY_HASH
+    password_ok = await verify_password_async(password, hash_to_check)
+
+    if not user or not user.is_active or not password_ok:
+        return None
+    if user.mfa_enabled:
+        if not user.mfa_secret or not mfa_code or not verify_mfa_code(user.mfa_secret, mfa_code):
+            return None
+    return user

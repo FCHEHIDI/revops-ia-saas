@@ -15,21 +15,46 @@ from app.documents.models import Document
 logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
+
+
+def _ensure_upload_dir() -> Path:
+    """Ensure the upload directory exists and is writable.
+
+    Returns:
+        Path: The resolved upload directory path.
+
+    Raises:
+        RuntimeError: If the upload directory cannot be created.
+    """
+    try:
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        logger.error("Unable to create upload directory %s: %s", UPLOAD_DIR, exc)
+        raise RuntimeError(
+            f"Upload directory cannot be created: {UPLOAD_DIR}"
+        ) from exc
+    return UPLOAD_DIR
 
 
 async def upload_document(
     db: AsyncSession, org_id, user_id, file: UploadFile
 ) -> Document:
     """Save uploaded file to disk, record in DB, and trigger RAG ingestion."""
+    upload_dir = _ensure_upload_dir()
     # Sanitise filename — strip any path components the client might inject
     safe_name = Path(file.filename or "upload").name
     file_id = uuid4()
-    storage_path = str(UPLOAD_DIR / f"{file_id}_{safe_name}")
+    storage_path = str(upload_dir / f"{file_id}_{safe_name}")
 
     content_bytes = await file.read()
-    with open(storage_path, "wb") as fh:
-        fh.write(content_bytes)
+    try:
+        with open(storage_path, "wb") as fh:
+            fh.write(content_bytes)
+    except OSError as exc:
+        logger.error("Failed to write upload file %s: %s", storage_path, exc)
+        raise RuntimeError(
+            f"Unable to save uploaded file to disk: {storage_path}"
+        ) from exc
 
     doc = Document(
         id=file_id,

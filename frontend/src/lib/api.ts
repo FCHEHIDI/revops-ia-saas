@@ -1,4 +1,3 @@
-import { refreshSession } from "./auth";
 import type { ApiError } from "@/types";
 
 // In the browser, use the relative /api/v1 path so Next.js rewrites proxy
@@ -14,6 +13,24 @@ type RequestOptions = Omit<RequestInit, "body"> & {
   skipRefresh?: boolean;
 };
 
+function sanitizeRequestBody(body: unknown): unknown {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return body;
+  }
+
+  return Object.fromEntries(
+    Object.entries(body).filter(([key, value]) => {
+      if (value === undefined) {
+        return false;
+      }
+      if (key === "mfa_code" && value === "") {
+        return false;
+      }
+      return true;
+    })
+  );
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -24,6 +41,7 @@ class ApiClient {
   private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
     const { body, skipRefresh = false, ...rest } = options;
 
+    const sanitizedBody = body !== undefined ? sanitizeRequestBody(body) : undefined;
     const res = await fetch(`${this.baseUrl}${path}`, {
       ...rest,
       credentials: "include",
@@ -31,33 +49,56 @@ class ApiClient {
         "Content-Type": "application/json",
         ...(rest.headers ?? {}),
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body:
+        sanitizedBody !== undefined ? JSON.stringify(sanitizedBody) : undefined,
     });
 
     if (res.status === 401 && !skipRefresh) {
-      // Don't attempt refresh for auth endpoints — avoids redirect loops
+      // Auth endpoints (/auth/login, /auth/refresh …) return 401 with a
+      // meaningful detail body ("Incorrect email or password", "MFA code
+      // required", …).  Fall through to the !res.ok handler below so the
+      // real message reaches the UI instead of a generic "Unauthorized".
       const isAuthPath = path.startsWith("/auth/");
       if (!isAuthPath) {
-        const refreshed = await refreshSession();
-        if (refreshed) {
+        // Non-auth endpoints: try a silent token refresh first.
+        // Use this.baseUrl so the request goes through the Next.js proxy in
+        // the browser (relative "/api/v1"), keeping the cookie on the same
+        // origin (127.0.0.1:3000).  Calling auth.ts refreshSession() would
+        // use "http://localhost:18000" directly — a different domain than
+        // the "127.0.0.1" origin where the cookie was set — so the browser
+        // would never attach the refresh_token cookie, causing every refresh
+        // to fail and the user to be kicked out immediately.
+        const refreshRes = await fetch(`${this.baseUrl}/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (refreshRes.ok) {
           return this.request<T>(path, { ...options, skipRefresh: true });
         }
+        // Refresh failed — redirect to login unless already there.
+        if (
+          typeof window !== "undefined" &&
+          !window.location.pathname.startsWith("/login")
+        ) {
+          // Clear the session hint so the login page load is silent (no 401).
+          localStorage.removeItem("auth_hint");
+          window.location.href = "/login";
+        }
+        throw new Error("Unauthorized");
       }
-      // Only redirect if not already on the login page
-      if (
-        typeof window !== "undefined" &&
-        !window.location.pathname.startsWith("/login")
-      ) {
-        window.location.href = "/login";
-      }
-      throw new Error("Unauthorized");
+      // isAuthPath → fall through to !res.ok to read the JSON error body
     }
 
     if (!res.ok) {
       let errorDetail = "An unexpected error occurred";
       try {
         const errorBody = (await res.json()) as ApiError;
-        errorDetail = errorBody.detail ?? errorDetail;
+        if (typeof errorBody.detail === "string") {
+          errorDetail = errorBody.detail;
+        } else if (Array.isArray(errorBody.detail)) {
+          errorDetail = errorBody.detail.join("; ");
+        }
       } catch {
         // ignore parse error
       }
@@ -98,7 +139,7 @@ export const api = new ApiClient(BACKEND_URL);
 // Auth endpoints
 // ---------------------------------------------------------------------------
 
-import type { User, LoginRequest, RegisterRequest } from "@/types";
+import type { DisableMFARequest, MFASetupResponse, User, LoginRequest, RegisterRequest } from "@/types";
 
 export const authApi = {
   login: (data: LoginRequest) => api.post<User>("/auth/login", data),
@@ -106,6 +147,9 @@ export const authApi = {
   me: () => api.get<User>("/auth/me"),
   logout: () => api.post<{ message: string }>("/auth/logout"),
   refresh: () => api.post<{ message: string }>("/auth/refresh"),
+  setupMfa: () => api.post<MFASetupResponse>("/auth/mfa/setup"),
+  enableMfa: (code: string) => api.post<User>("/auth/mfa/enable", { code }),
+  disableMfa: (data: DisableMFARequest) => api.post<User>("/auth/mfa/disable", data),
 };
 
 // ---------------------------------------------------------------------------

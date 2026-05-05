@@ -9,8 +9,11 @@ from app.config import settings
 from app.rate_limiter import limiter
 from app.auth.dependencies import get_current_active_user
 from app.auth.schemas import (
+    DisableMFARequest,
+    EnableMFARequest,
     LoginRequest,
     MessageResponse,
+    MFASetupResponse,
     RegisterRequest,
     UserResponse,
 )
@@ -19,13 +22,34 @@ from app.auth.service import (
     create_access_token,
     create_refresh_token,
     get_password_hash,
+    get_password_hash_async,
+    generate_mfa_secret,
+    get_totp,
     refresh_tokens,
     revoke_refresh_token,
+    verify_mfa_code,
+    verify_password,
 )
 from app.models.organization import Organization
 from app.models.user import User
 
 router = APIRouter()
+
+
+def _require_admin(user: User) -> None:
+    if "admin" not in (user.roles or []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin role required",
+        )
+
+
+def _require_admin_debug_enabled() -> None:
+    if not settings.admin_debug_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Not found",
+        )
 
 _ACCESS_MAX_AGE = 15 * 60  # 15 minutes
 _REFRESH_MAX_AGE = 7 * 24 * 3600  # 7 days
@@ -114,7 +138,7 @@ async def register(
     user = User(
         id=uuid4(),
         email=data.email,
-        password_hash=get_password_hash(data.password),
+        password_hash=await get_password_hash_async(data.password),
         full_name=data.full_name,
         org_id=tenant_id,
         is_active=True,
@@ -145,9 +169,93 @@ async def login(
             detail="Incorrect email or password",
         )
 
+    if user.mfa_enabled:
+        if not data.mfa_code:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="MFA code required",
+            )
+        if not user.mfa_secret or not verify_mfa_code(user.mfa_secret, data.mfa_code):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid MFA code",
+            )
+
     access_token = create_access_token(user)
     refresh_token = await create_refresh_token(db, user)
     _set_auth_cookies(response, access_token, refresh_token)
+
+    return UserResponse.model_validate(user)
+
+
+@router.post("/mfa/setup", response_model=MFASetupResponse)
+async def mfa_setup(
+    user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> MFASetupResponse:
+    if not user.mfa_secret:
+        user.mfa_secret = generate_mfa_secret()
+    user.mfa_enabled = False
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    otpauth_uri = get_totp(user.mfa_secret).provisioning_uri(
+        user.email, issuer_name="RevOps IA"
+    )
+    return MFASetupResponse(otpauth_uri=otpauth_uri, secret=user.mfa_secret)
+
+
+@router.post("/mfa/enable", response_model=UserResponse)
+async def mfa_enable(
+    data: EnableMFARequest,
+    user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> UserResponse:
+    if not user.mfa_secret:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="MFA setup required before enabling.",
+        )
+    if not get_totp(user.mfa_secret).verify(data.code, valid_window=1):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid MFA code.",
+        )
+    user.mfa_enabled = True
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    return UserResponse.model_validate(user)
+
+
+@router.post("/mfa/disable", response_model=UserResponse)
+async def mfa_disable(
+    data: DisableMFARequest,
+    user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> UserResponse:
+    if not verify_password(data.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials.",
+        )
+    if not user.mfa_enabled or not user.mfa_secret:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="MFA is not enabled.",
+        )
+    if not get_totp(user.mfa_secret).verify(data.code, valid_window=1):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid MFA code.",
+        )
+    user.mfa_enabled = False
+    user.mfa_secret = None
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
 
     return UserResponse.model_validate(user)
 
@@ -190,3 +298,17 @@ async def logout(
 @router.get("/me", response_model=UserResponse)
 async def me(user: User = Depends(get_current_active_user)) -> UserResponse:
     return UserResponse.model_validate(user)
+
+
+@router.get("/me/permissions", response_model=list[str])
+async def me_permissions(user: User = Depends(get_current_active_user)) -> list[str]:
+    _require_admin_debug_enabled()
+    _require_admin(user)
+    return user.permissions or []
+
+
+@router.get("/me/roles", response_model=list[str])
+async def me_roles(user: User = Depends(get_current_active_user)) -> list[str]:
+    _require_admin_debug_enabled()
+    _require_admin(user)
+    return user.roles or []

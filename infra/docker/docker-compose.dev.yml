@@ -147,12 +147,13 @@ services:
     networks:
       - revops_dev
     ports:
-      # 8080 souvent occupe -> 18080 cote hote.
-      - "18080:8080"
+      # orchestrator listens on SERVER_PORT (default 8001); 8080 is taken on host
+      - "18080:8001"
     environment:
       BACKEND_API_URL: http://backend:8000
       REDIS_URL: redis://redis:6379/0
       INTER_SERVICE_SECRET: dev-internal-key-change-me
+      BACKEND_SECRET: dev-internal-secret-change-me
       MCP_CRM_URL: http://mcp-crm:9001
       MCP_BILLING_URL: http://mcp-billing:9002
       MCP_ANALYTICS_URL: http://mcp-analytics:9003
@@ -162,7 +163,6 @@ services:
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       DEFAULT_MODEL: llama3.2:3b
       RUST_LOG: info
-      PORT: "8080"
     depends_on:
       backend:
         condition: service_started

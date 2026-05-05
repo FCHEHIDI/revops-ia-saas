@@ -49,6 +49,8 @@ def make_user(tenant_id: UUID, email: str = "user@test.com") -> User:
     user.is_active = True
     user.full_name = "Test User"
     user.created_at = datetime.now(timezone.utc)
+    user.mfa_enabled = False
+    user.mfa_secret = None
     return user  # type: ignore[return-value]
 
 

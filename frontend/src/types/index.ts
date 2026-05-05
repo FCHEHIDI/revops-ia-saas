@@ -11,11 +11,25 @@ export interface User {
   created_at: string;
   job_title?: string | null;
   avatar?: string | null;
+  roles: string[];
+  permissions: string[];
+  mfa_enabled: boolean;
 }
 
 export interface LoginRequest {
   email: string;
   password: string;
+  mfa_code?: string;
+}
+
+export interface MFASetupResponse {
+  otpauth_uri: string;
+  secret: string;
+}
+
+export interface DisableMFARequest {
+  password: string;
+  code: string;
 }
 
 export interface RegisterRequest {

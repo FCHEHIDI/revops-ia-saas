@@ -32,8 +32,14 @@ export default function RegisterPage() {
       setError("Les mots de passe ne correspondent pas.");
       return;
     }
-    if (password.length < 8) {
-      setError("Le mot de passe doit contenir au moins 8 caractères.");
+    if (password.length < 12) {
+      setError("Le mot de passe doit contenir au moins 12 caractères.");
+      return;
+    }
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      setError(
+        "Le mot de passe doit contenir au moins une majuscule, une minuscule, un chiffre et un caractère spécial."
+      );
       return;
     }
 
@@ -195,17 +201,20 @@ export default function RegisterPage() {
             <input
               id="password"
               type="password"
-              placeholder="8 caractères minimum"
+              placeholder="12 caractères minimum"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
               required
-              minLength={8}
+              minLength={12}
               className="w-full text-sm transition-all duration-200 outline-none"
               style={INPUT_BASE}
               onFocus={focusRed}
               onBlur={blurRed}
             />
+            <p className="text-[10px] text-gray-400 mt-2">
+              Le mot de passe doit contenir majuscule, minuscule, chiffre et caractère spécial.
+            </p>
           </Field>
 
           {/* Confirm password */}

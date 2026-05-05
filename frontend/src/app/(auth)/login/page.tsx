@@ -31,17 +31,37 @@ export default function LoginPage() {
   const { login } = useAuth();
   const [email, setEmail]         = useState("");
   const [password, setPassword]   = useState("");
+  const [mfaCode, setMfaCode]     = useState("");
+  const [mfaRequired, setMfaRequired] = useState(false);
   const [error, setError]         = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!email.includes("@")) {
+      setError("L'email doit être complet, par ex. admin@acme.io.");
+      return;
+    }
     setError("");
     setIsLoading(true);
     try {
-      await login({ email, password });
+      const loginPayload = {
+        email,
+        password,
+        ...(mfaRequired && mfaCode ? { mfa_code: mfaCode } : {}),
+      };
+      await login(loginPayload);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Identifiants incorrects");
+      const message = err instanceof Error ? err.message : "Identifiants incorrects";
+      if (message.toLowerCase().includes("mfa code required")) {
+        setMfaRequired(true);
+        setError("MFA requis : entre ton code de vérification.");
+      } else if (message.toLowerCase().includes("invalid mfa code")) {
+        setMfaRequired(true);
+        setError("Code MFA invalide. Vérifie ton application d'authentification.");
+      } else {
+        setError(message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -138,16 +158,19 @@ export default function LoginPage() {
             </label>
             <input
               id="email"
-              type="email"
-              placeholder="vous@entreprise.com"
+              type="text"
+              placeholder="admin@acme.io"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
+              autoComplete="username"
               required
               style={INPUT_BASE}
               onFocus={focusRed}
               onBlur={blurRed}
             />
+            <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+              Entrez l’email complet du compte, par ex. <strong>admin@acme.io</strong>.
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -172,6 +195,34 @@ export default function LoginPage() {
             />
           </div>
 
+          {mfaRequired && (
+            <div className="space-y-1.5">
+              <label
+                htmlFor="mfa_code"
+                className="block text-[10px] font-semibold tracking-[0.25em] uppercase"
+                style={{ color: "var(--gray-silver)" }}
+              >
+                Code MFA
+              </label>
+              <input
+                id="mfa_code"
+                type="text"
+                placeholder="000000"
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value)}
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                pattern="\d{6}"
+                style={INPUT_BASE}
+                onFocus={focusRed}
+                onBlur={blurRed}
+              />
+              <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                Ce compte a une sécurité renforcée. Entre le code MFA pour terminer la connexion.
+              </p>
+            </div>
+          )}
+
           {error && (
             <div
               className="rounded px-3 py-2.5 text-sm"
@@ -182,6 +233,30 @@ export default function LoginPage() {
               }}
             >
               {error}
+            </div>
+          )}
+
+          {/* ── Dev credentials hint ── */}
+          {process.env.NODE_ENV !== "production" && (
+            <div
+              className="rounded px-3 py-2 text-[10px]"
+              style={{
+                border: "1px solid rgba(192,0,0,0.2)",
+                background: "rgba(138,0,0,0.07)",
+                color: "var(--gray-silver)",
+                fontFamily: "monospace",
+                lineHeight: 1.7,
+              }}
+            >
+              <span style={{ color: "var(--red-doge)", fontWeight: 700 }}>DEV</span>
+              {" — "}
+              <button
+                type="button"
+                onClick={() => { setEmail("admin@acme.io"); setPassword("demo1234"); }}
+                style={{ color: "#ff8888", textDecoration: "underline", cursor: "pointer", background: "none", border: "none", fontFamily: "monospace", fontSize: "10px" }}
+              >
+                admin@acme.io / demo1234
+              </button>
             </div>
           )}
 

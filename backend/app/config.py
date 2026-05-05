@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     redis_url: str | None = None
     mcp_inter_service_secret: str = "dev-internal-key-change-me"
     rag_api_url: str = "http://localhost:18500"
+    admin_debug_enabled: bool = False  # feature gate for admin-only debug endpoints
 
     # Email delivery (Feature #1)
     resend_api_key: str = ""          # set to a real key in production

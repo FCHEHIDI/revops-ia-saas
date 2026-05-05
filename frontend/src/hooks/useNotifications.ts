@@ -74,6 +74,12 @@ export function useWsNotifications(enabled: boolean = true): {
     wsRef.current = ws;
 
     ws.onopen = () => {
+      // React Strict Mode cleanup may have fired while we were still CONNECTING.
+      // Now that the socket is OPEN we can close it cleanly (no browser warning).
+      if (unmountedRef.current) {
+        ws.close(1000);
+        return;
+      }
       setIsConnected(true);
     };
 
@@ -139,8 +145,14 @@ export function useWsNotifications(enabled: boolean = true): {
       if (reconnectTimer.current !== null) {
         clearTimeout(reconnectTimer.current);
       }
-      // Close with code 1000 (normal) so onclose doesn't schedule a reconnect.
-      if (wsRef.current) {
+      // Only close if the socket is already OPEN or CLOSING.
+      // If it's still CONNECTING, calling close() with a code throws
+      // "WebSocket is closed before the connection is established" in the browser.
+      // onopen will detect unmountedRef.current === true and close cleanly then.
+      if (
+        wsRef.current &&
+        wsRef.current.readyState !== WebSocket.CONNECTING
+      ) {
         wsRef.current.close(1000);
       }
     };

@@ -45,33 +45,8 @@ const NotificationContext = createContext<NotificationContextValue | null>(null)
 
 const LS_KEY = "revops_notifications";
 
-/** Seed data with stable IDs so localStorage entries survive remounts. */
-const SEED: AppNotification[] = [
-  {
-    id: "seed-notif-001",
-    type: "warning",
-    title: "Paiement en retard",
-    body: "Acme Corp — facture #INV-2087 échue depuis 7 jours",
-    timestamp: new Date(Date.now() - 15 * 60_000),
-    read: false,
-  },
-  {
-    id: "seed-notif-002",
-    type: "success",
-    title: "Séquence terminée",
-    body: "«Onboarding Q2» — 12 contacts ont complété tous les steps",
-    timestamp: new Date(Date.now() - 10 * 60_000),
-    read: false,
-  },
-  {
-    id: "seed-notif-003",
-    type: "info",
-    title: "Nouveau deal créé",
-    body: "Pipeline Expansion — FinTech Solutions (85 000 €)",
-    timestamp: new Date(Date.now() - 5 * 60_000),
-    read: false,
-  },
-];
+/** No seed data — notifications come from the backend WS or REST API only. */
+const SEED: AppNotification[] = [];
 
 interface SerializedNotification extends Omit<AppNotification, "timestamp"> {
   timestamp: string; // ISO string in storage

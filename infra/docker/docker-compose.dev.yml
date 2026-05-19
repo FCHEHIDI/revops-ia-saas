@@ -160,8 +160,8 @@ services:
       MCP_SEQUENCES_URL: http://mcp-sequences:9004
       MCP_FILESYSTEM_URL: http://mcp-filesystem:9005
       RAG_API_URL: http://rag:8500
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
-      DEFAULT_MODEL: llama3.2:3b
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      DEFAULT_MODEL: groq:llama-3.3-70b-versatile
       RUST_LOG: info
     depends_on:
       backend:
@@ -180,8 +180,8 @@ services:
     restart: unless-stopped
     networks:
       - revops_dev
-    ports:
-      - "19001:9001"
+    expose:
+      - "9001"
     environment:
       BACKEND_URL: http://backend:8000
       INTERNAL_API_KEY: dev-internal-key-change-me

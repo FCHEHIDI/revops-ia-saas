@@ -95,9 +95,10 @@ async def mcp_call(request: Request) -> JSONResponse:
     params: dict = body.get("params") or {}
 
     # The orchestrator sends tenant_id at the top level of the request body.
-    # Tools expect it inside params — forward it so they can enforce isolation.
+    # Always override params["tenant_id"] with the top-level value so the LLM
+    # cannot hallucinate or tamper with the tenant context (security invariant).
     top_level_tenant = body.get("tenant_id", "")
-    if top_level_tenant and "tenant_id" not in params:
+    if top_level_tenant:
         params["tenant_id"] = top_level_tenant
 
     if not tool_name:

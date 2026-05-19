@@ -189,9 +189,8 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "description": "Retrieve a single CRM contact by ID for the authenticated tenant.",
         "input_schema": {
             "type": "object",
-            "required": ["tenant_id", "contact_id"],
+            "required": ["contact_id"],
             "properties": {
-                "tenant_id": {"type": "string", "format": "uuid"},
                 "contact_id": {"type": "string", "format": "uuid"},
             },
         },
@@ -201,9 +200,8 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "description": "Search and list CRM contacts with optional filters (name, email, status, account).",
         "input_schema": {
             "type": "object",
-            "required": ["tenant_id"],
+            "required": [],
             "properties": {
-                "tenant_id": {"type": "string", "format": "uuid"},
                 "query": {"type": "string"},
                 "account_id": {"type": "string", "format": "uuid"},
                 "status": {"type": "string", "enum": list(CONTACT_STATUS_VALUES)},
@@ -222,9 +220,8 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "description": "Create a new CRM contact for the authenticated tenant.",
         "input_schema": {
             "type": "object",
-            "required": ["tenant_id", "first_name", "last_name", "email", "created_by"],
+            "required": ["first_name", "last_name", "email", "created_by"],
             "properties": {
-                "tenant_id": {"type": "string", "format": "uuid"},
                 "first_name": {"type": "string"},
                 "last_name": {"type": "string"},
                 "email": {"type": "string", "format": "email"},
@@ -240,9 +237,8 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "description": "Partially update an existing CRM contact (PATCH semantics).",
         "input_schema": {
             "type": "object",
-            "required": ["tenant_id", "contact_id"],
+            "required": ["contact_id"],
             "properties": {
-                "tenant_id": {"type": "string", "format": "uuid"},
                 "contact_id": {"type": "string", "format": "uuid"},
                 "first_name": {"type": "string"},
                 "last_name": {"type": "string"},
@@ -259,9 +255,8 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "description": "Retrieve a single CRM account by ID for the authenticated tenant.",
         "input_schema": {
             "type": "object",
-            "required": ["tenant_id", "account_id"],
+            "required": ["account_id"],
             "properties": {
-                "tenant_id": {"type": "string", "format": "uuid"},
                 "account_id": {"type": "string", "format": "uuid"},
             },
         },
@@ -271,9 +266,8 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "description": "Search and list CRM accounts with optional filters (name, domain, industry).",
         "input_schema": {
             "type": "object",
-            "required": ["tenant_id"],
+            "required": [],
             "properties": {
-                "tenant_id": {"type": "string", "format": "uuid"},
                 "query": {"type": "string"},
                 "industry": {"type": "string"},
                 "page": {"type": "integer", "minimum": 1, "default": 1},
@@ -291,9 +285,8 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "description": "Create a new CRM account (company) for the authenticated tenant.",
         "input_schema": {
             "type": "object",
-            "required": ["tenant_id", "name", "created_by"],
+            "required": ["name", "created_by"],
             "properties": {
-                "tenant_id": {"type": "string", "format": "uuid"},
                 "name": {"type": "string"},
                 "domain": {"type": "string"},
                 "industry": {"type": "string"},
@@ -307,9 +300,8 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "description": "Partially update an existing CRM account (PATCH semantics).",
         "input_schema": {
             "type": "object",
-            "required": ["tenant_id", "account_id"],
+            "required": ["account_id"],
             "properties": {
-                "tenant_id": {"type": "string", "format": "uuid"},
                 "account_id": {"type": "string", "format": "uuid"},
                 "name": {"type": "string"},
                 "domain": {"type": "string"},
@@ -325,9 +317,8 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "description": "Retrieve a single CRM deal by ID for the authenticated tenant.",
         "input_schema": {
             "type": "object",
-            "required": ["tenant_id", "deal_id"],
+            "required": ["deal_id"],
             "properties": {
-                "tenant_id": {"type": "string", "format": "uuid"},
                 "deal_id": {"type": "string", "format": "uuid"},
             },
         },
@@ -337,9 +328,8 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "description": "List CRM deals with optional filters (stage, owner, account). Supports pagination.",
         "input_schema": {
             "type": "object",
-            "required": ["tenant_id"],
+            "required": [],
             "properties": {
-                "tenant_id": {"type": "string", "format": "uuid"},
                 "stage": {"type": "string", "enum": list(DEAL_STAGE_VALUES)},
                 "owner_id": {"type": "string", "format": "uuid"},
                 "account_id": {"type": "string", "format": "uuid"},
@@ -359,7 +349,6 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "required": [
-                "tenant_id",
                 "title",
                 "account_id",
                 "stage",
@@ -367,7 +356,6 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "created_by",
             ],
             "properties": {
-                "tenant_id": {"type": "string", "format": "uuid"},
                 "title": {"type": "string"},
                 "account_id": {"type": "string", "format": "uuid"},
                 "stage": {"type": "string", "enum": list(DEAL_STAGE_VALUES)},
@@ -398,9 +386,8 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         ),
         "input_schema": {
             "type": "object",
-            "required": ["tenant_id", "deal_id", "new_stage"],
+            "required": ["deal_id", "new_stage"],
             "properties": {
-                "tenant_id": {"type": "string", "format": "uuid"},
                 "deal_id": {"type": "string", "format": "uuid"},
                 "new_stage": {"type": "string", "enum": list(DEAL_STAGE_VALUES)},
                 "notes": {"type": "string"},
@@ -416,9 +403,8 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         ),
         "input_schema": {
             "type": "object",
-            "required": ["tenant_id", "contact_id"],
+            "required": ["contact_id"],
             "properties": {
-                "tenant_id": {"type": "string", "format": "uuid"},
                 "contact_id": {"type": "string", "format": "uuid"},
                 "force_refresh": {
                     "type": "boolean",
@@ -433,10 +419,8 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "description": "List active automation playbooks for a tenant.",
         "input_schema": {
             "type": "object",
-            "required": ["tenant_id"],
-            "properties": {
-                "tenant_id": {"type": "string", "format": "uuid"},
-            },
+            "required": [],
+            "properties": {},
         },
     },
     {
@@ -447,9 +431,8 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         ),
         "input_schema": {
             "type": "object",
-            "required": ["tenant_id", "playbook_id"],
+            "required": ["playbook_id"],
             "properties": {
-                "tenant_id": {"type": "string", "format": "uuid"},
                 "playbook_id": {"type": "string", "format": "uuid"},
                 "entity_type": {
                     "type": "string",

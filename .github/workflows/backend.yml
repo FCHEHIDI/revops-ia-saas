@@ -96,7 +96,9 @@ jobs:
     env:
       DATABASE_URL: postgresql+asyncpg://revops_test:revops_test@localhost:5432/revops_test
       REDIS_URL: redis://localhost:6379
-      SECRET_KEY: ci-test-secret-key-not-for-production
+      JWT_SECRET: ci-test-jwt-secret-not-for-production
+      INTERNAL_SECRET: ci-test-internal-secret
+      ORCHESTRATOR_URL: http://localhost:8001
       ENVIRONMENT: test
 
     steps:
@@ -162,7 +164,9 @@ jobs:
     # afin de valider réellement les politiques RLS (un superuser les bypasse par défaut en PostgreSQL).
     env:
       DATABASE_URL: postgresql+asyncpg://revops_app:revops_app@localhost:5432/revops_test
-      SECRET_KEY: ci-test-secret-key-not-for-production
+      JWT_SECRET: ci-test-jwt-secret-not-for-production
+      INTERNAL_SECRET: ci-test-internal-secret
+      ORCHESTRATOR_URL: http://localhost:8001
       ENVIRONMENT: test
 
     steps:

@@ -101,7 +101,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       INTERNAL_API_KEY: dev-internal-key-change-me
       INTERNAL_SECRET: dev-internal-secret-change-me
-      ORCHESTRATOR_URL: http://orchestrator:8080
+      ORCHESTRATOR_URL: http://orchestrator:8001
       JWT_SECRET: dev-jwt-secret-change-me
       JWT_ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: "60"

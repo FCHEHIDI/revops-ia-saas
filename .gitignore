@@ -34,9 +34,16 @@ frontend/e2e/.auth/user.json
 .DS_Store
 .idea/
 .vscode/
+.cursor/
 *.swp
 *.swo
 Thumbs.db
+
+## Fichiers de travail locaux (non-projet)
+criqueauxpythons.png
+memo_axesconstruction.txt
+discussions/
+design/
 
 ## Donnees locales
 *.log

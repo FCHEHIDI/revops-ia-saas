@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import type { ProcessRequest } from "@/types";
 
 const ORCHESTRATOR_URL = process.env.NEXT_PUBLIC_ORCHESTRATOR_URL ?? "http://localhost:8001";
-const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY ?? "dev-secret-key";
+const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY ?? "dev-internal-key-change-me";
 
 export async function POST(request: NextRequest) {
   let body: ProcessRequest;

@@ -8,7 +8,7 @@ name = "mcp-filesystem"
 path = "src/main.rs"
 
 [dependencies]
-rmcp = { version = "0.1", features = ["server", "transport-io", "transport-sse-server"] }
+rmcp = { version = "0.10", features = ["server", "transport-io", "transport-sse-server"] }
 tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono"] }
 serde = { version = "1", features = ["derive"] }
